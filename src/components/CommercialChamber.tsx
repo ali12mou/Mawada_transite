@@ -12,6 +12,8 @@ import {
   type CommercialChamberRecord,
 } from '../api/commercialChamberApi';
 import { openCommercialDetailPrint, openCommercialListPrint } from '../lib/commercialChamberPrintHtml';
+import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from './common/FormComponents';
+import Modal from './common/Modal';
 
 type CommercialDocSlot =
   | 'customerDocument'
@@ -208,6 +210,11 @@ export function CommercialChamber() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (currentStep === 1) {
+      setCurrentStep(2);
+      return;
+    }
 
     try {
       const payload = buildPayload();
@@ -544,66 +551,51 @@ export function CommercialChamber() {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
-          <div className="flex min-h-0 max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] px-6 py-4 text-white">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/70">{t('commercial.modalBadge')}</p>
-                <h2 className="mt-0.5 text-xl font-semibold">
-                  {editingId ? t('commercial.editEntry') : t('commercial.addUpdate')}
-                </h2>
+      <Modal
+        isOpen={showModal}
+        size="xxl"
+        onClose={() => {
+          setShowModal(false);
+          setCurrentStep(1);
+          setEditingId(null);
+          resetForm();
+        }}
+        title={editingId ? t('commercial.editEntry') : t('commercial.addUpdate')}
+      >
+        <div className="flex flex-col">
+          <div className="border-b border-gray-100 bg-gray-50/90 -mx-6 px-6 py-4 mb-4">
+            <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+              <div className="flex flex-1 flex-col items-center gap-1">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 1 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                >
+                  1
+                </div>
+                <span className="text-center text-xs font-medium text-gray-600">{t('commercial.step1Label')}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowModal(false);
-                  setCurrentStep(1);
-                  setEditingId(null);
-                  resetForm();
-                }}
-                className="rounded-lg p-2 text-white/90 transition hover:bg-white/10"
-                aria-label={t('common.cancel')}
-              >
-                <X size={22} />
-              </button>
-            </div>
-
-            <div className="border-b border-gray-100 bg-gray-50/90 px-6 py-4">
-              <div className="mx-auto flex max-w-md items-center justify-between gap-2">
-                <div className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                      currentStep === 1 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
+              <div className="h-0.5 flex-1 rounded bg-gray-200" />
+              <div className="flex flex-1 flex-col items-center gap-1">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 2 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-gray-200 text-gray-500'
                     }`}
-                  >
-                    1
-                  </div>
-                  <span className="text-center text-xs font-medium text-gray-600">{t('commercial.step1Label')}</span>
+                >
+                  2
                 </div>
-                <div className="h-0.5 flex-1 rounded bg-gray-200" />
-                <div className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                      currentStep === 2 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    2
-                  </div>
-                  <span className="text-center text-xs font-medium text-gray-600">{t('commercial.step2Label')}</span>
-                </div>
+                <span className="text-center text-xs font-medium text-gray-600">{t('commercial.step2Label')}</span>
               </div>
             </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <form onSubmit={handleSubmit} className="flex flex-col">
+            <div className="py-2">
               {currentStep === 1 && (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                   <div>
-                    <label className={labelClass}>
+                    <FormLabel>
                       {t('commercial.client')} *
-                    </label>
-                    <select
+                    </FormLabel>
+                    <FormSelect
                       value={formClientId}
                       onChange={e => {
                         const id = e.target.value;
@@ -614,7 +606,7 @@ export function CommercialChamber() {
                           client_name: c ? formatClientLabel(c) : '',
                         });
                       }}
-                      className={`${inputClass} tabular-nums`}
+                      className="tabular-nums"
                       required
                     >
                       <option value="">{t('clients.selectClient')}</option>
@@ -623,221 +615,217 @@ export function CommercialChamber() {
                           {formatClientLabel(c)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </div>
 
                   <div>
-                    <label className={labelClass}>
+                    <FormLabel>
                       {t('commercial.responsible')}
-                    </label>
-                    <input
+                    </FormLabel>
+                    <FormInput
                       type="text"
                       value={formData.responsible}
                       onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
-                      className={inputClass}
                       placeholder={t('commercial.responsiblePlaceholder')}
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.commercialInvoiceNo')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.commercial_invoice_no}
-                        onChange={(e) => setFormData({ ...formData, commercial_invoice_no: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.commercialInvoiceDate')}
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.commercial_invoice_date}
-                        onChange={(e) => setFormData({ ...formData, commercial_invoice_date: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.commercialInvoiceNo')}
+                    </FormLabel>
+                    <FormInput
+                      type="text"
+                      value={formData.commercial_invoice_no}
+                      onChange={(e) => setFormData({ ...formData, commercial_invoice_no: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="e.g. INV-2024-001"
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.commercialInvoiceDate')}
+                    </FormLabel>
+                    <FormInput
+                      type="date"
+                      value={formData.commercial_invoice_date}
+                      onChange={(e) => setFormData({ ...formData, commercial_invoice_date: e.target.value })}
+                      className="tabular-nums"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.purchaseOrderNo')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.purchase_order_no}
-                        onChange={(e) => setFormData({ ...formData, purchase_order_no: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.purchaseOrderDate')}
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.purchase_order_date}
-                        onChange={(e) => setFormData({ ...formData, purchase_order_date: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.purchaseOrderNo')}
+                    </FormLabel>
+                    <FormInput
+                      type="text"
+                      value={formData.purchase_order_no}
+                      onChange={(e) => setFormData({ ...formData, purchase_order_no: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="e.g. PO-98745"
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.purchaseOrderDate')}
+                    </FormLabel>
+                    <FormInput
+                      type="date"
+                      value={formData.purchase_order_date}
+                      onChange={(e) => setFormData({ ...formData, purchase_order_date: e.target.value })}
+                      className="tabular-nums"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.chamberServiceAmount')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.chamber_service_amount}
-                        onChange={(e) => setFormData({ ...formData, chamber_service_amount: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.quantity')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.chamberServiceAmount')} *
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.chamber_service_amount}
+                      onChange={(e) => setFormData({ ...formData, chamber_service_amount: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.quantity')}
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.unitPrice')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.unit_price}
-                        onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.percentage')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.percentage}
-                        onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.unitPrice')}
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.unit_price}
+                      onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.percentage')}
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.percentage}
+                      onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.goodsDescription')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.goods_description}
-                        onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
-                        className={inputClass}
-                        placeholder="Ex. Electronics, sucre…"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.serviceCharge')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.service_charge}
-                        onChange={(e) => setFormData({ ...formData, service_charge: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
+                  <div className="lg:col-span-2">
+                    <FormLabel>
+                      {t('commercial.goodsDescription')}
+                    </FormLabel>
+                    <FormInput
+                      type="text"
+                      value={formData.goods_description}
+                      onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
+                      placeholder="Ex. Electronics, sucre…"
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.serviceCharge')} *
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.service_charge}
+                      onChange={(e) => setFormData({ ...formData, service_charge: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                      required
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.tell')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.tell}
-                        onChange={(e) => setFormData({ ...formData, tell: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.timno')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.timno}
-                        onChange={(e) => setFormData({ ...formData, timno: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.bankFee')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.bank_commission_fee}
-                        onChange={(e) => setFormData({ ...formData, bank_commission_fee: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.tell')} *
+                    </FormLabel>
+                    <FormInput
+                      type="text"
+                      value={formData.tell}
+                      onChange={(e) => setFormData({ ...formData, tell: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="+253 77..."
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.timno')} *
+                    </FormLabel>
+                    <FormInput
+                      type="text"
+                      value={formData.timno}
+                      onChange={(e) => setFormData({ ...formData, timno: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="e.g. 12345"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.bankFee')} *
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.bank_commission_fee}
+                      onChange={(e) => setFormData({ ...formData, bank_commission_fee: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                      required
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.transport')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.transport_dhl}
-                        onChange={(e) => setFormData({ ...formData, transport_dhl: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('commercial.total')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.total}
-                        onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.transport')} *
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.transport_dhl}
+                      onChange={(e) => setFormData({ ...formData, transport_dhl: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>
+                      {t('commercial.total')}
+                    </FormLabel>
+                    <FormInput
+                      type="number"
+                      step="0.01"
+                      value={formData.total}
+                      onChange={(e) => setFormData({ ...formData, total: e.target.value })}
+                      className="tabular-nums"
+                      placeholder="0.00"
+                    />
                   </div>
                 </div>
               )}
@@ -856,7 +844,7 @@ export function CommercialChamber() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CommercialChamberFileSlot
                       slot="customerDocument"
                       label={t('commercial.customerDocument')}
@@ -871,9 +859,7 @@ export function CommercialChamber() {
                       onChange={setDocumentForSlot}
                       t={t}
                     />
-                  </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CommercialChamberFileSlot
                       slot="chamberInvoice"
                       label={t('commercial.chamberInvoice')}
@@ -888,9 +874,7 @@ export function CommercialChamber() {
                       onChange={setDocumentForSlot}
                       t={t}
                     />
-                  </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CommercialChamberFileSlot
                       slot="packingList"
                       label={t('commercial.packingList')}
@@ -905,85 +889,72 @@ export function CommercialChamber() {
                       onChange={setDocumentForSlot}
                       t={t}
                     />
+
+                    <CommercialChamberFileSlot
+                      slot="originalCertificate"
+                      label={t('commercial.originalCertificate')}
+                      file={documents.originalCertificate}
+                      onChange={setDocumentForSlot}
+                      t={t}
+                    />
                   </div>
 
-                  <CommercialChamberFileSlot
-                    slot="originalCertificate"
-                    label={t('commercial.originalCertificate')}
-                    file={documents.originalCertificate}
-                    onChange={setDocumentForSlot}
-                    t={t}
-                  />
-
                   <div className="max-w-md">
-                    <label className={labelClass}>
+                    <FormLabel>
                       {t('commercial.certificateFee')}
-                    </label>
-                    <input
+                    </FormLabel>
+                    <FormInput
                       type="number"
                       step="0.01"
                       value={formData.certificate_fee}
                       onChange={(e) => setFormData({ ...formData, certificate_fee: e.target.value })}
-                      className={`${inputClass} tabular-nums`}
+                      className="tabular-nums"
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
               )}
 
-              </div>
-
-              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-slate-50/90 px-6 py-4">
-                {currentStep === 2 ? (
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-                  >
-                    {t('commercial.previous')}
-                  </button>
-                ) : (
-                  <span />
-                )}
-                {currentStep === 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(2)}
-                    className="ml-auto rounded-xl bg-[#1e3a5f] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
-                  >
-                    {t('commercial.next')}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="ml-auto rounded-xl bg-[#1e3a5f] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
-                  >
-                    {t('commercial.finish')}
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {viewRecord && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] px-5 py-4 text-white">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/70">{t('commercial.modalBadge')}</p>
-                <h3 className="mt-0.5 font-mono text-lg font-semibold tracking-tight">{viewRecord.commercial_no}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewRecord(null)}
-                className="rounded-lg p-2 text-white/90 transition hover:bg-white/10"
-                aria-label={t('common.cancel')}
-              >
-                <X size={22} />
-              </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-6">
+              {currentStep === 2 ? (
+                <SecondaryButton
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                >
+                  {t('commercial.previous')}
+                </SecondaryButton>
+              ) : (
+                <span />
+              )}
+              {currentStep === 1 ? (
+                <PrimaryButton
+                  type="submit"
+                >
+                  {t('commercial.next')}
+                </PrimaryButton>
+              ) : (
+                <PrimaryButton
+                  type="submit"
+                >
+                  {t('commercial.finish')}
+                </PrimaryButton>
+              )}
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!viewRecord}
+        size="md"
+        onClose={() => setViewRecord(null)}
+        title={viewRecord ? viewRecord.commercial_no : ''}
+      >
+        {viewRecord && (
+          <div className="flex flex-col">
+            <div className="py-2">
               <dl className="space-y-4 text-sm">
                 <div className="rounded-lg border border-gray-100 bg-slate-50/80 px-3 py-2.5">
                   <dt className={labelClass}>{t('commercial.client')}</dt>
@@ -1009,26 +980,25 @@ export function CommercialChamber() {
                 </div>
               </dl>
             </div>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-slate-50/90 px-5 py-3">
-              <button
+            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-6">
+              <SecondaryButton
                 type="button"
                 onClick={() => setViewRecord(null)}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
               >
                 {t('common.cancel')}
-              </button>
-              <button
+              </SecondaryButton>
+              <PrimaryButton
                 type="button"
                 onClick={() => void openCommercialDetailPrint(viewRecord)}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
+                className="inline-flex items-center gap-2"
               >
                 <Printer size={16} />
                 {t('commercial.print')}
-              </button>
+              </PrimaryButton>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       <div className="py-4 text-center text-sm text-gray-500">
         {t('common.copyright')}

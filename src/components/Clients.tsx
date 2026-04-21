@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Pencil, Trash2, Users, X } from 'lucide-react';
+import { Pencil, Trash2, Users } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   fetchClients,
@@ -8,6 +8,8 @@ import {
   deleteClient,
   type ClientRecord,
 } from '../api/clientsApi';
+import Modal from './common/Modal';
+import { FormLabel, FormInput, PrimaryButton, SecondaryButton } from './common/FormComponents';
 
 export function Clients() {
   const { t } = useLanguage();
@@ -264,76 +266,71 @@ export function Clients() {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">{t('clients.modalTitle')}</h3>
-              <button type="button" onClick={resetForm} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('clients.fieldName')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('clients.fieldCompany')}</label>
-                <input
-                  type="text"
-                  value={formData.company_name}
-                  onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('clients.fieldEmail')}</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('clients.fieldPhone')}</label>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t('clients.fieldAddress')}</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={e => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="rounded bg-[#1e3a5f] px-6 py-2 text-white transition hover:bg-[#2d4a6f]"
-                >
-                  {t('clients.save')}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showForm}
+        onClose={resetForm}
+        title={t('clients.modalTitle')}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <FormLabel>
+              {t('clients.fieldName')} *
+            </FormLabel>
+            <FormInput
+              type="text"
+              required
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              placeholder={t('clients.fieldName')}
+            />
           </div>
-        </div>
-      )}
+          <div>
+            <FormLabel>{t('clients.fieldCompany')}</FormLabel>
+            <FormInput
+              type="text"
+              value={formData.company_name}
+              onChange={e => setFormData({ ...formData, company_name: e.target.value })}
+              placeholder={t('clients.fieldCompany')}
+            />
+          </div>
+          <div>
+            <FormLabel>{t('clients.fieldEmail')}</FormLabel>
+            <FormInput
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              placeholder={t('clients.fieldEmail')}
+            />
+          </div>
+          <div>
+            <FormLabel>{t('clients.fieldPhone')}</FormLabel>
+            <FormInput
+              type="number"
+              value={formData.phone}
+              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              placeholder={t('clients.fieldPhone')}
+            />
+          </div>
+          <div>
+            <FormLabel>{t('clients.fieldAddress')}</FormLabel>
+            <FormInput
+              type="text"
+              value={formData.address}
+              onChange={e => setFormData({ ...formData, address: e.target.value })}
+              placeholder={t('clients.fieldAddress')}
+            />
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-6">
+            <SecondaryButton type="button" onClick={resetForm}>
+              {t('common.cancel')}
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+              {t('clients.save')}
+            </PrimaryButton>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

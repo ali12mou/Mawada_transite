@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Edit2, Trash2, X, ChevronLeft, ChevronRight, User, CreditCard, Banknote, FileText } from 'lucide-react';
+import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from './common/FormComponents';
 
 interface Employee {
   id: string;
@@ -256,125 +257,115 @@ export function Employees() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-800 mb-4">Informations personnelles</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
-                <input
+                <FormLabel>Nom complet</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lieu de naissance</label>
-                <input
+                <FormLabel>Lieu de naissance</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.birth_place}
                   onChange={(e) => setFormData({ ...formData, birth_place: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sexe</label>
-                <select
+                <FormLabel>Sexe</FormLabel>
+                <FormSelect
                   value={formData.gender}
                   onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Homme">Homme</option>
                   <option value="Female">Female</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nationalité</label>
-                <input
+                <FormLabel>Nationalité</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.nationality}
                   onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">État civil</label>
-                <select
+                <FormLabel>État civil</FormLabel>
+                <FormSelect
                   value={formData.civil_status}
                   onChange={(e) => setFormData({ ...formData, civil_status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Célibataire">Célibataire</option>
                   <option value="Married">Married</option>
                   <option value="Divorced">Divorced</option>
                   <option value="Widowed">Widowed</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Casier judiciaire</label>
-                <select
+                <FormLabel>Casier judiciaire</FormLabel>
+                <FormSelect
                   value={formData.judicial_record}
                   onChange={(e) => setFormData({ ...formData, judicial_record: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Non">Non</option>
                   <option value="Yes">Yes</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Statut de résidence</label>
-                <select
+                <FormLabel>Statut de résidence</FormLabel>
+                <FormSelect
                   value={formData.residence_status}
                   onChange={(e) => setFormData({ ...formData, residence_status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Citoyen">Citoyen</option>
                   <option value="Foriegn">Foriegn</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'identification</label>
-                <select
+                <FormLabel>Type d'identification</FormLabel>
+                <FormSelect
                   value={formData.identification_type}
                   onChange={(e) => setFormData({ ...formData, identification_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Numéro de passeport">Numéro de passeport</option>
                   <option value="Identity Card">Identity Card</option>
-                </select>
+                </FormSelect>
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'employé</label>
-                <select
+                <FormLabel>Type d'employé</FormLabel>
+                <FormSelect
                   value={formData.employee_type}
                   onChange={(e) => setFormData({ ...formData, employee_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Imposable">Imposable</option>
                   <option value="Non-Taxable">Non-Taxable</option>
-                </select>
+                </FormSelect>
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Profession de l'employé</label>
-                <select
+                <FormLabel>Profession de l'employé</FormLabel>
+                <FormSelect
                   value={formData.profession}
                   onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
-                  className="w-full px-3 py-2 border border-blue-500 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border-blue-500"
                 >
                   <option value="Project Manager">Project Manager</option>
                   <option value="Developer">Developer</option>
                   <option value="Designer">Designer</option>
                   <option value="Manager">Manager</option>
-                </select>
+                </FormSelect>
               </div>
             </div>
-            <div className="flex justify-end">
-              <button
+            <div className="flex justify-end pt-4">
+              <PrimaryButton
                 type="button"
                 onClick={() => setModalStep('contact')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Suivant
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         );
@@ -383,59 +374,53 @@ export function Employees() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-800 mb-4">Détails de contact</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                <input
+                <FormLabel>Adresse</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de téléphone</label>
-                <input
+                <FormLabel>Numéro de téléphone</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.phone_number}
                   onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse e-mail</label>
-                <input
+                <FormLabel>Adresse e-mail</FormLabel>
+                <FormInput
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contact d'urgence</label>
-                <input
+                <FormLabel>Contact d'urgence</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.emergency_contact}
                   onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-            <div className="flex justify-between">
-              <button
+            <div className="flex justify-between pt-4">
+              <SecondaryButton
                 type="button"
                 onClick={() => setModalStep('personal')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Précédent
-              </button>
-              <button
+              </SecondaryButton>
+              <PrimaryButton
                 type="button"
                 onClick={() => setModalStep('banking')}
-                className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
               >
                 Suivant
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         );
@@ -444,53 +429,49 @@ export function Employees() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-800 mb-4">Informations bancaires</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-x-6 gap-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Banque</label>
-                <select
+                <FormLabel>Banque</FormLabel>
+                <FormSelect
                   value={formData.bank_name}
                   onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-blue-500 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border-blue-500"
                 >
                   <option value="">l'Est africain Bank</option>
                   <option value="Bank A">Bank A</option>
                   <option value="Bank B">Bank B</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du compte</label>
-                <input
+                <FormLabel>Nom du compte</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.account_name}
                   onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de compte</label>
-                <input
+                <FormLabel>Numéro de compte</FormLabel>
+                <FormInput
                   type="text"
                   value={formData.account_number}
                   onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-            <div className="flex justify-between">
-              <button
+            <div className="flex justify-between pt-4">
+              <SecondaryButton
                 type="button"
                 onClick={() => setModalStep('contact')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Précédent
-              </button>
-              <button
+              </SecondaryButton>
+              <PrimaryButton
                 type="button"
                 onClick={() => setModalStep('contract')}
-                className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
               >
                 Suivant
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         );
@@ -499,46 +480,43 @@ export function Employees() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-800 mb-4">Informations du contrat</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type de contrat</label>
-                <select
+                <FormLabel>Type de contrat</FormLabel>
+                <FormSelect
                   value={formData.contract_type}
                   onChange={(e) => setFormData({ ...formData, contract_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select Contract Type</option>
                   <option value="CDD">CDD</option>
                   <option value="CDI">CDI</option>
                   <option value="Temporary">Temporary</option>
-                </select>
+                </FormSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                <input
+                <FormLabel>Date de début</FormLabel>
+                <FormInput
                   type="date"
                   value={formData.contract_start_date}
                   onChange={(e) => setFormData({ ...formData, contract_start_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                <input
+                <FormLabel>Date de fin</FormLabel>
+                <FormInput
                   type="date"
                   value={formData.contract_end_date}
                   onChange={(e) => setFormData({ ...formData, contract_end_date: e.target.value })}
                   disabled={!formData.allow_end_date}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  className="disabled:bg-gray-100 disabled:opacity-75"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'emploi</label>
-                <input
+                <FormLabel>Date d'emploi</FormLabel>
+                <FormInput
                   type="date"
                   value={formData.employment_date}
                   onChange={(e) => setFormData({ ...formData, employment_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="col-span-2 flex items-center gap-2">
@@ -547,28 +525,26 @@ export function Employees() {
                   id="allow_end_date"
                   checked={formData.allow_end_date}
                   onChange={(e) => setFormData({ ...formData, allow_end_date: e.target.checked })}
-                  className="w-4 h-4"
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="allow_end_date" className="text-sm text-gray-700">
+                <label htmlFor="allow_end_date" className="text-sm font-medium text-slate-700">
                   Permettre de fournir une date de fin pour le contrat
                 </label>
               </div>
             </div>
-            <div className="flex justify-between">
-              <button
+            <div className="flex justify-between pt-4">
+              <SecondaryButton
                 type="button"
                 onClick={() => setModalStep('banking')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Précédent
-              </button>
-              <button
+              </SecondaryButton>
+              <PrimaryButton
                 type="button"
                 onClick={handleSubmit}
-                className="px-6 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
               >
                 Soumettre
-              </button>
+              </PrimaryButton>
             </div>
           </div>
         );
@@ -723,63 +699,71 @@ export function Employees() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold">Ajouter/Mettre à jour les informations de l'employé</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingEmployee(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => {
+                setShowModal(false);
+                setEditingEmployee(null);
+                resetForm();
+            }}></div>
 
-            <div className="flex border-b">
-              <button
-                onClick={() => setModalStep('personal')}
-                className={`flex items-center gap-2 px-6 py-3 ${
-                  modalStep === 'personal' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                <User className="w-5 h-5" />
-                <span>Informations personnelles</span>
-              </button>
-              <button
-                onClick={() => setModalStep('contact')}
-                className={`flex items-center gap-2 px-6 py-3 ${
-                  modalStep === 'contact' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>Détails de contact</span>
-              </button>
-              <button
-                onClick={() => setModalStep('banking')}
-                className={`flex items-center gap-2 px-6 py-3 ${
-                  modalStep === 'banking' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                <Banknote className="w-5 h-5" />
-                <span>Informations bancaires</span>
-              </button>
-              <button
-                onClick={() => setModalStep('contract')}
-                className={`flex items-center gap-2 px-6 py-3 ${
-                  modalStep === 'contract' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                <FileText className="w-5 h-5" />
-                <span>Informations du contrat</span>
-              </button>
-            </div>
+            <div className="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full max-w-4xl border border-slate-100">
+              <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+                <h2 className="text-xl font-semibold text-slate-800">Ajouter/Mettre à jour les informations de l'employé</h2>
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingEmployee(null);
+                    resetForm();
+                  }}
+                  className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-            <div className="p-6">
-              {renderModalContent()}
+              <div className="flex border-b">
+                <button
+                  onClick={() => setModalStep('personal')}
+                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
+                    modalStep === 'personal' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span>Informations personnelles</span>
+                </button>
+                <button
+                  onClick={() => setModalStep('contact')}
+                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
+                    modalStep === 'contact' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Détails de contact</span>
+                </button>
+                <button
+                  onClick={() => setModalStep('banking')}
+                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
+                    modalStep === 'banking' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>Informations bancaires</span>
+                </button>
+                <button
+                  onClick={() => setModalStep('contract')}
+                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
+                    modalStep === 'contract' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Informations du contrat</span>
+                </button>
+              </div>
+
+              <div className="p-6 bg-white min-h-[400px]">
+                {renderModalContent()}
+              </div>
             </div>
           </div>
         </div>
