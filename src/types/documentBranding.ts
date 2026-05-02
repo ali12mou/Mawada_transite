@@ -21,3 +21,5 @@ export function brandingFromConfig(cfg: AppConfigMap): DocumentBranding {
     companyEmail: cfg.company_email || '',
   };
 }
+
+

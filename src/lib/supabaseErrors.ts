@@ -19,3 +19,5 @@ export function formatPostgrestError(error: unknown): string {
     return 'Erreur inconnue.';
   }
 }
+
+

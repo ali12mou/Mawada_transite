@@ -49,7 +49,7 @@ function pickPayload(body) {
       const n = Number(body[key]);
       out[key] = Number.isFinite(n) ? n : 0;
     } else if (key === 'transaction_types' || key === 'transport_modes') {
-      out[key] = Array.isArray(body[key]) ? body[key].map(String) : [];
+      out[key] = Array.isArray(body[key]) ? body[key]?.map(String) : [];
     } else {
       out[key] = body[key] == null ? '' : String(body[key]);
     }
@@ -64,7 +64,7 @@ async function nextSqn() {
 
 export async function listDocument9() {
   const docs = await Document9.find({}).sort({ sqn: -1 });
-  return docs.map((d) => d.toJSON());
+  return docs?.map((d) => d.toJSON());
 }
 
 export async function getDocument9ById(id) {

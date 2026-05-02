@@ -2,7 +2,7 @@ import { Client } from '../models/Client.model.js';
 
 export async function listClients() {
   const docs = await Client.find({}).sort({ createdAt: -1 });
-  return docs.map((d) => d.toJSON());
+  return docs?.map((d) => d.toJSON());
 }
 
 export async function getClientById(id) {

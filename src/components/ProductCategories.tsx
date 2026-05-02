@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2, Tag, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Pencil, Trash2, X, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -76,7 +76,7 @@ export function ProductCategories() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) {
+    if (confirm(t('products.categoryDeleteConfirm'))) {
       try {
         const { error } = await supabase
           .from('product_categories')
@@ -111,47 +111,50 @@ export function ProductCategories() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Chargement...</div>
+        <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Gérer la Description des Catégories de Biens</h2>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-2">
-          <div className="text-sm text-gray-500">Version: 2.0.0 / MAJOR</div>
+          <h2 className="text-2xl font-bold text-gray-800">{t('products.categoriesManageTitle')}</h2>
+          <Package size={24} className="text-gray-600" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-[#1e3a5f] text-white rounded hover:bg-[#2d4a6f] transition"
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm"
           >
-            + Ajouter Nouveau
+            {t('common.add')}
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Show</span>
+            <span>{t('common.show')}</span>
             <select
               value={entriesPerPage}
               onChange={(e) => {
                 setEntriesPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-gray-600">entries</span>
+            <span>{t('common.entries')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Search:</span>
+            <span>{t('common.search')}:</span>
             <input
               type="text"
               value={searchTerm}
@@ -159,7 +162,7 @@ export function ProductCategories() {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
             />
           </div>
         </div>
@@ -169,19 +172,19 @@ export function ProductCategories() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                  Catégorie
+                  {t('products.categoryCol')}
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                  Action
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
+                  {t('common.action')}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {currentCategories.map((category) => (
-                <tr key={category.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">{category.name}</td>
+            <tbody className="divide-y divide-gray-200 text-sm">
+              {currentCategories?.map((category) => (
+                <tr key={category.id} className="hover:bg-gray-50 transition">
+                  <td className="px-4 py-3 text-gray-900 font-medium">{category.name}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex justify-center gap-2">
                       <button
                         onClick={() => handleEdit(category)}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded transition"
@@ -200,8 +203,8 @@ export function ProductCategories() {
               ))}
               {currentCategories.length === 0 && (
                 <tr>
-                  <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
-                    Aucune donnée disponible
+                  <td colSpan={2} className="px-4 py-8 text-center text-gray-500 italic">
+                    {t('products.emptyCategories')}
                   </td>
                 </tr>
               )}
@@ -209,85 +212,82 @@ export function ProductCategories() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredCategories.length)} of {filteredCategories.length} entries
+        <div className="flex items-center justify-between mt-6 text-sm text-gray-600">
+          <div>
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredCategories.length)} {t('common.of')} {filteredCategories.length} {t('common.entries')}
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(1)}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              Previous
+              {t('common.previous')}
             </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              return (
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)?.map(page => (
                 <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`px-3 py-1 rounded ${
-                    currentPage === pageNum
-                      ? 'bg-[#1e3a5f] text-white'
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 rounded transition ${currentPage === page
+                      ? 'bg-[#0F3C66] text-white shadow-sm'
                       : 'border border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
-                  {pageNum}
+                  {page}
                 </button>
-              );
-            })}
+              ))}
+            </div>
             <button
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                {editingId ? 'Modifier la catégorie' : 'Ajouter une nouvelle catégorie'}
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 bg-[#0F3C66] text-white">
+              <h3 className="text-lg font-bold">
+                {editingId ? t('products.modalCategoryTitleUpdate') : t('products.modalCategoryTitleAdd')}
               </h3>
-              <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+              <button onClick={resetForm} className="text-white/80 hover:text-white transition">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom de la catégorie <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  {t('products.categoryName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
+                  placeholder={t('products.categoryName')}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none transition"
                 />
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition"
+                >
+                  {t('common.cancel')}
+                </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#1e3a5f] text-white rounded hover:bg-[#2d4a6f] transition"
+                  className="px-6 py-2 text-sm font-medium bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm"
                 >
-                  Enregistrer
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -297,3 +297,5 @@ export function ProductCategories() {
     </div>
   );
 }
+
+

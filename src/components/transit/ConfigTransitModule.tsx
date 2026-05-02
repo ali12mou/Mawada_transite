@@ -1,16 +1,18 @@
+import { useLanguage } from '../../contexts/LanguageContext';
+
 export function ConfigTransitModule() {
+  const { t } = useLanguage();
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[#1e3a5f]">Configuration & administration</h1>
+        <h1 className="text-2xl font-semibold text-[#0F3C66]">{t('transit.config.title')}</h1>
         <p className="text-sm text-gray-600">
-          Paramètres transverses : journaux comptables, plan comptable, taxes, devises, droits par rôle.
+          {t('transit.config.subtitle')}
         </p>
       </div>
       <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-sm text-gray-600">
         <p className="mb-4">
-          Cette zone regroupera la configuration métier (journaux, comptes, taxes, listes de prix) et les règles
-          d’accès par profil (Operation Manager, Finance, etc.).
+          {t('transit.config.placeholder')}
         </p>
         <p>
           Les tables de référence sont définies dans le schéma SQL (<code className="rounded bg-gray-100 px-1">database/geosom_transit_schema.sql</code>) —
@@ -23,3 +25,5 @@ export function ConfigTransitModule() {
     </div>
   );
 }
+
+

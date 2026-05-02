@@ -32,7 +32,7 @@ export const TRANSPORT_MENU_ITEMS: TransportMenuEntry[] = [
   { id: 'transport-configuration-admin', icon: SlidersHorizontal },
 ];
 
-const TRANSPORT_PAGE_IDS = new Set(TRANSPORT_MENU_ITEMS.map(i => i.id));
+const TRANSPORT_PAGE_IDS = new Set(TRANSPORT_MENU_ITEMS?.map(i => i.id));
 
 export function isTransportModulePage(page: string): boolean {
   return TRANSPORT_PAGE_IDS.has(page);
@@ -44,3 +44,5 @@ export function getTransportMenuIcon(id: string): LucideIcon | undefined {
 
 /** Page ouverte au premier clic sur « Transports » (sous-menu déplié) ou par défaut depuis le routeur. */
 export const DEFAULT_TRANSPORT_PAGE = TRANSPORT_MENU_ITEMS[0].id;
+
+

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Edit, Trash2, Eye, FolderOpen } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { fetchClients, type ClientRecord } from '../api/clientsApi';
@@ -157,7 +158,7 @@ export function CustomerFile() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+          className="bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
         >
           {t('customerFile.addNew')}
         </button>
@@ -174,18 +175,18 @@ export function CustomerFile() {
             className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="">{t('clients.selectClient')}</option>
-            {clientsList.map(c => (
+            {clientsList?.map(c => (
               <option key={c.id} value={formatClientLabel(c)}>
                 {formatClientLabel(c)}
               </option>
             ))}
-            {Array.from(new Set(files.map(f => f.customer_name).filter(Boolean)))
+            {Array.from(new Set(files?.map(f => f.customer_name).filter(Boolean)))
               .filter(
                 name =>
                   !clientsList.some(c => formatClientLabel(c) === name) &&
                   !clientsList.some(c => c.name === name)
               )
-              .map(name => (
+              ?.map(name => (
                 <option key={`legacy-${name}`} value={name}>
                   {name}
                 </option>
@@ -251,7 +252,7 @@ export function CustomerFile() {
                   </td>
                 </tr>
               ) : (
-                filteredFiles.slice(0, 3).map((file, index) => (
+                filteredFiles.slice(0, 3)?.map((file, index) => (
                   <tr key={file.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4">{index + 3}</td>
                     <td className="py-3 px-4">{file.file_number}</td>
@@ -262,22 +263,27 @@ export function CustomerFile() {
                     <td className="py-3 px-4">{file.destination || '-'}</td>
                     <td className="py-3 px-4">{file.created_by || '-'}</td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="text-blue-600 hover:text-blue-700">
-                          <Edit size={18} />
-                        </button>
-                        <button className="text-green-600 hover:text-green-700">
-                          <Eye size={18} />
-                        </button>
-                        <button className="text-red-600 hover:text-red-700">
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(file.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                      <div className="flex items-center justify-center">
+                        <ActionMenu
+                          actions={[
+                            {
+                              label: t('common.view'),
+                              icon: <Eye size={16} />,
+                              onClick: () => console.log('View', file.id),
+                            },
+                            {
+                              label: t('common.edit'),
+                              icon: <Edit size={16} />,
+                              onClick: () => console.log('Edit', file.id),
+                            },
+                            {
+                              label: t('common.delete'),
+                              icon: <Trash2 size={16} />,
+                              onClick: () => handleDelete(file.id),
+                              variant: 'danger',
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -295,7 +301,7 @@ export function CustomerFile() {
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Previous
             </button>
-            <button className="px-3 py-1 bg-[#1e3a5f] text-white rounded">1</button>
+            <button className="px-3 py-1 bg-[#0F3C66] text-white rounded">1</button>
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Next
             </button>
@@ -347,7 +353,7 @@ export function CustomerFile() {
                       required
                     >
                       <option value="">{t('clients.selectClient')}</option>
-                      {clientsList.map(c => (
+                      {clientsList?.map(c => (
                         <option key={c.id} value={formatClientLabel(c)}>
                           {formatClientLabel(c)}
                         </option>
@@ -556,3 +562,5 @@ export function CustomerFile() {
     </div>
   );
 }
+
+

@@ -6,5 +6,7 @@ export function getApiBaseUrl(): string {
   }
   const port = import.meta.env.VITE_API_PORT as string | undefined;
   const p = port?.trim() || '4000';
-  return `http://127.0.0.1:${p}`;
+  return `http://localhost:${p}`;
 }
+
+

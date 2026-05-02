@@ -47,7 +47,7 @@ export function BrandingLogoMark({ className, imgClassName, iconSize = 24 }: Bra
   return (
     <div className={boxClass}>
       {useTruck ? (
-        <Truck className="text-[#1e3a5f]" size={iconSize} aria-hidden />
+        <Truck className="text-[#0F3C66]" size={iconSize} aria-hidden />
       ) : (
         <img
           src={src}
@@ -69,3 +69,5 @@ export function BrandingLogoMark({ className, imgClassName, iconSize = 24 }: Bra
     </div>
   );
 }
+
+

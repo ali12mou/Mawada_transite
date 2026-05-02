@@ -16,6 +16,29 @@ import {
   Bell,
   ChevronRight,
   Languages,
+  FileText,
+  Building2,
+  MapPin,
+  ClipboardList,
+  Folder,
+  Shield,
+  Box,
+  Tag,
+  Bookmark,
+  CreditCard,
+  Wallet,
+  Ship,
+  Briefcase,
+  Calculator,
+  BadgePercent,
+  CalendarClock,
+  UserCheck,
+  Landmark,
+  PieChart,
+  ShieldCheck,
+  UserCog,
+  CheckSquare,
+  Scale,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -56,7 +79,7 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
     id: 'transports',
     label: t('menu.transports'),
     icon: Truck,
-    children: TRANSPORT_MENU_ITEMS.map(entry => entry.id),
+    children: TRANSPORT_MENU_ITEMS?.map(entry => entry.id),
   },
   { id: 'expenses', label: t('menu.expenses'), icon: DollarSign, children: ['expense-categories', 'expense', 'expense-allocation', 'other-expenses', 'maritime-lines'] },
   {
@@ -109,10 +132,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const handleMenuItemClick = (item: MenuItem) => {
     if (item.id === 'transports' && item.children) {
       if (!expandedItems.includes('transports')) {
-        setExpandedItems(prev => [...prev, 'transports']);
+        setExpandedItems(['transports']);
         if (onNavigate) onNavigate(DEFAULT_TRANSPORT_PAGE);
       } else {
-        setExpandedItems(prev => prev.filter(id => id !== 'transports'));
+        setExpandedItems([]);
       }
       return;
     }
@@ -127,15 +150,67 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedItems(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setExpandedItems(prev => (prev.includes(id) ? [] : [id]));
   };
 
   const toggleSubMenuExpand = (id: string) => {
-    setExpandedSubMenus(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setExpandedSubMenus(prev => (prev.includes(id) ? [] : [id]));
+  };
+
+  const getChildIcon = (id: string) => {
+    const transportMatch = TRANSPORT_MENU_ITEMS.find((x) => x.id === id);
+    if (transportMatch && transportMatch.icon) return transportMatch.icon;
+
+    switch (id) {
+      case 'commercial-chamber': return Building2;
+      case 'local-company': return MapPin;
+      case 'transfer-document-9':
+      case 'document-9':
+      case 'document-4': return FileText;
+      case 'chamber-invoice':
+      case 'invoice-report': return FileText;
+      case 'performa': return ClipboardList;
+      case 'customer-file': return Folder;
+      case 'certificate-origin': return Shield;
+      case 'suppliers': return Users;
+      case 'orders': return Package;
+      case 'order-verification': return CheckSquare;
+      case 'order-reception': return Box;
+      case 'delivered-orders': return Truck;
+      case 'clearance': return Scale;
+      case 'products': return Tag;
+      case 'inventories': return ClipboardList;
+      case 'warehouse': return Warehouse;
+      case 'expense-categories': return Bookmark;
+      case 'expense':
+      case 'other-expenses': return CreditCard;
+      case 'expense-allocation': return Wallet;
+      case 'maritime-lines': return Ship;
+      case 'employees': return Users;
+      case 'contract-types': return FileText;
+      case 'employee-professions': return Briefcase;
+      case 'employee-documents': return Folder;
+      case 'generate-payroll': return Calculator;
+      case 'payroll-approval': return CheckSquare;
+      case 'tax-rates': return BadgePercent;
+      case 'leave-request':
+      case 'leave-return-request': return CalendarClock;
+      case 'leave-types': return Bookmark;
+      case 'attendance': return UserCheck;
+      case 'clients': return Users;
+      case 'bank': return Landmark;
+      case 'item-prices': return Tag;
+      case 'goods-categories': return Package;
+      case 'companies': return Building2;
+      case 'import-reports':
+      case 'hr-reports':
+      case 'financial-reports':
+      case 'services-reports': return PieChart;
+      case 'roles': return ShieldCheck;
+      case 'users': return UserCog;
+      case 'configurations': return Settings;
+      default: return ChevronRight;
+    }
   };
 
   const getLanguageLabel = () => {
@@ -156,11 +231,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <aside className="w-64 bg-[#1e3a5f] text-white flex flex-col shadow-xl">
+      <aside className="w-64 bg-[#0F3C66] text-white flex flex-col shadow-xl">
         <button
           type="button"
           onClick={() => onNavigate && onNavigate('dashboard')}
-          className="p-6 border-b border-[#2d4a6f] text-left hover:bg-[#2d4a6f]/40 transition"
+          className="p-6 border-b border-[#154b8a] text-left hover:bg-[#154b8a]/40 transition"
         >
           <div className="flex items-center gap-3">
             <BrandingLogoMark />
@@ -169,7 +244,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </button>
 
         <nav className="flex-1 overflow-y-auto py-4">
-          {menuItems.map((item) => {
+          {menuItems?.map((item) => {
             const Icon = item.icon;
             const isExpanded = expandedItems.includes(item.id);
             const isActive =
@@ -179,11 +254,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             return (
               <div key={item.id}>
                 <button
-                  className={`w-full flex items-center justify-between px-6 py-3 text-left transition ${
-                    isActive
-                      ? 'bg-[#2d4a6f] border-l-4 border-[#e67e22]'
-                      : 'hover:bg-[#2d4a6f]/50'
-                  }`}
+                  className={`w-full flex items-center justify-between px-6 py-3 text-left transition ${isActive
+                    ? 'bg-[#154b8a] border-l-4 border-[#EE964C]'
+                    : 'hover:bg-[#154b8a]/50'
+                    }`}
                   onClick={() => handleMenuItemClick(item)}
                 >
                   <div className="flex items-center gap-3">
@@ -193,39 +267,40 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   {(item.children || item.subMenus) && (
                     <ChevronDown
                       size={16}
-                      className={`transition-transform ${
-                        isExpanded ? 'rotate-180' : ''
-                      }`}
+                      className={`transition-transform ${isExpanded ? 'rotate-180' : ''
+                        }`}
                     />
                   )}
                 </button>
                 {item.children && isExpanded && (
                   <div className="bg-[#152a44]/30">
-                    {item.children.map((child) => (
-                      <button
-                        key={child}
-                        onClick={() => onNavigate && onNavigate(child)}
-                        className={`w-full flex items-center gap-3 px-12 py-2 text-left text-sm transition ${
-                          currentPage === child
-                            ? 'bg-[#2d4a6f]/50 text-[#e67e22]'
-                            : 'hover:bg-[#2d4a6f]/30'
-                        }`}
-                      >
-                        <ChevronRight size={14} />
-                        {t(`menu.${child}`)}
-                      </button>
-                    ))}
+                    {item.children?.map((child) => {
+                      const ChildIcon = getChildIcon(child);
+                      return (
+                        <button
+                          key={child}
+                          onClick={() => onNavigate && onNavigate(child)}
+                          className={`w-full flex items-center gap-3 px-12 py-2 text-left text-sm transition ${currentPage === child
+                            ? 'bg-[#154b8a]/50 text-[#EE964C]'
+                            : 'hover:bg-[#154b8a]/30'
+                            }`}
+                        >
+                          <ChildIcon size={14} />
+                          {t(`menu.${child}`)}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {item.subMenus && isExpanded && (
                   <div className="bg-[#152a44]/30">
-                    {item.subMenus.map((subMenu) => {
+                    {item.subMenus?.map((subMenu) => {
                       const isSubMenuExpanded = expandedSubMenus.includes(subMenu.id);
                       return (
                         <div key={subMenu.id}>
                           <button
                             onClick={() => toggleSubMenuExpand(subMenu.id)}
-                            className="w-full flex items-center justify-between px-12 py-2 text-left text-sm hover:bg-[#2d4a6f]/30 transition"
+                            className="w-full flex items-center justify-between px-12 py-2 text-left text-sm hover:bg-[#154b8a]/30 transition"
                           >
                             <div className="flex items-center gap-2">
                               <ChevronRight size={14} />
@@ -234,28 +309,29 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                             {subMenu.children && (
                               <ChevronDown
                                 size={14}
-                                className={`transition-transform ${
-                                  isSubMenuExpanded ? 'rotate-180' : ''
-                                }`}
+                                className={`transition-transform ${isSubMenuExpanded ? 'rotate-180' : ''
+                                  }`}
                               />
                             )}
                           </button>
                           {subMenu.children && isSubMenuExpanded && (
                             <div className="bg-[#0d1b2a]/30">
-                              {subMenu.children.map((child) => (
-                                <button
-                                  key={child}
-                                  onClick={() => onNavigate && onNavigate(child)}
-                                  className={`w-full flex items-center gap-3 pl-16 pr-4 py-2 text-left text-xs transition ${
-                                    currentPage === child
-                                      ? 'bg-[#2d4a6f]/50 text-[#e67e22]'
-                                      : 'hover:bg-[#2d4a6f]/30'
-                                  }`}
-                                >
-                                  <ChevronRight size={12} />
-                                  {t(`menu.${child}`)}
-                                </button>
-                              ))}
+                              {subMenu.children?.map((child) => {
+                                const ChildIcon = getChildIcon(child);
+                                return (
+                                  <button
+                                    key={child}
+                                    onClick={() => onNavigate && onNavigate(child)}
+                                    className={`w-full flex items-center gap-3 pl-16 pr-4 py-2 text-left text-xs transition ${currentPage === child
+                                      ? 'bg-[#154b8a]/50 text-[#EE964C]'
+                                      : 'hover:bg-[#154b8a]/30'
+                                      }`}
+                                  >
+                                    <ChildIcon size={12} />
+                                    {t(`menu.${child}`)}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -268,9 +344,9 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#2d4a6f]">
+        <div className="p-4 border-t border-[#154b8a]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-[#e67e22] rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#EE964C] rounded-full flex items-center justify-center">
               <User size={20} />
             </div>
             <div className="flex-1 min-w-0">
@@ -280,7 +356,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           </div>
           <button
             onClick={signOut}
-            className="w-full flex items-center gap-2 px-4 py-2 bg-[#e67e22] hover:bg-[#d35400] rounded-lg transition text-sm"
+            className="w-full flex items-center gap-2 px-4 py-2 bg-[#EE964C] hover:bg-[#d35400] rounded-lg transition text-sm"
           >
             <LogOut size={16} />
             <span>{t('profile.logout')}</span>
@@ -290,7 +366,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         <div className="relative">
           <button
             onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="w-full p-4 border-t border-[#2d4a6f] flex items-center gap-2 text-xs hover:bg-[#2d4a6f]/30 transition"
+            className="w-full p-4 border-t border-[#154b8a] flex items-center gap-2 text-xs hover:bg-[#154b8a]/30 transition"
           >
             <Languages size={16} />
             <img
@@ -302,30 +378,27 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           </button>
 
           {showLanguageMenu && (
-            <div className="absolute bottom-full left-0 w-full bg-[#1e3a5f] border border-[#2d4a6f] shadow-lg">
+            <div className="absolute bottom-full left-0 w-full bg-[#0F3C66] border border-[#154b8a] shadow-lg">
               <button
                 onClick={() => { setLanguage('en'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#2d4a6f] transition ${
-                  language === 'en' ? 'bg-[#2d4a6f]' : ''
-                }`}
+                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'en' ? 'bg-[#154b8a]' : ''
+                  }`}
               >
                 <img src="https://flagcdn.com/w40/us.png" alt="English" className="w-5 h-3 object-cover rounded" />
                 <span>{t('profile.english')}</span>
               </button>
               <button
                 onClick={() => { setLanguage('fr'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#2d4a6f] transition ${
-                  language === 'fr' ? 'bg-[#2d4a6f]' : ''
-                }`}
+                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'fr' ? 'bg-[#154b8a]' : ''
+                  }`}
               >
                 <img src="https://flagcdn.com/w40/fr.png" alt="Français" className="w-5 h-3 object-cover rounded" />
                 <span>{t('profile.french')}</span>
               </button>
               <button
                 onClick={() => { setLanguage('ar'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#2d4a6f] transition ${
-                  language === 'ar' ? 'bg-[#2d4a6f]' : ''
-                }`}
+                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'ar' ? 'bg-[#154b8a]' : ''
+                  }`}
               >
                 <img src="https://flagcdn.com/w40/dj.png" alt="العربية" className="w-5 h-3 object-cover rounded" />
                 <span>{t('profile.arabic')}</span>
@@ -350,34 +423,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             </div>
           </header>
 
-          {isTransportModulePage(currentPage) && (
-            <nav
-              className="border-b border-gray-200 bg-gray-50/80"
-              aria-label={t('menu.transports')}
-            >
-              <div className="flex gap-1 overflow-x-auto px-4 py-2">
-                {TRANSPORT_MENU_ITEMS.map(entry => {
-                  const HIcon = entry.icon;
-                  const active = currentPage === entry.id;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => onNavigate && onNavigate(entry.id)}
-                      className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition whitespace-nowrap ${
-                        active
-                          ? 'bg-[#1e3a5f] text-white shadow-sm'
-                          : 'text-gray-600 hover:bg-white hover:text-[#1e3a5f]'
-                      }`}
-                    >
-                      <HIcon size={18} className="shrink-0" aria-hidden />
-                      {t(`menu.${entry.id}`)}
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
-          )}
+          {/* Top navigation tabs have been removed to eliminate redundancy with the sidebar children. */}
         </div>
 
         <div className="p-8 flex-1">
@@ -389,3 +435,5 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     </div>
   );
 }
+
+

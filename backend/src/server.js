@@ -16,6 +16,9 @@ import document9Routes from './routes/document9.routes.js';
 import configRoutes from './routes/config.routes.js';
 import companiesRoutes from './routes/companies.routes.js';
 import localCompanyRoutes from './routes/local-company.routes.js';
+import suppliersRoutes from './routes/suppliers.routes.js';
+import ordersRoutes from './routes/orders.routes.js';
+import chamberInvoicesRoutes from './routes/chamber-invoices.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,10 +39,13 @@ app.use('/api/users', usersRoutes);
 app.use('/api/transit', transitRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/commercial-chamber', commercialChamberRoutes);
+app.use('/api/chamber-invoices', chamberInvoicesRoutes);
 app.use('/api/document-9', document9Routes);
 app.use('/api/config', configRoutes);
 app.use('/api/companies', companiesRoutes);
 app.use('/api/local-company', localCompanyRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/orders', ordersRoutes);
 
 app.use((error, _req, res, _next) => {
   res.status(500).json({

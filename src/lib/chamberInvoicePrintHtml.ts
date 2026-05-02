@@ -141,7 +141,7 @@ export function buildChamberInvoicePrintHtml(
     : '';
 
   const rows = items
-    .map(
+    ?.map(
       (it, i) => `
     <tr>
       <td>${i + 1}</td>
@@ -176,7 +176,7 @@ export function buildChamberInvoicePrintHtml(
       margin: 0;
       line-height: 1.35;
     }
-    .page { position: relative; padding: 4mm 2mm; min-height: 270mm; }
+    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; padding: 4mm 2mm; }
     .wm {
       position: fixed;
       left: 50%;
@@ -193,7 +193,7 @@ export function buildChamberInvoicePrintHtml(
       filter: grayscale(20%);
     }
     .wm-empty { display: none; }
-    .content { position: relative; z-index: 1; }
+    .content { position: relative; z-index: 1; display: flex; flex-direction: column; flex-grow: 1; }
     h1 {
       text-align: center;
       font-size: 18pt;
@@ -242,6 +242,7 @@ export function buildChamberInvoicePrintHtml(
     .words-row td { font-weight: 600; text-align: left; padding: 8px; }
     .terms { margin-top: 12px; font-size: 8.5pt; }
     .terms .line { margin: 4px 0; }
+    .doc-footer { margin-top: auto; }
     .foot-bar {
       height: 4px;
       background: ${COMMERCIAL_GREEN};
@@ -325,15 +326,18 @@ export function buildChamberInvoicePrintHtml(
         <div class="line"><span class="lbl">SWIFT (interm.):</span> ${esc(inv.swift_code_2)}</div>
       </div>
 
-      <div class="foot-bar"></div>
-      <div class="foot-grid">
-        <div>
-          <div>${esc(phone)}</div>
-          ${footerImg}
-        </div>
-        <div class="foot-right">
-          <div>${addr ? esc(addr) : '—'}</div>
-          <div>${email ? esc(email) : '—'}</div>
+      <div style="flex-grow: 1;"></div>
+      <div class="doc-footer">
+        <div class="foot-bar"></div>
+        <div class="foot-grid">
+          <div>
+            <div>${phone ? `TEL: ${esc(phone)}` : '—'}</div>
+            ${footerImg}
+          </div>
+          <div class="foot-right">
+            <div>${addr ? esc(addr) : '—'}</div>
+            <div>${email ? esc(email) : '—'}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -341,7 +345,6 @@ export function buildChamberInvoicePrintHtml(
 </body>
 </html>`;
 }
-
 export async function openChamberInvoicePrintWindow(
   inv: ChamberInvoicePrintRecord,
   items: ChamberInvoicePrintItem[]
@@ -373,3 +376,5 @@ export async function openChamberInvoiceViewWindow(
   w.document.write(html);
   w.document.close();
 }
+
+

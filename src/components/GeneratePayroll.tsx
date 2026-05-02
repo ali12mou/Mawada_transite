@@ -45,7 +45,7 @@ export function GeneratePayroll() {
 
       if (error) throw error;
 
-      const items: PayrollItem[] = (data || []).map(emp => ({
+      const items: PayrollItem[] = (data || [])?.map(emp => ({
         employee_id: emp.id,
         employee_name: emp.full_name,
         base_salary: emp.base_salary || 0,
@@ -72,7 +72,7 @@ export function GeneratePayroll() {
   };
 
   const updatePayrollItem = (employeeId: string, field: string, value: number) => {
-    setPayrollItems(prev => prev.map(item => {
+    setPayrollItems(prev => prev?.map(item => {
       if (item.employee_id === employeeId) {
         const updated = { ...item, [field]: value };
         const grossSalary = updated.base_salary + updated.bonuses - updated.deductions;
@@ -89,7 +89,7 @@ export function GeneratePayroll() {
 
     setSaving(true);
     try {
-      const payrollData = payrollItems.map(item => ({
+      const payrollData = payrollItems?.map(item => ({
         employee_id: item.employee_id,
         period_month: selectedMonth,
         period_year: selectedYear,
@@ -182,9 +182,9 @@ export function GeneratePayroll() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Net Payroll</p>
-              <p className="text-2xl font-bold text-[#1e3a5f]">{formatCurrency(totalPayroll)}</p>
+              <p className="text-2xl font-bold text-[#0F3C66]">{formatCurrency(totalPayroll)}</p>
             </div>
-            <div className="w-12 h-12 bg-[#1e3a5f] rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#0F3C66] rounded-lg flex items-center justify-center">
               <DollarSign className="text-white" size={24} />
             </div>
           </div>
@@ -198,9 +198,9 @@ export function GeneratePayroll() {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]?.map(month => (
                 <option key={month} value={month}>
                   {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
                 </option>
@@ -213,14 +213,14 @@ export function GeneratePayroll() {
               type="number"
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             />
           </div>
           <div className="flex-1"></div>
           <button
             onClick={handleGeneratePayroll}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition disabled:opacity-50 mt-6"
+            className="flex items-center gap-2 px-6 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition disabled:opacity-50 mt-6"
           >
             <Save size={20} />
             {saving ? 'Generating...' : 'Generate Payroll'}
@@ -254,7 +254,7 @@ export function GeneratePayroll() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {payrollItems.map((item) => (
+              {payrollItems?.map((item) => (
                 <tr key={item.employee_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{item.employee_name}</div>
@@ -270,7 +270,7 @@ export function GeneratePayroll() {
                       step="0.01"
                       value={item.bonuses}
                       onChange={(e) => updatePayrollItem(item.employee_id, 'bonuses', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -279,7 +279,7 @@ export function GeneratePayroll() {
                       step="0.01"
                       value={item.deductions}
                       onChange={(e) => updatePayrollItem(item.employee_id, 'deductions', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -288,7 +288,7 @@ export function GeneratePayroll() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-[#1e3a5f]">
+                    <div className="text-sm font-bold text-[#0F3C66]">
                       {formatCurrency(item.net_salary)}
                     </div>
                   </td>
@@ -301,3 +301,5 @@ export function GeneratePayroll() {
     </div>
   );
 }
+
+

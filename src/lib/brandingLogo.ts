@@ -7,3 +7,5 @@ export function getAppLogoSrcFromConfig(cfg: AppConfigMap): string {
   if (footer) return footer;
   return documentImageSrc(cfg.letter_head_image || '');
 }
+
+

@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, MapPin, Navigation } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Navigation, Map as MapIcon } from 'lucide-react';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 interface Route {
   id: string;
@@ -42,7 +44,6 @@ export function Routes() {
   const { t } = useLanguage();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [filteredRoutes, setFilteredRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -66,10 +67,6 @@ export function Routes() {
     fetchRoutes();
     fetchLocations();
   }, []);
-
-  useEffect(() => {
-    filterRoutes();
-  }, [routes, searchTerm]);
 
   const fetchRoutes = async () => {
     try {
@@ -101,53 +98,33 @@ export function Routes() {
     }
   };
 
-  const filterRoutes = () => {
-    let filtered = [...routes];
-
-    if (searchTerm) {
-      filtered = filtered.filter(route =>
-        route.source?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        route.destination?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredRoutes(filtered);
-  };
-
-  const getAllCities = () => {
-    const customLocations: { [key: string]: { lat: number; lng: number } } = {};
-    locations.forEach(loc => {
-      customLocations[loc.name] = { lat: loc.latitude, lng: loc.longitude };
-    });
-    return { ...DEFAULT_EAST_AFRICA_CITIES, ...customLocations };
-  };
-
-  const getCoordinates = (cityName: string) => {
-    const allCities = getAllCities();
-    return allCities[cityName] || { lat: 0, lng: 0 };
+  const allCities = {
+    ...DEFAULT_EAST_AFRICA_CITIES,
+    ...Object.fromEntries(locations?.map(loc => [loc.name, { lat: loc.latitude, lng: loc.longitude }]))
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const sourceCity = allCities[formData.source];
+    const destCity = allCities[formData.destination];
+
+    if (!sourceCity || !destCity) {
+      alert('Invalid cities selected');
+      return;
+    }
+
     try {
-      const sourceCoords = getCoordinates(formData.source);
-      const destCoords = getCoordinates(formData.destination);
-
-      const routeData = {
-        source: formData.source,
-        destination: formData.destination,
-        source_latitude: sourceCoords.lat,
-        source_longitude: sourceCoords.lng,
-        destination_latitude: destCoords.lat,
-        destination_longitude: destCoords.lng
-      };
-
       if (editingRoute) {
         const { error } = await supabase
           .from('routes')
           .update({
-            ...routeData,
+            source: formData.source,
+            destination: formData.destination,
+            source_latitude: sourceCity.lat,
+            source_longitude: sourceCity.lng,
+            destination_latitude: destCity.lat,
+            destination_longitude: destCity.lng,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingRoute.id);
@@ -157,7 +134,12 @@ export function Routes() {
         const { error } = await supabase
           .from('routes')
           .insert([{
-            ...routeData,
+            source: formData.source,
+            destination: formData.destination,
+            source_latitude: sourceCity.lat,
+            source_longitude: sourceCity.lng,
+            destination_latitude: destCity.lat,
+            destination_longitude: destCity.lng,
             created_by: user?.id
           }]);
 
@@ -182,7 +164,8 @@ export function Routes() {
         .insert([{
           name: locationFormData.name,
           latitude: parseFloat(locationFormData.latitude),
-          longitude: parseFloat(locationFormData.longitude)
+          longitude: parseFloat(locationFormData.longitude),
+          created_by: user?.id
         }]);
 
       if (error) throw error;
@@ -198,14 +181,14 @@ export function Routes() {
   const handleEdit = (route: Route) => {
     setEditingRoute(route);
     setFormData({
-      source: route.source || '',
-      destination: route.destination || ''
+      source: route.source,
+      destination: route.destination
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet itinéraire ?')) return;
+    if (!confirm(t('routes.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -221,49 +204,46 @@ export function Routes() {
   };
 
   const resetForm = () => {
-    setFormData({
-      source: '',
-      destination: ''
-    });
+    setFormData({ source: '', destination: '' });
+    setEditingRoute(null);
   };
 
   const resetLocationForm = () => {
-    setLocationFormData({
-      name: '',
-      latitude: '',
-      longitude: ''
-    });
+    setLocationFormData({ name: '', latitude: '', longitude: '' });
   };
 
-  const totalPages = Math.ceil(filteredRoutes.length / entriesPerPage);
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const currentRoutes = filteredRoutes.slice(startIndex, endIndex);
+  const filteredRoutes = routes.filter(route =>
+    route.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    route.destination.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const allCities = getAllCities();
+  const totalPages = Math.max(1, Math.ceil(filteredRoutes.length / entriesPerPage));
+  const startIndex = (currentPage - 1) * entriesPerPage;
+  const currentRoutes = filteredRoutes.slice(startIndex, startIndex + entriesPerPage);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Chargement...</div>
+      <div className="flex items-center justify-center h-64 font-medium text-[#0F3C66]">
+        {t('common.loading')}
       </div>
     );
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-2">
-          <Navigation className="w-6 h-6 text-[#1e3a5f]" />
-          <h1 className="text-2xl font-semibold text-gray-800">Itinéraires</h1>
+          <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{t('routes.title')}</h2>
+          <Navigation size={24} className="text-gray-600" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
           <button
             onClick={() => setShowLocationModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition shadow-sm flex items-center gap-2"
           >
-            <MapPin size={16} />
-            Ajouter Localisation
+            <MapPin size={18} />
+            {t('routes.addLocation')}
           </button>
           <button
             onClick={() => {
@@ -271,90 +251,89 @@ export function Routes() {
               resetForm();
               setShowModal(true);
             }}
-            className="px-4 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2"
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm flex items-center gap-2"
           >
-            <Plus size={16} />
-            Ajouter Itinéraire
+            <Plus size={18} />
+            {t('routes.addRoute')}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Show</span>
-                <select
-                  value={entriesPerPage}
-                  onChange={(e) => {
-                    setEntriesPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-                <span className="text-sm text-gray-600">entries</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Search:</span>
-                <input
-                  type="text"
-                  placeholder={t('common.search')}
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="bg-white rounded-lg shadow min-h-[500px]">
+          <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Show</span>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span>{t('common.entries')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">{t('common.searchLabel')}</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-white border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Destination</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('routes.colSource')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('routes.colDestination')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('common.action')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentRoutes.map((route, index) => (
-                  <tr key={route.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
-                    <td className="px-4 py-3 text-sm text-[#1e3a5f] font-medium">{route.source}</td>
-                    <td className="px-4 py-3 text-sm text-[#1e3a5f] font-medium">{route.destination}</td>
+              <tbody className="divide-y divide-gray-200">
+                {currentRoutes?.map((route) => (
+                  <tr key={route.id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{route.source}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{route.destination}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(route)}
-                          className="text-green-600 hover:bg-green-50 p-1.5 rounded transition"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(route.id)}
-                          className="text-red-600 hover:bg-red-50 p-1.5 rounded transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex justify-center">
+                        <ActionMenu
+                          actions={[
+                            {
+                              label: t('common.edit'),
+                              icon: <Edit2 size={16} />,
+                              onClick: () => handleEdit(route),
+                            },
+                            {
+                              label: t('common.delete'),
+                              icon: <Trash2 size={16} />,
+                              onClick: () => handleDelete(route.id),
+                              variant: 'danger',
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
                 ))}
                 {currentRoutes.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                      Aucun itinéraire trouvé
+                    <td colSpan={3} className="px-4 py-12 text-center text-gray-500 italic bg-gray-50/50">
+                      <div className="flex flex-col items-center gap-2">
+                        <MapIcon size={32} className="text-gray-300" />
+                        {t('routes.empty')}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -362,46 +341,46 @@ export function Routes() {
             </table>
           </div>
 
-          <div className="p-4 border-t flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredRoutes.length)} of {filteredRoutes.length} entries
+          <div className="p-4 border-t flex justify-between items-center bg-gray-50 rounded-b-lg text-sm text-gray-600 font-medium">
+            <div>
+              {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(startIndex + entriesPerPage, filteredRoutes.length)} {t('common.of')} {filteredRoutes.length} {t('common.entries')}
             </div>
-
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 border border-gray-300 rounded shadow-sm hover:bg-white disabled:opacity-40 transition"
               >
-                Previous
+                {t('common.previous')}
               </button>
-              <span className="px-3 py-1 bg-[#1e3a5f] text-white rounded">{currentPage}</span>
+              <span className="font-bold">{currentPage} / {totalPages}</span>
               <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded shadow-sm hover:bg-white disabled:opacity-40 transition"
               >
-                Next
+                {t('common.next')}
               </button>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-lg shadow border border-gray-100 p-6 flex flex-col h-[525px]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Carte de l'Afrique de l'Est</h2>
-            <div className="text-xs text-gray-500">{Object.keys(allCities).length} localisations</div>
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <MapIcon size={20} className="text-[#0F3C66]" />
+              {t('routes.mapTitle')}
+            </h3>
           </div>
-
-          <div className="relative w-full h-[600px] bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg overflow-hidden border-2 border-gray-200">
-            <svg viewBox="0 0 800 900" className="w-full h-full">
+          <div className="flex-1 rounded-lg bg-blue-50/30 border border-blue-50 relative overflow-hidden flex items-center justify-center p-4 shadow-inner">
+            <svg viewBox="0 0 800 900" className="w-full h-full drop-shadow-xl overflow-scroll scrollbar-hide">
               <defs>
-                <filter id="shadow">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
                 </filter>
                 <linearGradient id="oceanGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: '#bfdbfe', stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: '#93c5fd', stopOpacity: 1 }} />
+                  <stop offset="0%" style={{ stopColor: '#e0f2fe', stopOpacity: 1 }} />
+                  <stop offset="100%" style={{ stopColor: '#bae6fd', stopOpacity: 1 }} />
                 </linearGradient>
               </defs>
 
@@ -409,10 +388,10 @@ export function Routes() {
 
               <g id="countries">
                 <path id="sudan" d="M 50,100 L 50,400 L 150,450 L 180,380 L 200,320 L 220,280 L 200,200 L 150,150 Z"
-                  fill="#2d5016" stroke="#1a3d0a" strokeWidth="2" />
+                  fill="#78ad6c" stroke="#5a8b4f" strokeWidth="2" />
 
                 <path id="southsudan" d="M 50,400 L 50,550 L 120,580 L 160,560 L 180,520 L 150,450 Z"
-                  fill="#3d6b26" stroke="#2d5016" strokeWidth="2" />
+                  fill="#8bb96f" stroke="#6b9b4f" strokeWidth="2" />
 
                 <path id="ethiopia" d="M 200,200 L 220,280 L 200,320 L 180,380 L 150,450 L 180,520 L 220,540 L 280,560 L 340,520 L 380,450 L 400,380 L 420,320 L 440,280 L 460,240 L 440,200 L 400,180 L 350,170 L 300,180 L 250,190 Z"
                   fill="#9bc97f" stroke="#6b9b4f" strokeWidth="2" />
@@ -436,28 +415,12 @@ export function Routes() {
                   fill="#6b9b4f" stroke="#4d7b3f" strokeWidth="2" />
 
                 <path id="burundi" d="M 150,690 L 170,700 L 180,720 L 170,740 L 150,730 Z"
-                  fill="#5a8b4f" stroke="#4a7b3f" strokeWidth="2" />
+                  fill="#5fb24c" stroke="#4a8b3f" strokeWidth="2" />
               </g>
 
-              <g id="labels">
-                <text x="100" y="250" fontSize="18" fontWeight="bold" fill="#1a3d0a">SUDAN</text>
-                <text x="80" y="480" fontSize="14" fontWeight="bold" fill="#2d5016">SOUTH</text>
-                <text x="80" y="498" fontSize="14" fontWeight="bold" fill="#2d5016">SUDAN</text>
-                <text x="240" y="340" fontSize="20" fontWeight="bold" fill="#4d7b3f">ETHIOPIA</text>
-                <text x="440" y="160" fontSize="14" fontWeight="bold" fill="#6b9b4f">ERITREA</text>
-                <text x="480" y="230" fontSize="16" fontWeight="bold" fill="#2d5016">DJIBOUTI</text>
-                <text x="450" y="500" fontSize="20" fontWeight="bold" fill="#3d6b2f">SOMALIA</text>
-                <text x="240" y="680" fontSize="18" fontWeight="bold" fill="#2d5016">KENYA</text>
-                <text x="120" y="600" fontSize="14" fontWeight="bold" fill="#4d7b3f">UGANDA</text>
-                <text x="140" y="675" fontSize="12" fontWeight="bold" fill="#3d6b2f">RWANDA</text>
-                <text x="130" y="720" fontSize="12" fontWeight="bold" fill="#3d6b2f">BURUNDI</text>
-              </g>
-
-              <text x="580" y="280" fontSize="12" fill="#1e3a5f" fontStyle="italic">Gulf of Aden</text>
-              <text x="580" y="650" fontSize="11" fill="#1e3a5f" fontStyle="italic">Indian Ocean</text>
-
+              {/* ... routes mapping ... */}
               <g id="routes">
-                {routes.map((route, idx) => {
+                {routes?.map((route, idx) => {
                   if (!route.source_latitude || !route.destination_latitude) return null;
 
                   const x1 = 400 + (route.source_longitude - 42) * 8;
@@ -477,15 +440,16 @@ export function Routes() {
                         strokeDasharray="8,4"
                         opacity="0.9"
                       />
-                      <circle cx={x1} cy={y1} r="8" fill="#dc2626" stroke="#fff" strokeWidth="2" filter="url(#shadow)" />
-                      <circle cx={x2} cy={y2} r="8" fill="#dc2626" stroke="#fff" strokeWidth="2" filter="url(#shadow)" />
+                      <circle cx={x1} cy={y1} r="6" fill="#dc2626" stroke="#fff" strokeWidth="1.5" filter="url(#shadow)" />
+                      <circle cx={x2} cy={y2} r="6" fill="#dc2626" stroke="#fff" strokeWidth="1.5" filter="url(#shadow)" />
                     </g>
                   );
                 })}
               </g>
 
+              {/* ... cities mapping ... */}
               <g id="cities">
-                {Object.entries(allCities).map(([city, coords], idx) => {
+                {Object.entries(allCities)?.map(([city, coords], idx) => {
                   const x = 400 + (coords.lng - 42) * 8;
                   const y = 450 - (coords.lat - 2) * 35;
 
@@ -496,19 +460,19 @@ export function Routes() {
                       <circle
                         cx={x}
                         cy={y}
-                        r="5"
-                        fill={isCustom ? "#10b981" : "#1e3a5f"}
+                        r="4"
+                        fill={isCustom ? "#10b981" : "#0F3C66"}
                         stroke="#fff"
-                        strokeWidth="2"
+                        strokeWidth="1"
                         filter="url(#shadow)"
                       />
                       <text
-                        x={x + 10}
-                        y={y + 4}
-                        fontSize="10"
+                        x={x + 8}
+                        y={y + 3}
+                        fontSize="9"
                         fill="#000"
                         fontWeight="700"
-                        style={{ textShadow: '1px 1px 3px white, -1px -1px 3px white, 1px -1px 3px white, -1px 1px 3px white' }}
+                        style={{ textShadow: '1px 1px 3px white, -1px -1px 3px white' }}
                       >
                         {city}
                       </text>
@@ -519,164 +483,160 @@ export function Routes() {
             </svg>
           </div>
 
-          <div className="mt-4 flex items-center gap-6 text-sm flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-[#1e3a5f] rounded-full border-2 border-white shadow"></div>
-              <span className="text-gray-700">Villes par défaut</span>
+          <div className="mt-4 flex items-center gap-4 text-xs font-bold flex-wrap opacity-80 uppercase tracking-wide">
+            <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 border rounded-lg">
+              <div className="w-3 h-3 bg-[#0F3C66] rounded-full border border-white"></div>
+              <span>{t('routes.mapDefaultVilles')}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-600 rounded-full border-2 border-white shadow"></div>
-              <span className="text-gray-700">Localisations ajoutées</span>
+            <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 border rounded-lg">
+              <div className="w-3 h-3 bg-green-600 rounded-full border border-white"></div>
+              <span>{t('routes.mapAddedLocalizations')}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-red-600 rounded"></div>
-              <span className="text-gray-700">Itinéraires</span>
+            <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 border rounded-lg">
+              <div className="w-6 h-1 bg-red-600 rounded-sm"></div>
+              <span>{t('routes.mapRoutes')}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
-                {editingRoute ? 'Modifier l\'Itinéraire' : 'Ajouter un Itinéraire'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingRoute(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Source <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                  required
-                >
-                  <option value="">Sélectionner une ville</option>
-                  {Object.keys(allCities).sort().map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Destination <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.destination}
-                  onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                  required
-                >
-                  <option value="">Sélectionner une ville</option>
-                  {Object.keys(allCities).sort().map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full px-4 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f]"
-              >
-                Enregistrer
-              </button>
-            </form>
+      {/* Main Route Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title={editingRoute ? t('routes.modalEditRoute') : t('routes.modalAddRoute')}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('routes.colSource')} <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.source}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+              required
+            >
+              <option value="">{t('common.select')}</option>
+              {Object.keys(allCities).sort().map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
 
-      {showLocationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter une Localisation</h2>
-              <button
-                onClick={() => {
-                  setShowLocationModal(false);
-                  resetLocationForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleLocationSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom de la ville <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={locationFormData.name}
-                  onChange={(e) => setLocationFormData({ ...locationFormData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ex: Berbera"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Latitude <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={locationFormData.latitude}
-                  onChange={(e) => setLocationFormData({ ...locationFormData, latitude: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ex: 10.4396"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Longitude <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={locationFormData.longitude}
-                  onChange={(e) => setLocationFormData({ ...locationFormData, longitude: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ex: 45.0340"
-                  required
-                />
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-800">
-                <p className="font-medium mb-1">Astuce:</p>
-                <p>Vous pouvez trouver les coordonnées sur Google Maps en faisant un clic droit sur un emplacement.</p>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              >
-                Ajouter la Localisation
-              </button>
-            </form>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('routes.colDestination')} <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.destination}
+              onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+              required
+            >
+              <option value="">{t('common.select')}</option>
+              {Object.keys(allCities).sort().map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div className="flex gap-3 pt-4 border-t mt-6 font-bold text-sm">
+            <button
+              type="button"
+              onClick={() => { setShowModal(false); resetForm(); }}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] transition shadow-sm"
+            >
+              {t('common.save')}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Location Modal */}
+      <Modal
+        isOpen={showLocationModal}
+        onClose={() => { setShowLocationModal(false); resetLocationForm(); }}
+        title={t('routes.modalAddLocation')}
+        size="md"
+      >
+        <form onSubmit={handleLocationSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('routes.fieldCityName')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={locationFormData.name}
+              onChange={(e) => setLocationFormData({ ...locationFormData, name: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-600 outline-none transition"
+              placeholder="e.g. Berbera"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                {t('routes.fieldLatitude')} <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={locationFormData.latitude}
+                onChange={(e) => setLocationFormData({ ...locationFormData, latitude: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-600 outline-none transition"
+                placeholder="e.g. 10.43"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                {t('routes.fieldLongitude')} <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={locationFormData.longitude}
+                onChange={(e) => setLocationFormData({ ...locationFormData, longitude: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-600 outline-none transition"
+                placeholder="e.g. 45.03"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 italic">
+            <p className="font-bold mb-1 italic">TIP</p>
+            <p>{t('routes.locationTip')}</p>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t mt-6 font-bold text-sm">
+            <button
+              type="button"
+              onClick={() => { setShowLocationModal(false); resetLocationForm(); }}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition shadow-sm"
+            >
+              {t('routes.addLocation')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

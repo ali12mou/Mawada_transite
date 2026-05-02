@@ -41,7 +41,7 @@ function payloadFromBody(body) {
 
 export async function listLocalCompanies() {
   const docs = await LocalCompany.find({}).sort({ createdAt: -1 });
-  return docs.map((d) => d.toJSON());
+  return docs?.map((d) => d.toJSON());
 }
 
 export async function getLocalCompanyById(id) {

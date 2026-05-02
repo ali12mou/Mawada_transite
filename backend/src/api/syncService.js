@@ -21,7 +21,7 @@ export async function syncCollectionToSupabase({ collectionName, documents }) {
     };
   }
 
-  const rows = documents.map((doc) => ({
+  const rows = documents?.map((doc) => ({
     source_db: 'transit-transport',
     collection_name: collectionName,
     document_id: String(doc._id),
@@ -40,7 +40,7 @@ export async function syncCollectionToSupabase({ collectionName, documents }) {
   }
 
   const dedicatedTableName = toSupabaseTableName(collectionName);
-  const dedicatedRows = documents.map((doc) => ({
+  const dedicatedRows = documents?.map((doc) => ({
     mongo_document_id: String(doc._id),
     data: doc,
     updated_at: new Date().toISOString()

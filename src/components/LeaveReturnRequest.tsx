@@ -228,7 +228,7 @@ export function LeaveReturnRequest() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
         >
           <Plus size={20} />
           New Return Request
@@ -248,10 +248,10 @@ export function LeaveReturnRequest() {
                   required
                   value={formData.employee_id}
                   onChange={(e) => handleEmployeeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 >
                   <option value="">Select Employee</option>
-                  {employees.map((employee) => (
+                  {employees?.map((employee) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
                     </option>
@@ -268,10 +268,10 @@ export function LeaveReturnRequest() {
                     required
                     value={formData.leave_request_id}
                     onChange={(e) => setFormData({ ...formData, leave_request_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
                     <option value="">Select Leave Request</option>
-                    {getEmployeeLeaveRequests().map((lr) => (
+                    {getEmployeeLeaveRequests()?.map((lr) => (
                       <option key={lr.id} value={lr.id}>
                         Leave ending on {new Date(lr.end_date).toLocaleDateString()}
                       </option>
@@ -292,7 +292,7 @@ export function LeaveReturnRequest() {
                   required
                   value={formData.new_return_date}
                   onChange={(e) => setFormData({ ...formData, new_return_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -305,7 +305,7 @@ export function LeaveReturnRequest() {
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -319,7 +319,7 @@ export function LeaveReturnRequest() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
                   Submit Request
                 </button>
@@ -421,7 +421,7 @@ export function LeaveReturnRequest() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {returnRequests.map((request) => (
+              {returnRequests?.map((request) => (
                 <tr key={request.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -437,7 +437,7 @@ export function LeaveReturnRequest() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-[#1e3a5f]">
+                    <div className="text-sm font-semibold text-[#0F3C66]">
                       {new Date(request.new_return_date).toLocaleDateString()}
                     </div>
                   </td>
@@ -494,3 +494,5 @@ export function LeaveReturnRequest() {
     </div>
   );
 }
+
+

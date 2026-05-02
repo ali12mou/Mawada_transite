@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Pencil, Trash2, Building2, Plus, Search } from 'lucide-react';
 import {
   fetchCompanies as fetchCompaniesApi,
   createCompany,
@@ -8,6 +8,8 @@ import {
   type CompanyRecord,
 } from '../api/companiesApi';
 import { useLanguage } from '../contexts/LanguageContext';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 export function Companies() {
   const { t } = useLanguage();
@@ -42,7 +44,7 @@ export function Companies() {
           alert(
             error instanceof Error
               ? error.message
-              : 'Impossible de charger les entreprises. Vérifiez que l’API est démarrée.'
+              : t('companies.errorLoad')
           );
         }
       } finally {
@@ -73,7 +75,7 @@ export function Companies() {
       await loadCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
-      alert(error instanceof Error ? error.message : 'Enregistrement impossible.');
+      alert(error instanceof Error ? error.message : t('companies.errorSave'));
     } finally {
       setSaving(false);
     }
@@ -89,13 +91,13 @@ export function Companies() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette entreprise ?')) return;
+    if (!confirm(t('companies.deleteConfirm'))) return;
     try {
       await deleteCompany(id);
       await loadCompanies();
     } catch (error) {
       console.error('Error deleting company:', error);
-      alert(error instanceof Error ? error.message : 'Suppression impossible.');
+      alert(error instanceof Error ? error.message : t('companies.errorDelete'));
     }
   };
 
@@ -132,95 +134,103 @@ export function Companies() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Gérer les Entreprises Vendeuses</h2>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-2">
-          <div className="text-sm text-gray-500">
-            {t('common.version')}
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('companies.manageTitle')}</h1>
+          <Building2 size={24} className="text-[#0F3C66] opacity-80" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="rounded bg-[#1e3a5f] px-4 py-2 text-white transition hover:bg-[#2d4a6f]"
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
           >
-            + Ajouter Nouveau
+            <Plus size={16} />
+            {t('common.add')}
           </button>
         </div>
       </div>
 
-      <div className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">{t('common.show')}</span>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{t('common.show')}</span>
             <select
               value={entriesPerPage}
               onChange={e => {
                 setEntriesPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="rounded border border-gray-300 px-3 py-1 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-gray-600">{t('common.entries')}</span>
+            <span className="text-sm font-medium text-gray-600">{t('common.entries')}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">{t('common.search')}:</span>
+          <div className="relative w-72">
             <input
               type="text"
+              placeholder={`${t('common.search')}...`}
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="rounded border border-gray-300 px-3 py-1 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
             />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                  Nom de l'entreprise
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">
+                  {t('companies.colName')}
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Adresse</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">
+                  {t('companies.colAddress')}
+                </th>
+                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24">
+                  {t('common.action')}
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {currentCompanies.map(company => (
-                <tr key={company.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">{company.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{company.address || 'N/A'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(company)}
-                        className="rounded p-1.5 text-green-600 transition hover:bg-green-50"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(company.id)}
-                        className="rounded p-1.5 text-red-600 transition hover:bg-red-50"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {currentCompanies?.map(company => (
+                <tr key={company.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm font-bold text-[#0F3C66]">{company.name}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600 font-medium">{company.address || 'N/A'}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.edit'),
+                            icon: <Pencil size={16} />,
+                            onClick: () => handleEdit(company),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => void handleDelete(company.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
               {currentCompanies.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={3} className="px-5 py-8 text-center text-gray-500 italic">
                     {t('common.noData')}
                   </td>
                 </tr>
@@ -229,84 +239,89 @@ export function Companies() {
           </table>
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center text-sm">
+          <div className="text-gray-500 font-medium">
             {filteredCompanies.length === 0
               ? '—'
-              : `${t('common.showing')} ${startIndex + 1} ${t('common.to')} ${Math.min(endIndex, filteredCompanies.length)} ${t('common.of')} ${filteredCompanies.length} ${t('common.entries')}`}
+              : <>{t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(endIndex, filteredCompanies.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredCompanies.length}</span> {t('common.entries')}</>}
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              {t('commercial.previous')}
+              {t('commercial.previous') || t('common.previous')}
             </button>
-            <span className="min-w-[3rem] text-center text-sm font-medium text-[#1e3a5f]">
+            <div className="px-4 py-2 font-bold text-sm text-gray-700">
               {currentPage} / {totalPages}
-            </span>
+            </div>
             <button
               type="button"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              {t('commercial.next')}
+              {t('commercial.next') || t('common.next')}
             </button>
           </div>
         </div>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">
-                {editingId ? "Modifier l'entreprise" : 'Ajouter une nouvelle entreprise'}
-              </h3>
-              <button type="button" onClick={resetForm} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
+      <Modal
+        isOpen={showForm}
+        onClose={resetForm}
+        title={editingId ? t('companies.modalTitleUpdate') : t('companies.modalTitleAdd')}
+        size="md"
+      >
+        <form onSubmit={e => void handleSubmit(e)} className="space-y-5 p-2">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                {t('companies.colName')} *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
             </div>
-            <form onSubmit={e => void handleSubmit(e)} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Nom de l'entreprise <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Adresse</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={e => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1e3a5f]"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded bg-[#1e3a5f] px-6 py-2 text-white transition hover:bg-[#2d4a6f] disabled:opacity-60"
-                >
-                  {saving ? '…' : 'Enregistrer'}
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                {t('companies.colAddress')}
+              </label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={e => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
+            </div>
           </div>
-        </div>
-      )}
+          <div className="flex gap-3 pt-4 border-t border-gray-100 mt-6 text-sm">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition active:scale-95 font-bold"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving ? '…' : t('common.save')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

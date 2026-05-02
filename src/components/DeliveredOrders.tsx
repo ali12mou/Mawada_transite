@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Search, X, Edit2, Trash2, Eye } from 'lucide-react';
+import { X, Eye } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { useCurrency } from '../contexts/CurrencyContext';
 
 interface DeliveredOrder {
@@ -160,8 +161,6 @@ export function DeliveredOrders() {
     });
   };
 
-  const formatCurrency = (amount: number) => formatAmount(amount);
-
   const totalPages = Math.ceil(filteredOrders.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
@@ -178,19 +177,19 @@ export function DeliveredOrders() {
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer les commandes livrées</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('deliveredOrders.title')}</h1>
         <button
           onClick={() => setShowModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Marquer la commande comme livrée
+          {t('deliveredOrders.markDelivered')}
         </button>
       </div>
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span>Show</span>
+            <span>{t('common.show')}</span>
             <input
               type="number"
               value={entriesPerPage}
@@ -198,11 +197,11 @@ export function DeliveredOrders() {
               className="w-16 px-2 py-1 border border-gray-300 rounded"
               min="1"
             />
-            <span>entries</span>
+            <span>{t('common.entries')}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span>Search:</span>
+            <span>{t('common.searchLabel')}</span>
             <input
               type="text"
               value={searchTerm}
@@ -217,43 +216,41 @@ export function DeliveredOrders() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Commande</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Source et Destination</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut de livraison</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Ligne d'expédition</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Frais</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Ajouté par</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colOrderId')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orders.colClient')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colSourceDest')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('deliveredOrders.colShipline')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('deliveredOrders.colFees')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('deliveredOrders.colAddedBy')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orders.colStatus')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentOrders.map((order, index) => (
+              {currentOrders?.map((order, index) => (
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-600">{order.order_number}</td>
                   <td className="px-4 py-3 text-sm">{order.client_name}</td>
-                  <td className="px-4 py-3 text-sm text-blue-600">{order.order_number}</td>
-                  <td className="px-4 py-3 text-sm">{order.source_destination || '-'}</td>
+                  <td className="px-4 py-3 text-sm">{order.source_destination}</td>
+                  <td className="px-4 py-3 text-sm">{order.shipline}</td>
+                  <td className="px-4 py-3 text-sm">{formatAmount(order.fees)}</td>
+                  <td className="px-4 py-3 text-sm">{order.added_by}</td>
                   <td className="px-4 py-3">
-                    <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-semibold">
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                       {order.delivery_status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">{order.shipline || 'null'}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(order.fees)}</td>
-                  <td className="px-4 py-3 text-sm">{order.added_by || 'null'}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-800">
-                        <X className="w-4 h-4" />
-                      </button>
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <ActionMenu
+                      actions={[
+                        {
+                          label: t('common.view'),
+                          icon: <Eye className="w-4 h-4" />,
+                          onClick: () => order.delivery_document && window.open(order.delivery_document, '_blank')
+                        }
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -263,7 +260,7 @@ export function DeliveredOrders() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredOrders.length)} {t('common.of')} {filteredOrders.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -272,16 +269,15 @@ export function DeliveredOrders() {
               disabled={currentPage === 1}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Previous
+              {t('common.previous')}
             </button>
 
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1)?.map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1 border rounded ${currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
+                  }`}
               >
                 {page}
               </button>
@@ -292,7 +288,7 @@ export function DeliveredOrders() {
               disabled={currentPage === totalPages}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
@@ -300,9 +296,9 @@ export function DeliveredOrders() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full">
+          <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Marquer/Mise à jour des commandes livrées</h2>
+              <h2 className="text-xl font-semibold">{t('deliveredOrders.addUpdate')}</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -314,11 +310,11 @@ export function DeliveredOrders() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
+            <form onSubmit={handleSubmit} className="p-6 font-poppins">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Client *
+                    {t('orderReception.selectOrder')} *
                   </label>
                   <select
                     required
@@ -326,10 +322,10 @@ export function DeliveredOrders() {
                     onChange={(e) => handleOrderSelect(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select Customer</option>
-                    {completedOrders.map((order) => (
+                    <option value="">{t('orderReception.selectOrder')}</option>
+                    {completedOrders?.map((order) => (
                       <option key={order.id} value={order.id}>
-                        {order.client_name}
+                        {order.client_name} - {order.order_number}
                       </option>
                     ))}
                   </select>
@@ -337,26 +333,7 @@ export function DeliveredOrders() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Commande *
-                  </label>
-                  <select
-                    required
-                    value={formData.order_id}
-                    onChange={(e) => handleOrderSelect(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Order</option>
-                    {completedOrders.map((order) => (
-                      <option key={order.id} value={order.id}>
-                        {order.order_number}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ligne d'expédition *
+                    {t('deliveredOrders.colShipline')} *
                   </label>
                   <select
                     required
@@ -364,20 +341,22 @@ export function DeliveredOrders() {
                     onChange={(e) => setFormData({ ...formData, shipline: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select Shipline</option>
-                    <option value="Mohamed Qasaala 2">Mohamed Qasaala 2</option>
-                    <option value="Shipline A">Shipline A</option>
-                    <option value="Shipline B">Shipline B</option>
+                    <option value="">{t('deliveredOrders.selectShipline')}</option>
+                    <option value="MSC">MSC</option>
+                    <option value="CMA CGM">CMA CGM</option>
+                    <option value="Maersk">Maersk</option>
+                    <option value="Hapag-Lloyd">Hapag-Lloyd</option>
+                    <option value="PIL">PIL</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Frais *
+                    {t('deliveredOrders.colFees')}
                   </label>
                   <input
                     type="number"
-                    required
                     value={formData.fees}
                     onChange={(e) => setFormData({ ...formData, fees: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -386,23 +365,33 @@ export function DeliveredOrders() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Document de livraison *
+                    {t('deliveredOrders.deliveryDoc')}
                   </label>
                   <input
                     type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => setFormData({ ...formData, delivery_document: e.target.files?.[0] || null })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Aucun fichier choisi</p>
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  {t('common.cancel')}
+                </button>
                 <button
                   type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Enregistrer les modifications
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -412,3 +401,5 @@ export function DeliveredOrders() {
     </div>
   );
 }
+
+

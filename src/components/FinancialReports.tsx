@@ -96,7 +96,7 @@ export function FinancialReports() {
 
     const total = monthsData.reduce((sum, m) => sum + m.profit, 0);
 
-    return monthsData.map(m => ({
+    return monthsData?.map(m => ({
       ...m,
       percentage: total > 0 ? (m.profit / total) * 100 : 0
     }));
@@ -117,7 +117,7 @@ export function FinancialReports() {
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition">
-                <Receipt className="w-8 h-8 text-[#1e3a5f]" />
+                <Receipt className="w-8 h-8 text-[#0F3C66]" />
               </div>
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
@@ -174,7 +174,7 @@ export function FinancialReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
             {t('financial.backToReports')}
           </button>
@@ -183,10 +183,10 @@ export function FinancialReports() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex gap-3 mb-6">
-            <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+            <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
               {t('financial.viewAnalysis')}
             </button>
-            <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+            <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
               <Printer className="w-4 h-4" />
               {t('financial.print')}
             </button>
@@ -201,7 +201,7 @@ export function FinancialReports() {
                 type="date"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
 
@@ -212,10 +212,10 @@ export function FinancialReports() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="All">{t('financial.all')}</option>
-                {categories.map(cat => (
+                {categories?.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
@@ -228,7 +228,7 @@ export function FinancialReports() {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="All">{t('financial.all')}</option>
                 <option value="Operational">Operational</option>
@@ -246,7 +246,7 @@ export function FinancialReports() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('financial.search') + '...'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
           </div>
@@ -303,7 +303,7 @@ export function FinancialReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
             {t('financial.backToReports')}
           </button>
@@ -312,10 +312,10 @@ export function FinancialReports() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex gap-3 mb-6">
-            <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+            <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
               {t('financial.viewDetail')}
             </button>
-            <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+            <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
               <Printer className="w-4 h-4" />
               {t('financial.printSummary')}
             </button>
@@ -334,7 +334,7 @@ export function FinancialReports() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {allocations.map((alloc, index) => (
+                {allocations?.map((alloc, index) => (
                   <tr key={alloc.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">{index + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium">{alloc.month}</td>
@@ -386,7 +386,7 @@ export function FinancialReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
             {t('financial.backToReports')}
           </button>
@@ -396,11 +396,11 @@ export function FinancialReports() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex gap-3">
-              <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+              <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
                 <Printer className="w-4 h-4" />
                 {t('financial.printSummary')}
               </button>
-              <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] flex items-center gap-2">
+              <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] flex items-center gap-2">
                 {t('financial.viewAnalysis')}
               </button>
             </div>
@@ -410,7 +410,7 @@ export function FinancialReports() {
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="2024">2024</option>
                 <option value="2025">2025</option>
@@ -434,7 +434,7 @@ export function FinancialReports() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {profitData.map((row, index) => (
+                {profitData?.map((row, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">{index + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium">{row.month}</td>
@@ -476,3 +476,5 @@ export function FinancialReports() {
 
   return null;
 }
+
+

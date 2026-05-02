@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, FileText, Download, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -110,7 +110,7 @@ export function EmployeeDocuments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this document?')) {
+    if (confirm(t('documents.deleteConfirm'))) {
       try {
         const { error } = await supabase
           .from('employee_documents')
@@ -140,7 +140,7 @@ export function EmployeeDocuments() {
 
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(e => e.id === employeeId);
-    return employee ? employee.full_name : 'Unknown';
+    return employee ? employee.full_name : t('common.unknown');
   };
 
   const documentTypes = ['CV', 'ID Card', 'Passport', 'Contract', 'Certificate', 'Diploma', 'Medical Certificate', 'Other'];
@@ -157,15 +157,15 @@ export function EmployeeDocuments() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Employee Documents</h2>
-          <p className="text-gray-600 mt-1">Manage employee documentation</p>
+          <h2 className="text-2xl font-bold text-gray-800">{t('documents.title')}</h2>
+          <p className="text-gray-600 mt-1">{t('documents.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
         >
           <Plus size={20} />
-          Add Document
+          {t('documents.addDocument')}
         </button>
       </div>
 
@@ -173,22 +173,22 @@ export function EmployeeDocuments() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">
-              {editingId ? 'Edit Document' : 'Add New Document'}
+              {editingId ? t('documents.modalTitleEdit') : t('documents.modalTitleAdd')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee *
+                    {t('documents.fieldEmployee')} *
                   </label>
                   <select
                     required
                     value={formData.employee_id}
                     onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
-                    <option value="">Select Employee</option>
-                    {employees.map((employee) => (
+                    <option value="">{t('documents.selectEmployee')}</option>
+                    {employees?.map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.full_name}
                       </option>
@@ -197,16 +197,16 @@ export function EmployeeDocuments() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Document Type *
+                    {t('documents.fieldDocumentType')} *
                   </label>
                   <select
                     required
                     value={formData.document_type}
                     onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
-                    <option value="">Select Type</option>
-                    {documentTypes.map((type) => (
+                    <option value="">{t('documents.selectType')}</option>
+                    {documentTypes?.map((type) => (
                       <option key={type} value={type}>
                         {type}
                       </option>
@@ -218,51 +218,51 @@ export function EmployeeDocuments() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Document Name *
+                    {t('documents.fieldDocumentName')} *
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.document_name}
                     onChange={(e) => setFormData({ ...formData, document_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Expiry Date
+                    {t('documents.fieldExpiryDate')}
                   </label>
                   <input
                     type="date"
                     value={formData.expiry_date}
                     onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Document URL
+                  {t('documents.fieldDocumentUrl')}
                 </label>
                 <input
                   type="text"
                   value={formData.document_url}
                   onChange={(e) => setFormData({ ...formData, document_url: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+                  {t('documents.fieldNotes')}
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -272,13 +272,13 @@ export function EmployeeDocuments() {
                   onClick={resetForm}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
-                  {editingId ? 'Update' : 'Create'}
+                  {editingId ? t('common.save') : t('common.add')}
                 </button>
               </div>
             </form>
@@ -292,27 +292,27 @@ export function EmployeeDocuments() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
+                  {t('documents.colEmployee')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document Type
+                  {t('documents.colType')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document Name
+                  {t('documents.colName')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Upload Date
+                  {t('documents.colUploadDate')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expiry Date
+                  {t('documents.colExpiryDate')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t('common.action')}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {documents.map((document) => (
+              {documents?.map((document) => (
                 <tr key={document.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -369,7 +369,7 @@ export function EmployeeDocuments() {
               {documents.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No documents found. Add your first document to get started.
+                    {t('documents.emptyMessage')}
                   </td>
                 </tr>
               )}
@@ -380,3 +380,5 @@ export function EmployeeDocuments() {
     </div>
   );
 }
+
+

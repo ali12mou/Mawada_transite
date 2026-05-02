@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Edit, Trash2, Plus, Eye, FileText, Printer, X } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { formatPostgrestError } from '../lib/supabaseErrors';
 import {
   listChamberInvoices,
@@ -7,7 +8,7 @@ import {
   createChamberInvoice,
   updateChamberInvoice,
   deleteChamberInvoice,
-} from '../api/transitDb';
+} from '../api/chamberInvoicesApi';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   buildChamberInvoicePrintHtml,
@@ -297,7 +298,7 @@ export function ChamberInvoice() {
         swift_code_2: h.swift_code_2 || '',
         currency: h.currency || h.invoice_currency || 'USD',
       };
-      const mapped: ChamberInvoicePrintItem[] = (items || []).map((it: Record<string, unknown>) => ({
+      const mapped: ChamberInvoicePrintItem[] = (items || [])?.map((it: Record<string, unknown>) => ({
         description_of_goods: String(it.description_of_goods ?? ''),
         origin: String(it.origin ?? ''),
         hs_code: String(it.hs_code ?? ''),
@@ -364,26 +365,26 @@ export function ChamberInvoice() {
       const rows = (full.items || []) as Record<string, unknown>[];
       setInvoiceItems(
         rows.length > 0
-          ? rows.map(it => ({
-              description_of_goods: String(it.description_of_goods ?? ''),
-              origin: String(it.origin ?? ''),
-              hs_code: String(it.hs_code ?? ''),
-              unit: String(it.unit ?? ''),
-              quantity: Number(it.quantity) || 0,
-              unit_price: Number(it.unit_price) || 0,
-              total_amount: Number(it.total_amount) || 0,
-            }))
+          ? rows?.map(it => ({
+            description_of_goods: String(it.description_of_goods ?? ''),
+            origin: String(it.origin ?? ''),
+            hs_code: String(it.hs_code ?? ''),
+            unit: String(it.unit ?? ''),
+            quantity: Number(it.quantity) || 0,
+            unit_price: Number(it.unit_price) || 0,
+            total_amount: Number(it.total_amount) || 0,
+          }))
           : [
-              {
-                description_of_goods: '',
-                origin: '',
-                hs_code: '',
-                unit: '',
-                quantity: 0,
-                unit_price: 0,
-                total_amount: 0,
-              },
-            ]
+            {
+              description_of_goods: '',
+              origin: '',
+              hs_code: '',
+              unit: '',
+              quantity: 0,
+              unit_price: 0,
+              total_amount: 0,
+            },
+          ]
       );
       const pack = full.packing as Record<string, unknown> | null;
       if (pack) {
@@ -519,7 +520,7 @@ export function ChamberInvoice() {
             resetForm();
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+          className="flex items-center gap-2 bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
         >
           <Plus size={20} />
           {t('common.addNew')}
@@ -583,12 +584,11 @@ export function ChamberInvoice() {
                   </td>
                 </tr>
               ) : (
-                pageSlice.map((invoice, index) => (
+                pageSlice?.map((invoice, index) => (
                   <tr
                     key={invoice.id}
-                    className={`border-b hover:bg-blue-50/40 ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50/80'
-                    }`}
+                    className={`border-b hover:bg-blue-50/40 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/80'
+                      }`}
                   >
                     <td className="py-3 px-4">{(currentPage - 1) * entriesPerPage + index + 1}</td>
                     <td className="py-3 px-4">{invoice.consignee_name}</td>
@@ -596,39 +596,32 @@ export function ChamberInvoice() {
                     <td className="py-3 px-4">{invoice.payment_conditions || '-'}</td>
                     <td className="py-3 px-4">{invoice.currency || '-'}</td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          title={t('common.view')}
-                          onClick={() => void openPreviewModal(invoice.id)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('common.edit')}
-                          onClick={() => void openEditModal(invoice.id)}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('common.delete')}
-                          onClick={() => handleDelete(invoice.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title="PDF / Imprimer"
-                          onClick={() => void handlePrintPdf(invoice.id)}
-                          className="text-[#1e3a5f] hover:text-[#152a44]"
-                        >
-                          <FileText size={18} />
-                        </button>
+                      <div className="flex items-center justify-center">
+                        <ActionMenu
+                          actions={[
+                            {
+                              label: t('common.view'),
+                              icon: <Eye size={16} />,
+                              onClick: () => void openPreviewModal(invoice.id),
+                            },
+                            {
+                              label: t('common.edit'),
+                              icon: <Edit size={16} />,
+                              onClick: () => void openEditModal(invoice.id),
+                            },
+                            {
+                              label: 'PDF / Imprimer',
+                              icon: <FileText size={16} />,
+                              onClick: () => void handlePrintPdf(invoice.id),
+                            },
+                            {
+                              label: t('common.delete'),
+                              icon: <Trash2 size={16} />,
+                              onClick: () => handleDelete(invoice.id),
+                              variant: 'danger',
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -669,7 +662,7 @@ export function ChamberInvoice() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-screen-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold">
                 {editingId
@@ -690,7 +683,7 @@ export function ChamberInvoice() {
 
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.consignee')}
@@ -725,9 +718,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.sourceDestination')}
@@ -761,9 +752,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.invoiceNumber')}
@@ -797,9 +786,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.purchaseOrder')}
@@ -833,9 +820,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.invoiceCurrency')}
@@ -869,9 +854,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.loadingPort')}
@@ -905,9 +888,7 @@ export function ChamberInvoice() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('chamberInvoice.bankAccount')}
@@ -946,7 +927,7 @@ export function ChamberInvoice() {
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold mb-4">{t('chamberInvoice.goodsDescription')}</h3>
 
-                  {invoiceItems.map((item, index) => (
+                  {invoiceItems?.map((item, index) => (
                     <div key={index} className="mb-4 p-4 border rounded-lg">
                       <div className="grid grid-cols-1 gap-4 mb-2 sm:grid-cols-2 lg:grid-cols-8">
                         <div className="sm:col-span-2 lg:col-span-2">
@@ -1081,7 +1062,7 @@ export function ChamberInvoice() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="font-semibold text-[#1e3a5f]">
+              <h3 className="font-semibold text-[#0F3C66]">
                 {t('chamberInvoice.title')} — {t('common.view')}
               </h3>
               <div className="flex gap-2">
@@ -1090,7 +1071,7 @@ export function ChamberInvoice() {
                   onClick={() =>
                     void openChamberInvoicePrintWindow(previewPrint.inv, previewPrint.items)
                   }
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#1e3a5f] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#0F3C66] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
                 >
                   <Printer className="h-4 w-4" />
                   Imprimer
@@ -1124,3 +1105,5 @@ export function ChamberInvoice() {
     </div>
   );
 }
+
+

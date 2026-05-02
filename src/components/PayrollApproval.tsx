@@ -203,7 +203,7 @@ export function PayrollApproval() {
 
               <div className="border-t pt-4">
                 <label className="text-sm text-gray-600">Net Salary</label>
-                <div className="text-2xl font-bold text-[#1e3a5f]">{formatCurrency(selectedPayroll.net_salary)}</div>
+                <div className="text-2xl font-bold text-[#0F3C66]">{formatCurrency(selectedPayroll.net_salary)}</div>
               </div>
 
               {selectedPayroll.notes && (
@@ -266,7 +266,7 @@ export function PayrollApproval() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {payrolls.map((payroll) => (
+              {payrolls?.map((payroll) => (
                 <tr key={payroll.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">
@@ -284,7 +284,7 @@ export function PayrollApproval() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-[#1e3a5f]">
+                    <div className="text-sm font-bold text-[#0F3C66]">
                       {formatCurrency(payroll.net_salary)}
                     </div>
                   </td>
@@ -334,3 +334,5 @@ export function PayrollApproval() {
     </div>
   );
 }
+
+

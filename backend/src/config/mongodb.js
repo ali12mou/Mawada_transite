@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const defaultMongoUri = 'mongodb://127.0.0.1:27017/transit-transport';
+const defaultMongoUri = 'mongodb://localhost:27017/transit-transport';
 
 export async function connectMongo() {
   const mongoUri = process.env.MONGODB_URI || defaultMongoUri;

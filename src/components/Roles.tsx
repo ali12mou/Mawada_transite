@@ -114,7 +114,7 @@ export function Roles() {
             setFormData({ name: '', description: '' });
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+          className="flex items-center gap-2 bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
         >
           <Plus size={20} />
           {t('common.addNew')}
@@ -164,7 +164,7 @@ export function Roles() {
                   </td>
                 </tr>
               ) : (
-                filteredRoles.map((role) => (
+                filteredRoles?.map((role) => (
                   <tr key={role.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm">
                       <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export function Roles() {
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               &lt;
             </button>
-            <button className="px-3 py-1 bg-[#1e3a5f] text-white rounded">1</button>
+            <button className="px-3 py-1 bg-[#0F3C66] text-white rounded">1</button>
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               &gt;
             </button>
@@ -235,7 +235,7 @@ export function Roles() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                     required
                   />
                 </div>
@@ -246,7 +246,7 @@ export function Roles() {
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                     rows={3}
                     required
                   />
@@ -266,7 +266,7 @@ export function Roles() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#152a44] transition"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#152a44] transition"
                 >
                   {editingRole ? t('common.edit') : t('common.add')}
                 </button>
@@ -282,3 +282,5 @@ export function Roles() {
     </div>
   );
 }
+
+

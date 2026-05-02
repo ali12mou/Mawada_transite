@@ -23,3 +23,5 @@ export async function patchAppConfig(updates: AppConfigMap): Promise<AppConfigMa
   if (!res.ok) throw new Error(body.message || res.statusText);
   return (body.data as AppConfigMap) || {};
 }
+
+

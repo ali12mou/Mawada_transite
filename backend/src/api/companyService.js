@@ -2,7 +2,7 @@ import { Company } from '../models/Company.model.js';
 
 export async function listCompanies() {
   const docs = await Company.find({}).sort({ createdAt: -1 });
-  return docs.map((d) => d.toJSON());
+  return docs?.map((d) => d.toJSON());
 }
 
 export async function getCompanyById(id) {

@@ -270,3 +270,5 @@ export async function updateChamberInvoice(
 export async function deleteChamberInvoice(id: string) {
   await reqOk(`/chamber-invoices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
+
+

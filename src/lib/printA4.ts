@@ -60,3 +60,5 @@ export function appendAutoPrintBeforeBodyClose(html: string): string {
   }
   return html + SCRIPT_AUTO_PRINT;
 }
+
+

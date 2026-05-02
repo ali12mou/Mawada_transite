@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Edit, Trash2, Eye, Award } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -135,7 +136,7 @@ export function CertificateOrigin() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+          className="bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
         >
           {t('certificateOrigin.addNew')}
         </button>
@@ -191,7 +192,7 @@ export function CertificateOrigin() {
                   </td>
                 </tr>
               ) : (
-                filteredCertificates.map((cert, index) => (
+                filteredCertificates?.map((cert, index) => (
                   <tr key={cert.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4">{index + 1}</td>
                     <td className="py-3 px-4">{cert.customer}</td>
@@ -199,22 +200,27 @@ export function CertificateOrigin() {
                     <td className="py-3 px-4">{cert.destination || '-'}</td>
                     <td className="py-3 px-4">{cert.hs_code || '-'}</td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="text-blue-600 hover:text-blue-700">
-                          <Edit size={18} />
-                        </button>
-                        <button className="text-red-600 hover:text-red-700">
-                          <Eye size={18} />
-                        </button>
-                        <button className="text-green-600 hover:text-green-700">
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cert.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                      <div className="flex items-center justify-center">
+                        <ActionMenu
+                          actions={[
+                            {
+                              label: t('common.view'),
+                              icon: <Eye size={16} />,
+                              onClick: () => console.log('View', cert.id),
+                            },
+                            {
+                              label: t('common.edit'),
+                              icon: <Edit size={16} />,
+                              onClick: () => console.log('Edit', cert.id),
+                            },
+                            {
+                              label: t('common.delete'),
+                              icon: <Trash2 size={16} />,
+                              onClick: () => handleDelete(cert.id),
+                              variant: 'danger',
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -232,7 +238,7 @@ export function CertificateOrigin() {
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Previous
             </button>
-            <button className="px-3 py-1 bg-[#1e3a5f] text-white rounded">1</button>
+            <button className="px-3 py-1 bg-[#0F3C66] text-white rounded">1</button>
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Next
             </button>
@@ -423,3 +429,5 @@ export function CertificateOrigin() {
     </div>
   );
 }
+
+

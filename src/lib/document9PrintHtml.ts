@@ -63,11 +63,11 @@ export function buildDocument9PrintHtml(
   const gross = doc.gross_weight?.trim() || doc.weight || '';
   const net = doc.net_weight?.trim() || '';
 
-  const txRow = TX_KEYS.map(
+  const txRow = TX_KEYS?.map(
     (k) => `<span class="chk-item">${box(tt.includes(k))} ${esc(TX_LABELS[k])}</span>`
   ).join('');
 
-  const trRow = TR_KEYS.map(
+  const trRow = TR_KEYS?.map(
     (k) => `<span class="chk-item">${box(tm.includes(k))} ${esc(TR_LABELS[k])}</span>`
   ).join('');
 
@@ -376,7 +376,7 @@ export function buildDocument9PrintHtml(
     <table class="footer-grid" cellspacing="0" cellpadding="0">
       <tr>
         <td style="width:52%">
-          <div class="chk-title">Cocher la case correspondante</div>
+          <div class="chk-title">Cocher la case correspndante</div>
           <div>${txRow}</div>
           <div style="margin-top:8px" class="chk-title">Mode de transport</div>
           <div>${trRow}</div>
@@ -432,3 +432,5 @@ export async function openDocument9PrintWindow(doc: Document9Record): Promise<vo
   w.document.write(appendAutoPrintBeforeBodyClose(html));
   w.document.close();
 }
+
+

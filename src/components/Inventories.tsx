@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, Download, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Download, X, ClipboardList, Package, Warehouse as WarehouseIcon, Search } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 
 interface Product {
   id: string;
@@ -26,7 +27,7 @@ interface Inventory {
 
 export function Inventories() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -109,7 +110,7 @@ export function Inventories() {
       fetchData();
     } catch (error) {
       console.error('Error saving inventory:', error);
-      alert('Erreur lors de la sauvegarde. Veuillez vérifier que cette combinaison produit/entrepôt n\'existe pas déjà.');
+      alert(t('inventories.errorUnique'));
     }
   };
 
@@ -124,7 +125,7 @@ export function Inventories() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet inventaire ?')) return;
+    if (!confirm(t('common.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -156,134 +157,190 @@ export function Inventories() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Inventaire</h1>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b flex justify-end gap-2">
+    <div className="min-h-screen bg-gray-50/50 p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0F3C66] text-white shadow-lg shadow-[#0F3C66]/20">
+            <ClipboardList size={24} strokeWidth={1.5} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              {t('inventories.title')}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {t('inventories.subtitle')}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {
               setEditingInventory(null);
               resetForm();
               setShowModal(true);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
           >
-            Ajouter
+            <Plus size={20} />
+            {t('inventories.addButton')}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-            <Download className="w-4 h-4" />
-            Exporter Export
+          <button className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50">
+            <Download size={20} className="text-gray-400" />
+            {t('products.export')}
           </button>
         </div>
+      </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  ID d'inventaire <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom du produit <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom de l'entrepôt <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Quantité <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Dernière mise à jour <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm shadow-gray-200/50">
+        <div className="border-b border-gray-100 bg-slate-50/50 p-4 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>{t('common.show')}</span>
+                <select className="rounded-lg border border-gray-200 bg-white px-2 py-1 font-medium text-gray-900 focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20">
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+                <span>{t('common.entries')}</span>
+              </div>
+            </div>
+
+            <div className="relative min-w-[280px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder={t('inventories.searchPlaceholder')}
+                className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto text-sm">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-4">#</th>
+                <th className="px-6 py-4">{t('inventories.colProduct')}</th>
+                <th className="px-6 py-4">{t('inventories.colWarehouse')}</th>
+                <th className="px-6 py-4">{t('inventories.colQuantity')}</th>
+                <th className="px-6 py-4">{t('inventories.colLastUpdate')}</th>
+                <th className="px-6 py-4 text-center">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {inventories.map((inventory, index) => (
-                <tr key={inventory.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{index + 1}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {inventory.products?.name || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-blue-600">
-                    {inventory.warehouses?.name || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm">{inventory.quantity}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {inventory.last_updated
-                      ? new Date(inventory.last_updated).toLocaleDateString('fr-FR')
-                      : '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(inventory)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(inventory.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+            <tbody className="divide-y divide-gray-100">
+              {inventories.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package size={40} className="text-gray-200" />
+                      <span>{t('inventories.empty')}</span>
                     </div>
                   </td>
                 </tr>
-              ))}
-              {inventories.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    Aucun inventaire trouvé
-                  </td>
-                </tr>
+              ) : (
+                inventories.map((inventory, index) => (
+                  <tr key={inventory.id} className="transition hover:bg-[#0F3C66]/[0.02]">
+                    <td className="px-6 py-4 font-medium text-gray-400">
+                      {index + 1}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Package size={16} className="text-gray-400" />
+                        {inventory.products?.name || t('inventories.unknownProduct')}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 font-medium text-[#0F3C66]">
+                        <WarehouseIcon size={16} className="text-gray-400" />
+                        {inventory.warehouses?.name || '—'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      {inventory.quantity}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {inventory.last_updated
+                        ? new Date(inventory.last_updated).toLocaleDateString(language === 'fr' ? 'fr-FR' : (language === 'ar' ? 'ar-SA' : 'en-US'), {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                          })
+                        : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex justify-center">
+                        <ActionMenu
+                          actions={[
+                            {
+                              label: t('common.edit'),
+                              icon: <Edit2 size={16} />,
+                              onClick: () => handleEdit(inventory),
+                            },
+                            {
+                              label: t('common.delete'),
+                              icon: <Trash2 size={16} />,
+                              onClick: () => handleDelete(inventory.id),
+                              variant: 'danger',
+                            },
+                          ]}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        <div className="p-4 border-t">
-          <div className="text-sm text-gray-600">
-            <button className="text-blue-600 hover:underline">Afficher</button>
+        <div className="border-t border-gray-100 bg-white px-6 py-4 text-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-gray-600">
+              {t('common.showing')} 1 {t('common.to')} {inventories.length} {t('common.of')} {inventories.length} {t('common.entries')}
+            </p>
+
+            <div className="flex items-center gap-2 text-blue-600 hover:underline cursor-pointer font-medium">
+              {t('inventories.showMore')}
+            </div>
           </div>
         </div>
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter un inventaire</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/20">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-slate-50/50 p-6">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingInventory ? t('inventories.modalEditTitle') : t('inventories.modalAddTitle')}
+              </h2>
               <button
                 onClick={() => {
                   setShowModal(false);
                   setEditingInventory(null);
                   resetForm();
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900"
               >
-                <X className="w-6 h-6" />
+                <X size={24} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom du produit
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {t('inventories.fieldProduct')}
                   </label>
                   <select
                     value={formData.product_id}
                     onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15"
                     required
                   >
-                    <option value="">Select Product</option>
-                    {products.map((product) => (
+                    <option value="">{t('inventories.selectProduct')}</option>
+                    {products?.map((product) => (
                       <option key={product.id} value={product.id}>
                         {product.name}
                       </option>
@@ -292,17 +349,17 @@ export function Inventories() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom de l'entrepôt
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {t('inventories.fieldWarehouse')}
                   </label>
                   <select
                     value={formData.warehouse_id}
                     onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-blue-500 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15 shadow-[0_0_0_1px_rgba(59,130,246,0.3)]"
                     required
                   >
-                    <option value="">Select Warehouse</option>
-                    {warehouses.map((warehouse) => (
+                    <option value="">{t('inventories.selectWarehouse')}</option>
+                    {warehouses?.map((warehouse) => (
                       <option key={warehouse.id} value={warehouse.id}>
                         {warehouse.name}
                       </option>
@@ -311,25 +368,39 @@ export function Inventories() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantité
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {t('inventories.fieldQuantity')}
                   </label>
                   <input
                     type="number"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15"
                     required
                     min="0"
+                    placeholder="0"
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enregistrer
-                </button>
+                <div className="mt-8 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setEditingInventory(null);
+                      resetForm();
+                    }}
+                    className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-200"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 rounded-xl bg-[#0F3C66] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
+                  >
+                    {t('common.save')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -338,3 +409,5 @@ export function Inventories() {
     </div>
   );
 }
+
+

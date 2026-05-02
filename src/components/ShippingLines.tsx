@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, Ship } from 'lucide-react';
+import { Plus, Edit2, Trash2, Ship, Search } from 'lucide-react';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 interface ShippingLine {
   id: string;
@@ -19,11 +21,10 @@ export function ShippingLines() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [shippingLines, setShippingLines] = useState<ShippingLine[]>([]);
-  const [filteredShippingLines, setFilteredShippingLines] = useState<ShippingLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [entriesPerPage, setEntriesPerPage] = useState(5);
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [editingLine, setEditingLine] = useState<ShippingLine | null>(null);
 
@@ -37,10 +38,6 @@ export function ShippingLines() {
   useEffect(() => {
     fetchShippingLines();
   }, []);
-
-  useEffect(() => {
-    filterShippingLines();
-  }, [shippingLines, searchTerm]);
 
   const fetchShippingLines = async () => {
     try {
@@ -56,20 +53,6 @@ export function ShippingLines() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterShippingLines = () => {
-    let filtered = [...shippingLines];
-
-    if (searchTerm) {
-      filtered = filtered.filter(line =>
-        line.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        line.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        line.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredShippingLines(filtered);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,7 +101,7 @@ export function ShippingLines() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette ligne maritime ?')) return;
+    if (!confirm(t('shippingLines.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -142,110 +125,118 @@ export function ShippingLines() {
     });
   };
 
-  const totalPages = Math.ceil(filteredShippingLines.length / entriesPerPage);
+  const filteredLines = shippingLines.filter(line =>
+    line.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    line.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    line.phone?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredLines.length / entriesPerPage));
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const currentLines = filteredShippingLines.slice(startIndex, endIndex);
+  const currentLines = filteredLines.slice(startIndex, startIndex + entriesPerPage);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">{t('common.loading')}</div>
+        <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-2">
-          <Ship className="w-6 h-6" />
-          <h1 className="text-2xl font-semibold text-gray-800">Gérer la Ligne Maritime</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('shippingLines.manageTitle')}</h1>
+          <Ship size={24} className="text-[#0F3C66] opacity-80" />
         </div>
-        <button
-          onClick={() => {
-            setEditingLine(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Ajouter une Ligne Maritime
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
+          <button
+            onClick={() => {
+              setEditingLine(null);
+              resetForm();
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
+          >
+            <Plus size={16} />
+            {t('shippingLines.addButton')}
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span>Show</span>
-              <input
-                type="number"
-                value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded"
-                min="1"
-              />
-            </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{t('common.show')}</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm font-medium text-gray-600">{t('common.entries')}</span>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder={t('common.search')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div className="relative w-72">
+            <input
+              type="text"
+              placeholder={`${t('common.searchLabel') || t('common.search')}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom <span className="ml-1">▲</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Téléphone <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Adresse <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('shippingLines.colName')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('shippingLines.colPhone')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('shippingLines.colEmail')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('shippingLines.colAddress')}</th>
+                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentLines.map((line) => (
-                <tr key={line.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{line.name}</td>
-                  <td className="px-4 py-3 text-sm">{line.phone || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-blue-600">{line.email || 'default.shipline'}</td>
-                  <td className="px-4 py-3 text-sm">{line.address || 'Unknown'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(line)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(line.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {currentLines?.map((line) => (
+                <tr key={line.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm font-bold text-[#0F3C66]">{line.name}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{line.phone || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{line.email || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-gray-500">{line.address || '-'}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => handleEdit(line),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(line.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
               {currentLines.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    Aucune ligne maritime trouvée
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500 italic">
+                    {t('shippingLines.empty')}
                   </td>
                 </tr>
               )}
@@ -253,113 +244,109 @@ export function ShippingLines() {
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredShippingLines.length)} of {filteredShippingLines.length} entries
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center">
+          <div className="text-sm font-medium text-gray-500">
+            {t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(startIndex + entriesPerPage, filteredLines.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredLines.length}</span> {t('common.entries')}
           </div>
-
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              <ChevronLeft className="w-4 h-4" />
+              {t('common.previous')}
             </button>
-
-            <span className="px-3 py-1 bg-white border rounded">{currentPage}</span>
-
+            <div className="px-4 py-2 font-bold text-sm text-gray-700">{currentPage} / {totalPages}</div>
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              <ChevronRight className="w-4 h-4" />
+              {t('common.next')}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter/Mettre à Jour</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingLine(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Téléphone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Adresse
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enregistrer les modifications
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          resetForm();
+        }}
+        title={editingLine ? t('common.edit') : t('shippingLines.addButton')}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-5 p-2">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('shippingLines.colName')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('shippingLines.colEmail')}
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('shippingLines.colPhone')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('shippingLines.colAddress')}
+            </label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4 mt-6 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition active:scale-95 font-bold text-sm"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 text-sm"
+            >
+              {t('common.save')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

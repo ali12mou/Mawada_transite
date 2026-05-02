@@ -55,7 +55,7 @@ export function buildLetterheadHtml(branding: DocumentBranding, options?: Letter
     return `<div class="${escAttr(rootClass)}"><img src="${escAttr(src)}" alt="${escAttr(imgAlt)}" /></div>`;
   }
   const { line1, line2 } = splitBrandLines(branding.companyName || 'GEOSOM TRANSIT');
-  return `<div class="${escAttr(rootClass)} letterhead-fallback" style="background:#1e3a5f;color:#fff;padding:12px 16px;border-radius:6px;text-align:center;margin-bottom:12px;">
+  return `<div class="${escAttr(rootClass)} letterhead-fallback" style="background:#0F3C66;color:#fff;padding:12px 16px;border-radius:6px;text-align:center;margin-bottom:12px;">
   <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
     <div style="background:#fff;border-radius:8px;padding:6px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1;" aria-hidden="true">🚚</div>
     <div style="text-align:left;">
@@ -65,3 +65,5 @@ export function buildLetterheadHtml(branding: DocumentBranding, options?: Letter
   </div>
 </div>`;
 }
+
+

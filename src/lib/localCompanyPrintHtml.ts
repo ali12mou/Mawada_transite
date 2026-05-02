@@ -40,7 +40,7 @@ function splitPhones(phone: string): { mob: string; tel: string } {
   if (!raw) return { mob: '—', tel: '—' };
   const parts = raw
     .split(/\||\/|\n|;|(?:\s{2,})/)
-    .map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
+    ?.map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
     .filter(Boolean);
   if (parts.length >= 2) return { mob: parts[0], tel: parts[1] };
   return { mob: raw, tel: '' };
@@ -198,7 +198,7 @@ export function buildLocalCompanyServiceInvoiceHtml(
   <style>
     ${STYLE_A4_SHEET}
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
-    .page { max-width: 100%; margin: 0 auto; position: relative; }
+    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
     .letterhead { text-align: center; margin-bottom: 12px; }
     .letterhead img { max-height: 88px; width: 100%; object-fit: contain; }
     .doc-head { position: relative; z-index: 1; text-align: center; margin-bottom: 14px; }
@@ -241,6 +241,7 @@ export function buildLocalCompanyServiceInvoiceHtml(
       border-top: 2px solid ${GREEN};
     }
     .info-label { font-weight: 600; color: #333; }
+    .doc-footer { margin-top: auto; }
     .sig-block { position: relative; z-index: 1; margin: 20px 0 8px; min-height: 56px; }
     .sig-line { font-size: 10.5pt; margin-bottom: 6px; }
     .sig-img { max-height: 48px; max-width: 180px; object-fit: contain; display: block; margin-top: 4px; }
@@ -261,9 +262,8 @@ export function buildLocalCompanyServiceInvoiceHtml(
       <h1 class="doc-title">Facture de Service</h1>
       <div class="doc-place-date">Djibouti, ${esc(today)}</div>
       <div class="doc-client">Client : ${esc(clientDisplay)}</div>
-      <div class="doc-ref">Dossier entreprise locale · ID : ${esc(record.id)}${
-        record.client_id ? ` · Réf. client : ${esc(record.client_id)}` : ''
-      }</div>
+      <div class="doc-ref">Dossier entreprise locale · ID : ${esc(record.id)}${record.client_id ? ` · Réf. client : ${esc(record.client_id)}` : ''
+    }</div>
       ${clientFiche}
     </header>
 
@@ -320,7 +320,10 @@ export function buildLocalCompanyServiceInvoiceHtml(
       </tbody>
     </table>
 
-    ${footerBlock}
+    <div style="flex-grow: 1;"></div>
+    <footer class="doc-footer">
+      ${footerBlock}
+    </footer>
   </div>
 </body>
 </html>`;
@@ -357,3 +360,5 @@ export async function openLocalCompanyPrint(record: LocalCompanyRecord): Promise
   w.document.write(appendAutoPrintBeforeBodyClose(html));
   w.document.close();
 }
+
+

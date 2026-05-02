@@ -130,8 +130,8 @@ export function buildPerformaPrintHtml(
   const rows =
     items.length > 0
       ? items
-          .map(
-            (it, i) => `
+        ?.map(
+          (it, i) => `
     <tr>
       <td class="td-c">${i + 1}</td>
       <td class="td-desc">${esc(it.description_of_goods)}</td>
@@ -141,8 +141,8 @@ export function buildPerformaPrintHtml(
       <td class="td-num">$${fmtUsd(Number(it.unit_price) || 0)}</td>
       <td class="td-num">$${fmtUsd(Number(it.total_unit_price) || 0)}</td>
     </tr>`
-          )
-          .join('')
+        )
+        .join('')
       : `<tr><td colspan="7" style="text-align:center">—</td></tr>`;
 
   const addr = (branding.companyAddress || '').trim();
@@ -166,7 +166,7 @@ export function buildPerformaPrintHtml(
       margin: 0;
       line-height: 1.35;
     }
-    .page { position: relative; padding: 4mm 2mm; min-height: 270mm; }
+    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; padding: 4mm 2mm; }
     .wm {
       position: fixed;
       left: 50%;
@@ -183,7 +183,7 @@ export function buildPerformaPrintHtml(
       filter: grayscale(20%);
     }
     .wm-empty { display: none; }
-    .content { position: relative; z-index: 1; }
+    .content { position: relative; z-index: 1; display: flex; flex-direction: column; flex-grow: 1; }
     .ph-top {
       display: table;
       width: 100%;
@@ -231,6 +231,7 @@ export function buildPerformaPrintHtml(
     .terms { margin-top: 14px; font-size: 8.5pt; }
     .terms .line { margin: 5px 0; }
     .lbl { font-weight: 700; }
+    .doc-footer { margin-top: auto; }
     .foot-bar {
       height: 4px;
       background: ${COMMERCIAL_GREEN};
@@ -300,22 +301,24 @@ export function buildPerformaPrintHtml(
         <div class="line"><span class="lbl">FINAL DESTINATION:</span> ${esc(p.final_destination)}</div>
         <div class="line"><span class="lbl">PAYMENT:</span> ${esc(p.payment)}</div>
         <div class="line"><span class="lbl">BANK DETAILS:</span> ${esc(p.bank)}</div>
-        ${
-          p.fiscal_id_number
-            ? `<div class="line"><span class="lbl">Account Info:</span> ${esc(p.fiscal_id_number)}</div>`
-            : ''
-        }
+        ${p.fiscal_id_number
+      ? `<div class="line"><span class="lbl">Account Info:</span> ${esc(p.fiscal_id_number)}</div>`
+      : ''
+    }
       </div>
 
-      <div class="foot-bar"></div>
-      <div class="foot-grid">
-        <div>
-          <div>${mob ? `Mob: ${esc(mob)}` : '—'}</div>
-          ${footerImg}
-        </div>
-        <div class="foot-right">
-          <div>${addr ? esc(addr) : '—'}</div>
-          <div>${email ? esc(email) : '—'}</div>
+      <div style="flex-grow: 1;"></div>
+      <div class="doc-footer">
+        <div class="foot-bar"></div>
+        <div class="foot-grid">
+          <div>
+            <div>${mob ? `Mob: ${esc(mob)}` : '—'}</div>
+            ${footerImg}
+          </div>
+          <div class="foot-right">
+            <div>${addr ? esc(addr) : '—'}</div>
+            <div>${email ? esc(email) : '—'}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -336,3 +339,5 @@ export async function openPerformaPrintWindow(p: PerformaPrintRecord, items: Per
   w.document.write(appendAutoPrintBeforeBodyClose(html));
   w.document.close();
 }
+
+

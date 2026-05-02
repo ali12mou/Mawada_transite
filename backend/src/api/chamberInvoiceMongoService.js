@@ -7,7 +7,7 @@ function isValidMongoId(id) {
 
 export async function listChamberInvoicesMongo() {
   const docs = await ChamberInvoiceDocument.find({}).sort({ createdAt: -1 }).lean();
-  return docs.map((d) => ({
+  return docs?.map((d) => ({
     id: d._id.toString(),
     consignee_name: d.header?.consignee_name ?? '',
     tin: d.header?.tin ?? '',

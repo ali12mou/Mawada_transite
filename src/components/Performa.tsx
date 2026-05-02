@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Plus, Eye, FileText, X } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
@@ -131,7 +132,7 @@ export function Performa() {
       if (performaError) throw performaError;
 
       if (performaData) {
-        const itemsToInsert = performaItems.map(item => ({
+        const itemsToInsert = performaItems?.map(item => ({
           performa_id: performaData.id,
           description_of_goods: item.description_of_goods,
           origin: item.origin,
@@ -144,7 +145,7 @@ export function Performa() {
         let { error: itemsError } = await supabase.from('performa_items').insert(itemsToInsert);
 
         if (itemsError && /origin|column|schema|PGRST204/i.test(`${itemsError.message}`)) {
-          const noOrigin = itemsToInsert.map(({ origin: _o, ...rest }) => rest);
+          const noOrigin = itemsToInsert?.map(({ origin: _o, ...rest }) => rest);
           ({ error: itemsError } = await supabase.from('performa_items').insert(noOrigin));
         }
 
@@ -251,7 +252,7 @@ export function Performa() {
   }
 
   function mapDbItemsToPrint(items: Record<string, unknown>[]): PerformaPrintItem[] {
-    return items.map(it => ({
+    return items?.map(it => ({
       description_of_goods: String(it.description_of_goods ?? ''),
       origin: String(it.origin ?? ''),
       hs_code: String(it.hs_code ?? ''),
@@ -313,7 +314,7 @@ export function Performa() {
       bank: formData.bank,
       fiscal_id_number: formData.fiscal_id_number,
     };
-    const items: PerformaPrintItem[] = performaItems.map(it => ({
+    const items: PerformaPrintItem[] = performaItems?.map(it => ({
       description_of_goods: it.description_of_goods,
       origin: it.origin || formData.origin,
       hs_code: it.hs_code,
@@ -346,7 +347,7 @@ export function Performa() {
             resetForm();
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+          className="flex items-center gap-2 bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
         >
           <Plus size={20} />
           {t('performa.addNew')}
@@ -403,41 +404,37 @@ export function Performa() {
                   </td>
                 </tr>
               ) : (
-                filteredPerformas.map((performa, idx) => (
+                filteredPerformas?.map((performa, idx) => (
                   <tr key={performa.id} className={`border-b hover:bg-blue-50/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/80'}`}>
                     <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
                     <td className="py-3 px-4">{performa.buyer || '-'}</td>
                     <td className="py-3 px-4">{performa.vendor || '-'}</td>
                     <td className="py-3 px-4">{performa.performa_code}</td>
                     <td className="py-3 px-4">{performa.buyer_tin || '-'}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          title={t('common.view')}
-                          onClick={() => void openPreviewModal(performa.id)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('performa.print')}
-                          onClick={() => void handlePrintRow(performa.id)}
-                          className="text-[#1e3a5f] hover:text-[#152a44]"
-                        >
-                          <FileText size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('common.delete')}
-                          onClick={() => handleDelete(performa.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
+                     <td className="py-3 px-4">
+                       <div className="flex items-center justify-center">
+                         <ActionMenu
+                           actions={[
+                             {
+                               label: t('common.view'),
+                               icon: <Eye size={16} />,
+                               onClick: () => void openPreviewModal(performa.id),
+                             },
+                             {
+                               label: t('performa.print'),
+                               icon: <FileText size={16} />,
+                               onClick: () => void handlePrintRow(performa.id),
+                             },
+                             {
+                               label: t('common.delete'),
+                               icon: <Trash2 size={16} />,
+                               onClick: () => handleDelete(performa.id),
+                               variant: 'danger',
+                             },
+                           ]}
+                         />
+                       </div>
+                     </td>
                   </tr>
                 ))
               )}
@@ -453,7 +450,7 @@ export function Performa() {
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Previous
             </button>
-            <button className="px-3 py-1 bg-[#1e3a5f] text-white rounded">1</button>
+            <button className="px-3 py-1 bg-[#0F3C66] text-white rounded">1</button>
             <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
               Next
             </button>
@@ -606,7 +603,7 @@ export function Performa() {
                         </tr>
                       </thead>
                       <tbody>
-                        {performaItems.map((item, index) => (
+                        {performaItems?.map((item, index) => (
                           <tr key={index} className="border-b border-gray-100 bg-white odd:bg-gray-50/50">
                             <td className="py-2 px-2 align-top">{index + 1}</td>
                             <td className="py-2 px-2 align-top">
@@ -797,7 +794,7 @@ export function Performa() {
                 <button
                   type="button"
                   onClick={() => setPreviewPerforma(buildPrintFromForm())}
-                  className="px-4 py-2 border border-[#1e3a5f] text-[#1e3a5f] rounded-lg hover:bg-[#1e3a5f]/5 transition"
+                  className="px-4 py-2 border border-[#0F3C66] text-[#0F3C66] rounded-lg hover:bg-[#0F3C66]/5 transition"
                 >
                   {t('common.view')}
                 </button>
@@ -837,14 +834,14 @@ export function Performa() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="font-semibold text-[#1e3a5f]">PERFORMA INVOICE — {t('common.view')}</h3>
+              <h3 className="font-semibold text-[#0F3C66]">PERFORMA INVOICE — {t('common.view')}</h3>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() =>
                     void openPerformaPrintWindow(previewPerforma.p, previewPerforma.items)
                   }
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#1e3a5f] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#0F3C66] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
                 >
                   {t('performa.print')}
                 </button>
@@ -877,3 +874,5 @@ export function Performa() {
     </div>
   );
 }
+
+

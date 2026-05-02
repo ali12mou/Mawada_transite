@@ -8,12 +8,12 @@ export default {
       },
       colors: {
         brand: {
-          navy: '#1e3a5f',
-          'navy-dark': '#152a44',
-          'navy-mid': '#1a3050',
-          accent: '#e67e22',
-          'accent-hover': '#d35400',
-          panel: '#1d3557',
+          navy: '#0F3C66',
+          'navy-dark': '#0a2a4b',
+          'navy-mid': '#154b8a',
+          accent: '#EE964C',
+          'accent-hover': '#d97d36',
+          panel: '#154b8a',
         },
       },
       boxShadow: {

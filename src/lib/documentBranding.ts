@@ -11,3 +11,5 @@ export async function fetchDocumentBranding(): Promise<DocumentBranding> {
 }
 
 export type { DocumentBranding };
+
+

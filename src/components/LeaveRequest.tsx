@@ -229,7 +229,7 @@ export function LeaveRequest() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
         >
           <Plus size={20} />
           New Leave Request
@@ -250,10 +250,10 @@ export function LeaveRequest() {
                     required
                     value={formData.employee_id}
                     onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
                     <option value="">Select Employee</option>
-                    {employees.map((employee) => (
+                    {employees?.map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.full_name}
                       </option>
@@ -268,10 +268,10 @@ export function LeaveRequest() {
                     required
                     value={formData.leave_type_id}
                     onChange={(e) => setFormData({ ...formData, leave_type_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
                     <option value="">Select Type</option>
-                    {leaveTypes.map((type) => (
+                    {leaveTypes?.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name}
                       </option>
@@ -290,7 +290,7 @@ export function LeaveRequest() {
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -302,7 +302,7 @@ export function LeaveRequest() {
                     required
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
               </div>
@@ -324,7 +324,7 @@ export function LeaveRequest() {
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -338,7 +338,7 @@ export function LeaveRequest() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
                   Submit Request
                 </button>
@@ -450,7 +450,7 @@ export function LeaveRequest() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {requests.map((request) => (
+              {requests?.map((request) => (
                 <tr key={request.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">
@@ -521,3 +521,5 @@ export function LeaveRequest() {
     </div>
   );
 }
+
+

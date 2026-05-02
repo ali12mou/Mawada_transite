@@ -64,7 +64,7 @@ async function initMongoCollections() {
   await connectMongo();
   const db = mongoose.connection.db;
   const existingCollections = await db.listCollections().toArray();
-  const existingNames = new Set(existingCollections.map((c) => c.name));
+  const existingNames = new Set(existingCollections?.map((c) => c.name));
 
   const created = [];
   const skipped = [];

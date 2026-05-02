@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Search, Plus, X, FileText, Download } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 import { useCurrency } from '../contexts/CurrencyContext';
 
 interface OrderReception {
@@ -167,8 +168,6 @@ export function OrderReception() {
     });
   };
 
-  const formatCurrency = (amount: number) => formatAmount(amount);
-
   const totalPages = Math.ceil(filteredReceptions.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
@@ -185,20 +184,19 @@ export function OrderReception() {
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer la liste des commandes de reçu</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('orderReception.title')}</h1>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          <Download className="w-4 h-4" />
-          Paiement de la commande du reçu
+          {t('orderReception.paymentBtn')}
         </button>
       </div>
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span>Show</span>
+            <span>{t('common.show')}</span>
             <input
               type="number"
               value={entriesPerPage}
@@ -206,11 +204,11 @@ export function OrderReception() {
               className="w-16 px-2 py-1 border border-gray-300 rounded"
               min="1"
             />
-            <span>entries</span>
+            <span>{t('common.entries')}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span>Search:</span>
+            <span>{t('common.searchLabel')}</span>
             <input
               type="text"
               value={searchTerm}
@@ -225,33 +223,39 @@ export function OrderReception() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Commande</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Port/Aéroport</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Taxe</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Payé</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Solde</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orders.colClient')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colOrderId')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderReception.colServices')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderReception.colPortAirport')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderReception.colTax')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orders.colTotal')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderReception.colPaid')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderReception.colBalance')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentReceptions.map((reception, index) => (
+              {currentReceptions?.map((reception, index) => (
                 <tr key={reception.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
-                  <td className="px-4 py-3 text-sm">{reception.client_name}</td>
-                  <td className="px-4 py-3 text-sm">{reception.order_number}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.services)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.port_airport)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.tax)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.total)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.paid)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(reception.balance)}</td>
+                  <td className="px-4 py-3 text-sm font-medium">{reception.client_name}</td>
+                  <td className="px-4 py-3 text-sm text-blue-600">{reception.order_number}</td>
+                  <td className="px-4 py-3 text-sm">{formatAmount(reception.services)}</td>
+                  <td className="px-4 py-3 text-sm">{formatAmount(reception.port_airport)}</td>
+                  <td className="px-4 py-3 text-sm">{formatAmount(reception.tax)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold">{formatAmount(reception.total)}</td>
+                  <td className="px-4 py-3 text-sm text-green-600">{formatAmount(reception.paid)}</td>
+                  <td className="px-4 py-3 text-sm text-red-600">{formatAmount(reception.balance)}</td>
                   <td className="px-4 py-3">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <FileText className="w-5 h-5" />
-                    </button>
+                    <ActionMenu
+                      actions={[
+                        {
+                          label: t('common.view'),
+                          icon: <FileText className="w-4 h-4" />,
+                          onClick: () => console.log('View', reception.id)
+                        }
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -261,7 +265,7 @@ export function OrderReception() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredReceptions.length)} of {filteredReceptions.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredReceptions.length)} {t('common.of')} {filteredReceptions.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -270,16 +274,15 @@ export function OrderReception() {
               disabled={currentPage === 1}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Previous
+              {t('common.previous')}
             </button>
 
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1)?.map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1 border rounded ${currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
+                  }`}
               >
                 {page}
               </button>
@@ -290,7 +293,7 @@ export function OrderReception() {
               disabled={currentPage === totalPages}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
@@ -298,9 +301,9 @@ export function OrderReception() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Reçu de commande</h2>
+              <h2 className="text-xl font-semibold">{t('orderReception.paymentDetails')}</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -312,11 +315,11 @@ export function OrderReception() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
+            <form onSubmit={handleSubmit} className="p-6 font-poppins">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Client
+                    {t('orderReception.selectOrder')} *
                   </label>
                   <select
                     required
@@ -324,8 +327,8 @@ export function OrderReception() {
                     onChange={(e) => handleOrderSelect(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Sélectionner le client</option>
-                    {orders.map((order) => (
+                    <option value="">{t('orderReception.selectOrder')}</option>
+                    {orders?.map((order) => (
                       <option key={order.id} value={order.id}>
                         {order.client_name} - {order.order_number}
                       </option>
@@ -333,39 +336,12 @@ export function OrderReception() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Commande
-                  </label>
-                  <select
-                    required
-                    value={formData.order_id}
-                    onChange={(e) => handleOrderSelect(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Sélectionner la commande</option>
-                    {orders.map((order) => (
-                      <option key={order.id} value={order.id}>
-                        {order.order_number}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-4">Voir les documents</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="font-medium">Documents</div>
-                    <div className="font-medium">Actions</div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-4">Détails du paiement du reçu</h3>
+                  <h3 className="font-semibold mb-4">{t('orderReception.paymentDetails')}</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Payé
+                        {t('orderReception.colPaid')}
                       </label>
                       <input
                         type="number"
@@ -378,7 +354,7 @@ export function OrderReception() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Solde
+                        {t('orderReception.colBalance')}
                       </label>
                       <input
                         type="number"
@@ -388,7 +364,7 @@ export function OrderReception() {
                             ? (orders.find(o => o.id === formData.order_id)?.total || 0) - Number(formData.paid)
                             : 0
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 font-semibold text-red-600"
                       />
                     </div>
                   </div>
@@ -397,7 +373,7 @@ export function OrderReception() {
                 {formData.order_id && (
                   <div className="bg-gray-50 p-4 rounded-md">
                     <p className="text-sm text-gray-600">
-                      Order Total Payment: {formatCurrency(orders.find(o => o.id === formData.order_id)?.total || 0)}
+                      Total: {formatAmount(orders.find(o => o.id === formData.order_id)?.total || 0)}
                     </p>
                   </div>
                 )}
@@ -408,7 +384,7 @@ export function OrderReception() {
                   type="submit"
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Enregistrer les modifications
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -418,3 +394,5 @@ export function OrderReception() {
     </div>
   );
 }
+
+

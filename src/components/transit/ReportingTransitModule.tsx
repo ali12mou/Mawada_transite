@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { listLogisticsFiles, listTransportationRecords, listExpenseRequests } from '../../api/transitDb';
 
 export function ReportingTransitModule() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState({ files: 0, transports: 0, expenses: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -25,27 +27,29 @@ export function ReportingTransitModule() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[#1e3a5f]">Rapports & analyses</h1>
-        <p className="text-sm text-gray-600">Indicateurs synthétiques (base opérationnelle).</p>
+        <h1 className="text-2xl font-semibold text-[#0F3C66]">{t('transit.reporting.title')}</h1>
+        <p className="text-sm text-gray-600">{t('transit.reporting.subtitle')}</p>
       </div>
       {loading ? (
-        <p className="text-gray-500">Chargement…</p>
+        <p className="text-gray-500">{t('common.loading')}</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-6 text-center">
-            <div className="text-3xl font-bold text-[#1e3a5f]">{stats.files}</div>
-            <div className="text-sm text-gray-600">Dossiers logistiques</div>
+            <div className="text-3xl font-bold text-[#0F3C66]">{stats.files}</div>
+            <div className="text-sm text-gray-600">{t('transit.logisticsFiles.title')}</div>
           </div>
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-6 text-center">
-            <div className="text-3xl font-bold text-[#1e3a5f]">{stats.transports}</div>
-            <div className="text-sm text-gray-600">Transports enregistrés</div>
+            <div className="text-3xl font-bold text-[#0F3C66]">{stats.transports}</div>
+            <div className="text-sm text-gray-600">{t('transit.transport.title')}</div>
           </div>
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-6 text-center">
-            <div className="text-3xl font-bold text-[#1e3a5f]">{stats.expenses}</div>
-            <div className="text-sm text-gray-600">Demandes de dépenses</div>
+            <div className="text-3xl font-bold text-[#0F3C66]">{stats.expenses}</div>
+            <div className="text-sm text-gray-600">{t('transit.expenseRequests.title')}</div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+

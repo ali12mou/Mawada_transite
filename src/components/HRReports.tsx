@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, ClipboardCheck, Eye, DollarSign, Calendar } from 'lucide-react';
+import { ClipboardCheck, Eye, DollarSign } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 
@@ -35,16 +35,15 @@ interface PayrollData {
 }
 
 export function HRReports() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { formatAmount } = useCurrency();
   const [currentView, setCurrentView] = useState<'main' | 'salary' | 'attendance'>('main');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<Attendance[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedEmployeeType, setSelectedEmployeeType] = useState('Tous');
+  const [selectedEmployeeType, setSelectedEmployeeType] = useState('all');
 
   const [dateRange, setDateRange] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('All');
@@ -66,8 +65,6 @@ export function HRReports() {
       setEmployees(data || []);
     } catch (error) {
       console.error('Error fetching employees:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -86,7 +83,7 @@ export function HRReports() {
   };
 
   const getPayrollData = (): PayrollData[] => {
-    return employees.map(emp => {
+    return employees?.map(emp => {
       const baseSalary = emp.base_salary || 0;
       const totalDeductions = baseSalary * 0.15;
       const netSalary = baseSalary - totalDeductions;
@@ -114,7 +111,7 @@ export function HRReports() {
       filtered = filtered.filter(record => {
         const employee = employees.find(emp => emp.id === record.employee_id);
         return employee?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               employee?.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
+          employee?.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
       });
     }
 
@@ -122,17 +119,22 @@ export function HRReports() {
   };
 
   const years = ['2024', '2025', '2026'];
-  const months = [
+  const monthsFr = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
   ];
+  const monthsEn = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const months = language === 'fr' ? monthsFr : monthsEn;
 
   if (currentView === 'main') {
     return (
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-2">Rapports RH</h1>
-          <p className="text-gray-600">Tous les rapports de celui sélectionné</p>
+          <h1 className="text-2xl font-semibold text-gray-800 mb-2">{t('hrReports.title')}</h1>
+          <p className="text-gray-600">{t('hrReports.subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -142,14 +144,14 @@ export function HRReports() {
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition">
-                <DollarSign className="w-8 h-8 text-[#1e3a5f]" />
+                <DollarSign className="w-8 h-8 text-[#0F3C66]" />
               </div>
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Rapport mensuel sur les salaires
+              {t('hrReports.salaryReport')}
             </h2>
             <p className="text-gray-600 text-sm">
-              View monthly salary reports.
+              {t('hrReports.salarySubtitle')}
             </p>
           </button>
 
@@ -163,10 +165,10 @@ export function HRReports() {
               </div>
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Rapport de présence (manuel)
+              {t('hrReports.attendanceReport')}
             </h2>
             <p className="text-gray-600 text-sm">
-              View manual attendance records.
+              {t('hrReports.attendanceSubtitle')}
             </p>
           </button>
         </div>
@@ -182,27 +184,27 @@ export function HRReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
-            ← Retour aux rapports
+            ← {t('hrReports.backToReports')}
           </button>
-          <h1 className="text-2xl font-semibold text-gray-800">Rapport de salaire mensuel</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">{t('hrReports.salaryReport')}</h1>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sélectionner une année
+                {t('hrReports.selectYear')}
               </label>
               <select
                 aria-label="selected-year"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
-                <option value="">Select Year</option>
-                {years.map(year => (
+                <option value="">{t('hrReports.selectYear')}</option>
+                {years?.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
@@ -210,16 +212,16 @@ export function HRReports() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sélectionner un mois
+                {t('hrReports.selectMonth')}
               </label>
               <select
                 aria-label="selected-month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
-                <option value="">Select Month</option>
-                {months.map((month, idx) => (
+                <option value="">{t('hrReports.selectMonth')}</option>
+                {months?.map((month, idx) => (
                   <option key={idx} value={month}>{month}</option>
                 ))}
               </select>
@@ -227,46 +229,46 @@ export function HRReports() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Types d'employés
+                {t('hrReports.employeeTypes')}
               </label>
               <select
                 aria-label="employee-type"
                 value={selectedEmployeeType}
                 onChange={(e) => setSelectedEmployeeType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
-                <option value="Tous">Tous</option>
+                <option value="all">{t('employees.all')}</option>
                 <option value="Permanent">Permanent</option>
-                <option value="Temporaire">Temporaire</option>
-                <option value="Contractuel">Contractuel</option>
+                <option value="Temporary">Temporaire</option>
+                <option value="Contractual">Contractuel</option>
               </select>
             </div>
           </div>
 
-          <button className="px-6 py-2 bg-[#1e3a5f] text-white rounded-md hover:bg-[#2d4a6f] mb-6">
-            Générer une lettre de paie
+          <button className="px-6 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] mb-6">
+            {t('hrReports.generatePayslip')}
           </button>
 
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">SN</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Matricule</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nom</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Numéro de compte</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Salaire de base</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Déductions totales</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Salaire net</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colSN')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colMatricule')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colName')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colAccount')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colBaseSalary')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colTotalDeductions')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colNetSalary')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colType')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {payrollData.length > 0 ? (
-                  payrollData.map((record, index) => (
+                  payrollData?.map((record, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-[#1e3a5f] font-medium">{record.employee_id}</td>
+                      <td className="px-4 py-3 text-sm text-[#0F3C66] font-medium">{record.employee_id}</td>
                       <td className="px-4 py-3 text-sm">{record.full_name}</td>
                       <td className="px-4 py-3 text-sm">{record.account_number || '-'}</td>
                       <td className="px-4 py-3 text-sm">{formatAmount(record.base_salary)}</td>
@@ -278,7 +280,7 @@ export function HRReports() {
                 ) : (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No Data Found
+                      {t('hrReports.noData')}
                     </td>
                   </tr>
                 )}
@@ -298,12 +300,12 @@ export function HRReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
-            ← Retour aux rapports
+            ← {t('hrReports.backToReports')}
           </button>
           <h1 className="text-2xl font-semibold text-gray-800">
-            Rapport de présence des employés (manuel)
+            {t('hrReports.attendanceReport')}
           </h1>
         </div>
 
@@ -311,29 +313,29 @@ export function HRReports() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Plage de dates
+                {t('hrReports.dateRange')}
               </label>
               <input
                 type="date"
                 aria-label="date-range"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employés
+                {t('hrReports.employees')}
               </label>
               <select
                 aria-label="selected-employee"
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
-                <option value="All">All</option>
-                {employees.map(emp => (
+                <option value="All">{t('employees.all')}</option>
+                {employees?.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.full_name} ({emp.employee_id})
                   </option>
@@ -343,14 +345,14 @@ export function HRReports() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Rechercher
+                {t('common.search')}
               </label>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('common.search')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
           </div>
@@ -360,40 +362,39 @@ export function HRReports() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID Employé</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nom complet</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Numéro de téléphone</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date de présence</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Commentaire</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Ajouté par</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colEmployeeId')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colFullName')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colPhone')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colAttendanceDate')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colStatus')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colComment')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('hrReports.colAddedBy')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((record, index) => {
+                  filteredAttendance?.map((record, index) => {
                     const employee = employees.find(emp => emp.id === record.employee_id);
 
                     return (
                       <tr key={record.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm text-[#1e3a5f] font-medium">
+                        <td className="px-4 py-3 text-sm text-[#0F3C66] font-medium">
                           {employee?.employee_id || '-'}
                         </td>
                         <td className="px-4 py-3 text-sm">{employee?.full_name || '-'}</td>
                         <td className="px-4 py-3 text-sm">{employee?.phone_number || '-'}</td>
                         <td className="px-4 py-3 text-sm">
-                          {new Date(record.attendance_date).toLocaleDateString('fr-FR')}
+                          {new Date(record.attendance_date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
-                            record.status === 'Present'
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${record.status === 'Present'
                               ? 'bg-green-100 text-green-800'
                               : record.status === 'Absent'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                            }`}>
                             {record.status}
                           </span>
                         </td>
@@ -410,7 +411,7 @@ export function HRReports() {
                 ) : (
                   <tr>
                     <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                      Aucune donnée trouvée
+                      {t('hrReports.noData')}
                     </td>
                   </tr>
                 )}
@@ -424,3 +425,5 @@ export function HRReports() {
 
   return null;
 }
+
+

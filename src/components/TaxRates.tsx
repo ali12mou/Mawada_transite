@@ -201,21 +201,19 @@ export function TaxRates() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab('tax')}
-          className={`px-6 py-2 rounded font-medium transition ${
-            activeTab === 'tax'
-              ? 'bg-[#1e3a5f] text-white'
+          className={`px-6 py-2 rounded font-medium transition ${activeTab === 'tax'
+              ? 'bg-[#0F3C66] text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
+            }`}
         >
           Taux de taxe
         </button>
         <button
           onClick={() => setActiveTab('cnss')}
-          className={`px-6 py-2 rounded font-medium transition ${
-            activeTab === 'cnss'
-              ? 'bg-[#1e3a5f] text-white'
+          className={`px-6 py-2 rounded font-medium transition ${activeTab === 'cnss'
+              ? 'bg-[#0F3C66] text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
+            }`}
         >
           CNSS
         </button>
@@ -230,7 +228,7 @@ export function TaxRates() {
                 <select
                   value={entriesPerPage}
                   onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                  className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -245,7 +243,7 @@ export function TaxRates() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
             </div>
@@ -262,7 +260,7 @@ export function TaxRates() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredTaxRates.slice(0, entriesPerPage).map((rate, index) => (
+                  {filteredTaxRates.slice(0, entriesPerPage)?.map((rate, index) => (
                     <tr key={rate.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{formatAmount(rate.min_salary)}</td>
@@ -309,7 +307,7 @@ export function TaxRates() {
                       required
                       value={formData.min_salary}
                       onChange={(e) => setFormData({ ...formData, min_salary: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
@@ -321,7 +319,7 @@ export function TaxRates() {
                       type="number"
                       value={formData.max_salary}
                       onChange={(e) => setFormData({ ...formData, max_salary: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
@@ -333,14 +331,14 @@ export function TaxRates() {
                       type="number"
                       value={formData.rate_percentage}
                       onChange={(e) => setFormData({ ...formData, rate_percentage: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="px-6 py-2 bg-[#1e3a5f] text-white rounded hover:bg-[#2d4a6f] transition"
+                      className="px-6 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition"
                     >
                       Enregistrer les modifications
                     </button>
@@ -378,7 +376,7 @@ export function TaxRates() {
 
                 <button
                   onClick={() => setShowCnssForm(true)}
-                  className="w-full px-6 py-2 bg-[#1e3a5f] text-white rounded hover:bg-[#2d4a6f] transition"
+                  className="w-full px-6 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition"
                 >
                   Modifier les paramètres
                 </button>
@@ -406,7 +404,7 @@ export function TaxRates() {
                       required
                       value={cnssFormData.retirement_contribution}
                       onChange={(e) => setCnssFormData({ ...cnssFormData, retirement_contribution: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
@@ -420,7 +418,7 @@ export function TaxRates() {
                       required
                       value={cnssFormData.amu_contribution}
                       onChange={(e) => setCnssFormData({ ...cnssFormData, amu_contribution: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
@@ -434,14 +432,14 @@ export function TaxRates() {
                       required
                       value={cnssFormData.employer_deduction}
                       onChange={(e) => setCnssFormData({ ...cnssFormData, employer_deduction: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                     />
                   </div>
 
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="px-6 py-2 bg-[#1e3a5f] text-white rounded hover:bg-[#2d4a6f] transition"
+                      className="px-6 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition"
                     >
                       Enregistrer
                     </button>
@@ -455,3 +453,5 @@ export function TaxRates() {
     </div>
   );
 }
+
+

@@ -7,3 +7,5 @@ export function formatClientLabel(c: ClientRecord): string {
   if (!name && !company) return '';
   return company ? `${name} — ${company}` : name;
 }
+
+

@@ -2,68 +2,88 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, Printer, X } from 'lucide-react';
-
-interface CarrierRow {
-  id?: string;
-  carrier_name: string;
-  carrier_type: string;
-  capacity: string;
-  owner: string;
-  carrier_mood: string;
-  source_destination: string;
-  weight: string;
-}
+import { Plus, Edit2, Trash2, Truck, Search } from 'lucide-react';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 interface Carrier {
   id: string;
-  carrier_name: string;
   carrier_type: string;
-  capacity: string;
-  owner: string;
-  carrier_mood: string;
-  source_destination: string;
-  weight: string;
+  carrier_name: string;
+  capacity?: string;
+  owner_id: string;
+  mode_id: string;
+  route_id?: string;
+  weight?: string;
   created_at: string;
+  owners?: {
+    name: string;
+  };
+  carrier_modes?: {
+    name: string;
+  };
+  routes?: {
+    source: string;
+    destination: string;
+  };
 }
 
 export function Carriers() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [filteredCarriers, setFilteredCarriers] = useState<Carrier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingCarrier, setEditingCarrier] = useState<Carrier | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [carrierRows, setCarrierRows] = useState<CarrierRow[]>([
-    {
-      carrier_name: '',
-      carrier_type: '',
-      capacity: '',
-      owner: '',
-      carrier_mood: '',
-      source_destination: '',
-      weight: ''
-    }
-  ]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [modes, setModes] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
+
+  const [formData, setFormData] = useState({
+    carrier_type: '',
+    carrier_name: '',
+    capacity: '',
+    owner_id: '',
+    mode_id: '',
+    route_id: '',
+    weight: ''
+  });
 
   useEffect(() => {
     fetchCarriers();
+    fetchOptions();
   }, []);
 
-  useEffect(() => {
-    filterCarriers();
-  }, [carriers, searchTerm]);
+  const fetchOptions = async () => {
+    try {
+      const [ownersRes, modesRes, routesRes] = await Promise.all([
+        supabase.from('owners').select('id, name'),
+        supabase.from('carrier_modes').select('id, name'),
+        supabase.from('routes').select('id, source, destination')
+      ]);
+
+      setOwners(ownersRes.data || []);
+      setModes(modesRes.data || []);
+      setRoutes(routesRes.data || []);
+    } catch (error) {
+      console.error('Error fetching options:', error);
+    }
+  };
 
   const fetchCarriers = async () => {
     try {
       const { data, error } = await supabase
         .from('carriers')
-        .select('*')
+        .select(`
+          *,
+          owners (name),
+          carrier_modes (name),
+          routes (source, destination)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -75,48 +95,29 @@ export function Carriers() {
     }
   };
 
-  const filterCarriers = () => {
-    let filtered = [...carriers];
-
-    if (searchTerm) {
-      filtered = filtered.filter(carrier =>
-        carrier.carrier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        carrier.carrier_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        carrier.owner?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredCarriers(filtered);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      if (editingCarrier) {
-        const carrier = carrierRows[0];
+      if (editingId) {
         const { error } = await supabase
           .from('carriers')
           .update({
-            ...carrier,
+            ...formData,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingCarrier.id);
-
+          .eq('id', editingId);
         if (error) throw error;
       } else {
-        for (const carrier of carrierRows) {
-          if (carrier.carrier_name) {
-            await supabase.from('carriers').insert([{
-              ...carrier,
-              created_by: user?.id
-            }]);
-          }
-        }
+        const { error } = await supabase
+          .from('carriers')
+          .insert([{
+            ...formData,
+            created_by: user?.id
+          }]);
+        if (error) throw error;
       }
-
       setShowModal(false);
-      setEditingCarrier(null);
       resetForm();
       fetchCarriers();
     } catch (error) {
@@ -124,29 +125,37 @@ export function Carriers() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      carrier_type: '',
+      carrier_name: '',
+      capacity: '',
+      owner_id: '',
+      mode_id: '',
+      route_id: '',
+      weight: ''
+    });
+    setEditingId(null);
+  };
+
   const handleEdit = (carrier: Carrier) => {
-    setEditingCarrier(carrier);
-    setCarrierRows([{
-      carrier_name: carrier.carrier_name || '',
-      carrier_type: carrier.carrier_type || '',
+    setEditingId(carrier.id);
+    setFormData({
+      carrier_type: carrier.carrier_type,
+      carrier_name: carrier.carrier_name,
       capacity: carrier.capacity || '',
-      owner: carrier.owner || '',
-      carrier_mood: carrier.carrier_mood || '',
-      source_destination: carrier.source_destination || '',
+      owner_id: carrier.owner_id,
+      mode_id: carrier.mode_id,
+      route_id: carrier.route_id || '',
       weight: carrier.weight || ''
-    }]);
+    });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce transporteur ?')) return;
-
+    if (!confirm(t('carriers.deleteConfirm'))) return;
     try {
-      const { error } = await supabase
-        .from('carriers')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('carriers').delete().eq('id', id);
       if (error) throw error;
       fetchCarriers();
     } catch (error) {
@@ -154,325 +163,230 @@ export function Carriers() {
     }
   };
 
-  const resetForm = () => {
-    setCarrierRows([{
-      carrier_name: '',
-      carrier_type: '',
-      capacity: '',
-      owner: '',
-      carrier_mood: '',
-      source_destination: '',
-      weight: ''
-    }]);
-  };
+  const filteredCarriers = carriers.filter(c =>
+    c.carrier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.carrier_type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const addCarrierRow = () => {
-    setCarrierRows([...carrierRows, {
-      carrier_name: '',
-      carrier_type: '',
-      capacity: '',
-      owner: '',
-      carrier_mood: '',
-      source_destination: '',
-      weight: ''
-    }]);
-  };
-
-  const updateCarrierRow = (index: number, field: keyof CarrierRow, value: string) => {
-    const newRows = [...carrierRows];
-    newRows[index] = { ...newRows[index], [field]: value };
-    setCarrierRows(newRows);
-  };
-
-  const totalPages = Math.ceil(filteredCarriers.length / entriesPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredCarriers.length / entriesPerPage));
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const currentCarriers = filteredCarriers.slice(startIndex, endIndex);
+  const currentItems = filteredCarriers.slice(startIndex, startIndex + entriesPerPage);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">{t('common.loading')}</div>
+        <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Transporteurs</h1>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('carriers.title')}</h1>
+          <Truck size={24} className="text-[#0F3C66] opacity-80" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
+          >
+            <Plus size={16} />
+            {t('carriers.addButton')}
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span>Show</span>
-              <input
-                type="number"
-                value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded"
-                min="1"
-              />
-              <span>entries</span>
-            </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{t('common.show')}</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm font-medium text-gray-600">{t('common.entries')}</span>
+          </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setEditingCarrier(null);
-                  resetForm();
-                  setShowModal(true);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Ajouter un Nouveau Transporteur
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                <Printer className="w-4 h-4" />
-                Print
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span>Search:</span>
-              <input
-                type="text"
-                placeholder=""
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div className="relative w-72">
+            <input
+              type="text"
+              placeholder={`${t('common.searchLabel') || t('common.search')}...`}
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  # <span className="ml-1">▲</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Type de Transporteur <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom du Transporteur <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Capacité <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Propriétaire <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Mode de Transport <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableCarrierName')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableCarrierType')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableCapacity')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableOwner')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableMode')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableSourceDestination')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('carriers.tableWeight')}</th>
+                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentCarriers.map((carrier, index) => (
-                <tr key={carrier.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
-                  <td className="px-4 py-3 text-sm">{carrier.carrier_type || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-blue-600">{carrier.carrier_name}</td>
-                  <td className="px-4 py-3 text-sm">{carrier.capacity || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-blue-600">{carrier.owner || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{carrier.carrier_mood || '-'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(carrier)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(carrier.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button className="text-green-600 hover:text-green-800 p-1">
-                        <Printer className="w-4 h-4" />
-                      </button>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {currentItems.map((c) => (
+                <tr key={c.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm font-bold text-[#0F3C66]">{c.carrier_name}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{c.carrier_type}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{c.capacity || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-[#0F3C66] font-medium">{c.owners?.name || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{c.carrier_modes?.name || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">
+                    {c.routes ? `${c.routes.source} → ${c.routes.destination}` : '-'}
+                  </td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{c.weight || '-'}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => handleEdit(c),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(c.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
-              {currentCarriers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    Aucun transporteur trouvé
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredCarriers.length)} of {filteredCarriers.length} entries
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center text-sm">
+          <div className="text-gray-500 font-medium">
+            {t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(startIndex + entriesPerPage, filteredCarriers.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredCarriers.length}</span> {t('common.entries')}
           </div>
-
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Previous
+              {t('common.previous')}
             </button>
-
-            <span className="px-3 py-1 bg-white border rounded">{currentPage}</span>
-
+            <div className="px-4 py-2 font-bold text-sm text-gray-700">{currentPage} / {totalPages}</div>
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 text-sm text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-7xl w-full my-8">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter un Transporteur</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingCarrier(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title={editingId ? t('common.edit') : t('carriers.addButton')}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-5 p-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableCarrierName')} *</label>
+              <input
+                type="text" required value={formData.carrier_name}
+                onChange={(e) => setFormData({ ...formData, carrier_name: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
             </div>
-
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full border">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">#</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Carrier Name</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Carrier Type</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Capacity</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Owner</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Carrier Mood</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Source & Destination</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Weight</th>
-                      <th className="px-3 py-2 text-xs font-medium text-gray-700 border">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {carrierRows.map((row, index) => (
-                      <tr key={index}>
-                        <td className="px-2 py-2 text-sm border text-center">{index + 1}</td>
-                        <td className="px-2 py-2 border">
-                          <input
-                            type="text"
-                            value={row.carrier_name}
-                            onChange={(e) => updateCarrierRow(index, 'carrier_name', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            required
-                          />
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <input
-                            type="text"
-                            value={row.carrier_type}
-                            onChange={(e) => updateCarrierRow(index, 'carrier_type', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <input
-                            type="text"
-                            value={row.capacity}
-                            onChange={(e) => updateCarrierRow(index, 'capacity', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <select
-                            value={row.owner}
-                            onChange={(e) => updateCarrierRow(index, 'owner', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="">Select Owner</option>
-                            <option value="Zakaria Mohamed Yusuf">Zakaria Mohamed Yusuf</option>
-                            <option value="Engr Abdikarim">Engr Abdikarim</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <select
-                            value={row.carrier_mood}
-                            onChange={(e) => updateCarrierRow(index, 'carrier_mood', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="">Select CarrierMood</option>
-                            <option value="Truck">Truck</option>
-                            <option value="Train2">Train2</option>
-                            <option value="HASSAN AHMED ADAWEH">HASSAN AHMED ADAWEH</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <select
-                            value={row.source_destination}
-                            onChange={(e) => updateCarrierRow(index, 'source_destination', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="">Select</option>
-                            <option value="Muqdisho -To- Hargeysa">Muqdisho -To- Hargeysa</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-2 border">
-                          <input
-                            type="text"
-                            value={row.weight}
-                            onChange={(e) => updateCarrierRow(index, 'weight', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        </td>
-                        <td className="px-2 py-2 border text-center">
-                          {!editingCarrier && (
-                            <button
-                              type="button"
-                              onClick={addCarrierRow}
-                              className="text-green-600 hover:text-green-800 text-xl"
-                            >
-                              +
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enregistrer les modifications
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableCarrierType')} *</label>
+              <input
+                type="text" required value={formData.carrier_type}
+                onChange={(e) => setFormData({ ...formData, carrier_type: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableCapacity')}</label>
+              <input
+                type="text" value={formData.capacity}
+                onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableWeight')}</label>
+              <input
+                type="text" value={formData.weight}
+                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableOwner')} *</label>
+              <select
+                required value={formData.owner_id}
+                onChange={(e) => setFormData({ ...formData, owner_id: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              >
+                <option value="">Select Owner</option>
+                {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableMode')} *</label>
+              <select
+                required value={formData.mode_id}
+                onChange={(e) => setFormData({ ...formData, mode_id: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              >
+                <option value="">Select Mode</option>
+                {modes.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('carriers.tableSourceDestination')}</label>
+              <select
+                value={formData.route_id}
+                onChange={(e) => setFormData({ ...formData, route_id: e.target.value })}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+              >
+                <option value="">Select Route</option>
+                {routes.map(r => <option key={r.id} value={r.id}>{r.source} → {r.destination}</option>)}
+              </select>
+            </div>
           </div>
-        </div>
-      )}
+          <div className="flex gap-3 pt-4 border-t border-gray-100 mt-6 text-sm">
+            <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition active:scale-95 font-bold">{t('common.cancel')}</button>
+            <button type="submit" className="flex-1 px-4 py-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95">{t('common.save')}</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

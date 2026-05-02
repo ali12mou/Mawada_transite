@@ -50,7 +50,7 @@ export function ImportReports() {
   const fetchClients = async () => {
     try {
       const data = await fetchClientsApi();
-      setClients(data.map(c => ({ id: c.id, name: c.name, company_name: c.company_name || '' })));
+      setClients(data?.map(c => ({ id: c.id, name: c.name, company_name: c.company_name || '' })));
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
@@ -112,11 +112,11 @@ export function ImportReports() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div
             onClick={() => setView('client-orders')}
-            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-[#1e3a5f]"
+            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-[#0F3C66]"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Folder size={32} className="text-[#1e3a5f]" />
+                <Folder size={32} className="text-[#0F3C66]" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Archiver les documents de commande</h3>
@@ -127,11 +127,11 @@ export function ImportReports() {
 
           <div
             onClick={() => setView('all-orders')}
-            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-[#1e3a5f]"
+            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-[#0F3C66]"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                <List size={32} className="text-[#1e3a5f]" />
+                <List size={32} className="text-[#0F3C66]" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Rapport des commandes</h3>
@@ -168,7 +168,7 @@ export function ImportReports() {
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
             <div>
@@ -176,10 +176,10 @@ export function ImportReports() {
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="">SELECT CUSTOMER</option>
-                {clients.map((client) => (
+                {clients?.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.name} - {client.company_name}
                   </option>
@@ -192,7 +192,7 @@ export function ImportReports() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
           </div>
@@ -229,7 +229,7 @@ export function ImportReports() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order, index) => (
+                  filteredOrders?.map((order, index) => (
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2 text-xs">{index + 1}</td>
                       <td className="px-3 py-2 text-xs">{order.order_number}</td>
@@ -247,7 +247,7 @@ export function ImportReports() {
                       <td className="px-3 py-2 text-xs">{order.completion_date ? new Date(order.completion_date).toLocaleDateString() : 'N/A'}</td>
                       <td className="px-3 py-2 text-xs">N/A</td>
                       <td className="px-3 py-2">
-                        <button className="p-1 text-[#1e3a5f] hover:bg-gray-100 rounded">
+                        <button className="p-1 text-[#0F3C66] hover:bg-gray-100 rounded">
                           <FileText size={14} />
                         </button>
                       </td>
@@ -285,7 +285,7 @@ export function ImportReports() {
               type="date"
               value={dateRange.start}
               onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             />
           </div>
           <div>
@@ -293,7 +293,7 @@ export function ImportReports() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             >
               <option value="All">All</option>
               <option value="PENDING">PENDING</option>
@@ -308,7 +308,7 @@ export function ImportReports() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             />
           </div>
         </div>
@@ -344,7 +344,7 @@ export function ImportReports() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order, index) => (
+                filteredOrders?.map((order, index) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-xs">{index + 1}</td>
                     <td className="px-3 py-2 text-xs">{order.order_number}</td>
@@ -371,3 +371,5 @@ export function ImportReports() {
     </div>
   );
 }
+
+

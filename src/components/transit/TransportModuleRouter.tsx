@@ -1,3 +1,4 @@
+import { useLanguage } from '../../contexts/LanguageContext';
 import { LogisticsFilesModule } from './LogisticsFilesModule';
 import { TransportationModule } from './TransportationModule';
 import { BulkTransportModule } from './BulkTransportModule';
@@ -11,6 +12,7 @@ import { ReportingTransitModule } from './ReportingTransitModule';
 import { ConfigTransitModule } from './ConfigTransitModule';
 
 export function TransportModuleRouter({ moduleKey }: { moduleKey: string }) {
+  const { t } = useLanguage();
   switch (moduleKey) {
     case 'logistics-files-operations':
       return <LogisticsFilesModule />;
@@ -37,8 +39,10 @@ export function TransportModuleRouter({ moduleKey }: { moduleKey: string }) {
     default:
       return (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900">
-          Module inconnu : {moduleKey}
+          {t('common.unknownModule')} : {moduleKey}
         </div>
       );
   }
 }
+
+

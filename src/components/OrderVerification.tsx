@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Search, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
 
 interface OrderVerification {
   id: string;
@@ -138,19 +139,6 @@ export function OrderVerification() {
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-semibold';
-      case 'CHECKED':
-        return 'bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-semibold';
-      case 'PENDING':
-        return 'bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-semibold';
-      default:
-        return 'bg-gray-500 text-white px-3 py-1 rounded-full text-xs font-semibold';
-    }
-  };
-
   const totalPages = Math.ceil(filteredVerifications.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
   const endIndex = startIndex + entriesPerPage;
@@ -166,14 +154,14 @@ export function OrderVerification() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Approbation de commande</h1>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-gray-800">{t('orderVerification.title')}</h1>
       </div>
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span>Show</span>
+            <span>{t('common.show')}</span>
             <input
               type="number"
               value={entriesPerPage}
@@ -181,11 +169,11 @@ export function OrderVerification() {
               className="w-16 px-2 py-1 border border-gray-300 rounded"
               min="1"
             />
-            <span>entries</span>
+            <span>{t('common.entries')}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span>Search:</span>
+            <span>{t('common.searchLabel')}</span>
             <input
               type="text"
               value={searchTerm}
@@ -199,49 +187,55 @@ export function OrderVerification() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID de commande</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nom du client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Source et Destination</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action du document</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colOrderId')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colClientName')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colSourceDest')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orderVerification.colDocAction')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('orders.colStatus')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentVerifications.map((verification, index) => (
+              {currentVerifications?.map((verification, index) => (
                 <tr key={verification.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
-                  <td className="px-4 py-3 text-sm">{verification.order_number}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-600">{verification.order_number}</td>
                   <td className="px-4 py-3 text-sm">{verification.client_name}</td>
-                  <td className="px-4 py-3 text-sm">{verification.source_destination || '-'}</td>
-                  <td className="px-4 py-3">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <FileText className="w-5 h-5" />
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={getStatusBadgeClass(verification.status)}>
-                      {verification.status}
+                  <td className="px-4 py-3 text-sm">{verification.source_destination}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      {verification.document_action || t('orders.title')}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(verification.id, verification.order_id)}
-                        className="text-emerald-600 hover:text-emerald-800"
-                        title="Approve"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleReject(verification.id, verification.order_id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Reject"
-                      >
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    </div>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`px-2 py-1 rounded-full text-xs ${verification.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                        verification.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                      }`}>
+                      {verification.status === 'APPROVED' ? t('common.approved') : 
+                       verification.status === 'REJECTED' ? t('common.rejected') : 
+                       t('dashboard.pending')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {verification.status === 'PENDING' && (
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('orderVerification.approve'),
+                            icon: <CheckCircle className="w-4 h-4" />,
+                            onClick: () => handleApprove(verification.id, verification.order_id),
+                          },
+                          {
+                            label: t('orderVerification.reject'),
+                            icon: <XCircle className="w-4 h-4" />,
+                            onClick: () => handleReject(verification.id, verification.order_id),
+                            variant: 'danger'
+                          }
+                        ]}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -251,7 +245,7 @@ export function OrderVerification() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredVerifications.length)} of {filteredVerifications.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredVerifications.length)} {t('common.of')} {filteredVerifications.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -260,16 +254,15 @@ export function OrderVerification() {
               disabled={currentPage === 1}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Previous
+              {t('common.previous')}
             </button>
 
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1)?.map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1 border rounded ${currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
+                  }`}
               >
                 {page}
               </button>
@@ -280,7 +273,7 @@ export function OrderVerification() {
               disabled={currentPage === totalPages}
               className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
@@ -288,3 +281,5 @@ export function OrderVerification() {
     </div>
   );
 }
+
+

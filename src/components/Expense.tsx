@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, Eye, CheckCircle } from 'lucide-react';
+import { Edit2, Trash2, X, ChevronLeft, ChevronRight, Eye, CheckCircle } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 
 interface ExpenseCategory {
@@ -137,7 +137,7 @@ export function Expense() {
 
       if (expenseError) throw expenseError;
 
-      const itemsToInsert = expenseItems.map(item => ({
+      const itemsToInsert = expenseItems?.map(item => ({
         expense_id: expenseData.id,
         expense_category_id: item.expense_category_id,
         name: item.name,
@@ -175,7 +175,7 @@ export function Expense() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette dépense ?')) return;
+    if (!confirm(t('common.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -234,7 +234,7 @@ export function Expense() {
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer les Dépenses</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('expenses.expenseTitle')}</h1>
         <button
           onClick={() => {
             resetForm();
@@ -242,7 +242,7 @@ export function Expense() {
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Ajouter Nouveau
+          {t('expenses.addExpense')}
         </button>
       </div>
 
@@ -250,7 +250,7 @@ export function Expense() {
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <span>Show</span>
+              <span>{t('common.show')}</span>
               <input
                 type="number"
                 value={entriesPerPage}
@@ -279,25 +279,25 @@ export function Expense() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
                   # <span className="ml-1">▲</span>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Référence</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Montant total</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date de la Dépense</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colRef')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colTotalAmount')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colExpenseDate')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colStatus')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentExpenses.map((expense, index) => (
+              {currentExpenses?.map((expense, index) => (
                 <tr key={expense.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
                   <td className="px-4 py-3 text-sm">{expense.reference_number}</td>
                   <td className="px-4 py-3 text-sm">{formatAmount(expense.total_amount)}</td>
                   <td className="px-4 py-3 text-sm">
                     {expense.status === 'Approved' && (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Approved</span>
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">{t('expenses.statusApproved')}</span>
                     )}
                     {expense.status === 'Pending' && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">Pending</span>
+                      <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">{t('expenses.statusPending')}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">{expense.expense_date}</td>
@@ -330,7 +330,7 @@ export function Expense() {
               {currentExpenses.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    Aucune dépense trouvée
+                    {t('expenses.emptyExpenses')}
                   </td>
                 </tr>
               )}
@@ -340,7 +340,7 @@ export function Expense() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredExpenses.length)} of {filteredExpenses.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredExpenses.length)} {t('common.of')} {filteredExpenses.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -370,7 +370,7 @@ export function Expense() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-6xl w-full my-8">
             <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold">Ajouter des Dépenses</h2>
+              <h2 className="text-xl font-semibold">{t('expenses.addExpensesModalTitle')}</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -385,7 +385,7 @@ export function Expense() {
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenses.fieldDate')}</label>
                   <input
                     type="date"
                     value={formData.expense_date}
@@ -396,7 +396,7 @@ export function Expense() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Solde</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenses.fieldBalance')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -413,16 +413,16 @@ export function Expense() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">#</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Type de Dépense</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Nom</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Montant</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Description</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Numéro de Chèque (Optionnel)</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">Action</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('expenses.fieldName')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('common.name')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('expenses.colAmount')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('expenses.fieldDescription')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('expenses.colCheckNumber')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 border">{t('common.action')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {expenseItems.map((item, index) => (
+                    {expenseItems?.map((item, index) => (
                       <tr key={index}>
                         <td className="px-3 py-2 border">{index + 1}</td>
                         <td className="px-3 py-2 border">
@@ -432,8 +432,8 @@ export function Expense() {
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                           >
-                            <option value="">Select Expense Type</option>
-                            {categories.map((cat) => (
+                            <option value="">{t('expenses.selectType')}</option>
+                            {categories?.map((cat) => (
                               <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
                           </select>
@@ -490,7 +490,7 @@ export function Expense() {
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant total</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenses.colTotalAmount')}</label>
                   <input
                     type="text"
                     value={formatAmount(totalAmount)}
@@ -500,7 +500,7 @@ export function Expense() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Solde final</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenses.fieldFinalBalance')}</label>
                   <input
                     type="text"
                     value={formatAmount(finalBalance)}
@@ -515,7 +515,7 @@ export function Expense() {
                   type="submit"
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Enregistrer les Dépenses
+                  {t('expenses.saveExpenses')}
                 </button>
               </div>
             </form>
@@ -525,3 +525,5 @@ export function Expense() {
     </div>
   );
 }
+
+

@@ -15,7 +15,7 @@ export function getCollection(collectionName) {
 
 export async function listCollections() {
   const collections = await mongoose.connection.db.listCollections().toArray();
-  return collections.map((item) => ({
+  return collections?.map((item) => ({
     name: item.name,
     type: item.type
   }));

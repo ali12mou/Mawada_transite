@@ -133,7 +133,7 @@ export function LeaveTypes() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
         >
           <Plus size={20} />
           Add Leave Type
@@ -158,7 +158,7 @@ export function LeaveTypes() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Annual Leave, Sick Leave"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -169,7 +169,7 @@ export function LeaveTypes() {
                     type="number"
                     value={formData.max_days_per_year}
                     onChange={(e) => setFormData({ ...formData, max_days_per_year: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
               </div>
@@ -182,7 +182,7 @@ export function LeaveTypes() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -235,7 +235,7 @@ export function LeaveTypes() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
                   {editingId ? 'Update' : 'Create'}
                 </button>
@@ -271,11 +271,11 @@ export function LeaveTypes() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {leaveTypes.map((leaveType) => (
+              {leaveTypes?.map((leaveType) => (
                 <tr key={leaveType.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#1e3a5f] rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-[#0F3C66] rounded-lg flex items-center justify-center">
                         <Calendar className="text-white" size={20} />
                       </div>
                       <div className="font-medium text-gray-900">{leaveType.name}</div>
@@ -291,9 +291,8 @@ export function LeaveTypes() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        leaveType.is_paid ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${leaveType.is_paid ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {leaveType.is_paid ? 'Paid' : 'Unpaid'}
                       </span>
                       {leaveType.requires_approval && (
@@ -305,11 +304,10 @@ export function LeaveTypes() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        leaveType.is_active
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${leaveType.is_active
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}
+                        }`}
                     >
                       {leaveType.is_active ? 'Active' : 'Inactive'}
                     </span>
@@ -346,3 +344,5 @@ export function LeaveTypes() {
     </div>
   );
 }
+
+

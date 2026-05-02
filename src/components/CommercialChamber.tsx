@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit2, Trash2, Plus, Eye, FileText, Printer, X, Search, Upload, Briefcase } from 'lucide-react';
+import { Edit2, Trash2, Plus, Eye, FileText, Printer, Search, Upload, Briefcase } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fetchClients, type ClientRecord } from '../api/clientsApi';
@@ -14,6 +14,7 @@ import {
 import { openCommercialDetailPrint, openCommercialListPrint } from '../lib/commercialChamberPrintHtml';
 import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from './common/FormComponents';
 import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 type CommercialDocSlot =
   | 'customerDocument'
@@ -35,7 +36,7 @@ const emptyCommercialDocuments = (): Record<CommercialDocSlot, File | null> => (
 });
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-[#1e3a5f] focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/15';
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15';
 const labelClass = 'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500';
 
 function recordToFormData(r: CommercialChamberRecord) {
@@ -78,7 +79,7 @@ function CommercialChamberFileSlot({
   return (
     <div className="relative">
       <span className={labelClass}>{label}</span>
-      <div className="relative flex min-h-[118px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#1e3a5f]/25 bg-gradient-to-b from-slate-50/90 to-white px-3 py-4 transition hover:border-[#1e3a5f]/45 hover:bg-slate-50/80">
+      <div className="relative flex min-h-[118px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#0F3C66]/25 bg-gradient-to-b from-slate-50/90 to-white px-3 py-4 transition hover:border-[#0F3C66]/45 hover:bg-slate-50/80">
         <input
           id={inputId}
           type="file"
@@ -90,7 +91,7 @@ function CommercialChamberFileSlot({
         />
         {file ? (
           <>
-            <FileText className="text-[#1e3a5f]" size={26} strokeWidth={1.5} aria-hidden />
+            <FileText className="text-[#0F3C66]" size={26} strokeWidth={1.5} aria-hidden />
             <label
               htmlFor={inputId}
               className="mt-2 cursor-pointer break-all text-center text-sm font-medium text-slate-800 line-clamp-3 hover:underline"
@@ -117,10 +118,10 @@ function CommercialChamberFileSlot({
             htmlFor={inputId}
             className="flex cursor-pointer flex-col items-center justify-center gap-1.5 text-sm text-slate-600"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e3a5f]/10 text-[#1e3a5f]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3C66]/10 text-[#0F3C66]">
               <Upload size={20} strokeWidth={1.75} aria-hidden />
             </div>
-            <span className="font-semibold text-[#1e3a5f]">{t('commercial.chooseFile')}</span>
+            <span className="font-semibold text-[#0F3C66]">{t('commercial.chooseFile')}</span>
           </label>
         )}
       </div>
@@ -338,11 +339,11 @@ export function CommercialChamber() {
     <div className="min-h-[calc(100vh-8rem)] space-y-6 bg-gradient-to-b from-slate-50 to-white px-1 pb-8 sm:px-0">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/25">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#0F3C66] text-white shadow-md shadow-[#0F3C66]/25">
             <Briefcase size={24} strokeWidth={1.5} aria-hidden />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#1e3a5f]">{t('commercial.title')}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('commercial.title')}</h1>
             <p className="mt-0.5 text-sm text-gray-500">{t('commercial.pageSubtitle')}</p>
           </div>
         </div>
@@ -350,7 +351,7 @@ export function CommercialChamber() {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
           >
             <Plus size={20} />
             {t('common.addNew')}
@@ -358,7 +359,7 @@ export function CommercialChamber() {
           <button
             type="button"
             onClick={() => void openCommercialListPrint(filteredCommercials)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#e67e22] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-200/60 transition hover:bg-[#d35400]"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#EE964C] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-200/60 transition hover:bg-[#d35400]"
           >
             <Printer size={20} />
             {t('commercial.print')}
@@ -377,7 +378,7 @@ export function CommercialChamber() {
                 className={inputClass + ' max-w-md'}
               >
                 <option value="">{t('clients.selectClient')}</option>
-                {clientsList.map(c => (
+                {clientsList?.map(c => (
                   <option key={c.id} value={c.id}>
                     {formatClientLabel(c)}
                   </option>
@@ -414,7 +415,7 @@ export function CommercialChamber() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] border-collapse text-sm">
             <thead>
-              <tr className="bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] text-left text-xs font-bold uppercase tracking-wider text-white">
+              <tr className="bg-gradient-to-r from-[#0F3C66] to-[#154b8a] text-left text-xs font-bold uppercase tracking-wider text-white">
                 <th className="whitespace-nowrap px-4 py-3.5">#</th>
                 <th className="whitespace-nowrap px-4 py-3.5">{t('commercial.client')}</th>
                 <th className="whitespace-nowrap px-4 py-3.5">{t('commercial.responsible')}</th>
@@ -436,10 +437,10 @@ export function CommercialChamber() {
                   </td>
                 </tr>
               ) : (
-                paginatedCommercials.map((commercial, idx) => (
+                paginatedCommercials?.map((commercial, idx) => (
                   <tr
                     key={commercial.id}
-                    className={`transition hover:bg-[#1e3a5f]/[0.04] ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}
+                    className={`transition hover:bg-[#0F3C66]/[0.04] ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}
                   >
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-700">{commercial.commercial_no}</td>
                     <td className="max-w-[200px] truncate px-4 py-3 font-medium text-gray-900" title={commercial.client_name}>
@@ -451,43 +452,34 @@ export function CommercialChamber() {
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">{formatAmount(commercial.service_charge)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">{formatAmount(commercial.bank_commission_fee)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">{formatAmount(commercial.transport_dhl)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-base font-bold tabular-nums text-[#1e3a5f]">{formatAmount(commercial.total)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-base font-bold tabular-nums text-[#0F3C66]">{formatAmount(commercial.total)}</td>
                     <td className="px-4 py-3 text-center text-gray-400">—</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          title={t('common.view')}
-                          onClick={() => setViewRecord(commercial)}
-                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                        >
-                          <Eye size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('common.edit')}
-                          onClick={() => openEdit(commercial)}
-                          className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
-                        >
-                          <Edit2 size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('common.delete')}
-                          onClick={() => void handleDelete(commercial)}
-                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t('commercial.print')}
-                          onClick={() => void openCommercialDetailPrint(commercial)}
-                          className="rounded-lg p-2 text-[#1e3a5f] transition hover:bg-slate-100"
-                        >
-                          <Printer size={17} />
-                        </button>
-                      </div>
+                    <td className="px-4 py-3 text-center">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.view'),
+                            icon: <Eye size={16} />,
+                            onClick: () => setViewRecord(commercial),
+                          },
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => openEdit(commercial),
+                          },
+                          {
+                            label: t('commercial.print'),
+                            icon: <Printer size={16} />,
+                            onClick: () => void openCommercialDetailPrint(commercial),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => void handleDelete(commercial),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))
@@ -495,7 +487,7 @@ export function CommercialChamber() {
             </tbody>
             {totalFiltered > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-[#1e3a5f]/20 bg-gradient-to-r from-slate-100/90 to-slate-50/90 text-[#1e3a5f]">
+                <tr className="border-t-2 border-[#0F3C66]/20 bg-gradient-to-r from-slate-100/90 to-slate-50/90 text-[#0F3C66]">
                   <td colSpan={4} className="px-4 py-3 text-sm font-bold uppercase tracking-wide">
                     Total
                   </td>
@@ -536,7 +528,7 @@ export function CommercialChamber() {
             >
               {t('commercial.previous')}
             </button>
-            <span className="min-w-[3rem] text-center text-sm font-semibold text-[#1e3a5f]">
+            <span className="min-w-[3rem] text-center text-sm font-semibold text-[#0F3C66]">
               {currentPage} / {totalPages}
             </span>
             <button
@@ -567,7 +559,7 @@ export function CommercialChamber() {
             <div className="mx-auto flex max-w-md items-center justify-between gap-2">
               <div className="flex flex-1 flex-col items-center gap-1">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 1 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 1 ? 'bg-[#0F3C66] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
                     }`}
                 >
                   1
@@ -577,7 +569,7 @@ export function CommercialChamber() {
               <div className="h-0.5 flex-1 rounded bg-gray-200" />
               <div className="flex flex-1 flex-col items-center gap-1">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 2 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-gray-200 text-gray-500'
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 2 ? 'bg-[#0F3C66] text-white shadow-md' : 'bg-gray-200 text-gray-500'
                     }`}
                 >
                   2
@@ -610,7 +602,7 @@ export function CommercialChamber() {
                       required
                     >
                       <option value="">{t('clients.selectClient')}</option>
-                      {clientsList.map(c => (
+                      {clientsList?.map(c => (
                         <option key={c.id} value={c.id}>
                           {formatClientLabel(c)}
                         </option>
@@ -948,52 +940,152 @@ export function CommercialChamber() {
 
       <Modal
         isOpen={!!viewRecord}
-        size="md"
+        size="lg"
         onClose={() => setViewRecord(null)}
-        title={viewRecord ? viewRecord.commercial_no : ''}
+        title={viewRecord ? `${t('commercial.title')} — ${viewRecord.commercial_no}` : ''}
       >
         {viewRecord && (
-          <div className="flex flex-col">
-            <div className="py-2">
-              <dl className="space-y-4 text-sm">
-                <div className="rounded-lg border border-gray-100 bg-slate-50/80 px-3 py-2.5">
-                  <dt className={labelClass}>{t('commercial.client')}</dt>
-                  <dd className="font-medium text-gray-900">{viewRecord.client_name}</dd>
-                </div>
-                <div className="rounded-lg border border-gray-100 bg-slate-50/80 px-3 py-2.5">
-                  <dt className={labelClass}>{t('commercial.responsible')}</dt>
-                  <dd className="text-gray-800">{viewRecord.responsible || '—'}</dd>
-                </div>
-                <div className="rounded-lg border border-gray-100 bg-slate-50/80 px-3 py-2.5">
-                  <dt className={labelClass}>{t('commercial.goodsDescription')}</dt>
-                  <dd className="text-gray-800">{viewRecord.goods_description || '—'}</dd>
-                </div>
-                <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2">
-                  <div className="rounded-lg border border-[#1e3a5f]/15 bg-white px-3 py-2.5 shadow-sm">
-                    <dt className={labelClass}>{t('commercial.servicesTotal')}</dt>
-                    <dd className="text-base font-semibold tabular-nums text-gray-900">{formatAmount(viewRecord.chamber_service_amount)}</dd>
+          <div className="flex flex-col space-y-6 overflow-hidden">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Section: Stakeholder Info */}
+              <div className="space-y-4 rounded-2xl border border-gray-100 bg-slate-50/50 p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-[#0F3C66]">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F3C66]/10">
+                    <Briefcase size={18} />
                   </div>
-                  <div className="rounded-lg border border-[#1e3a5f]/25 bg-[#1e3a5f]/[0.06] px-3 py-2.5 shadow-sm">
-                    <dt className={labelClass}>{t('commercial.total')}</dt>
-                    <dd className="text-lg font-bold tabular-nums text-[#1e3a5f]">{formatAmount(viewRecord.total)}</dd>
+                  <h3 className="font-bold uppercase tracking-wider text-xs">{t('commercial.client')}</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <dt className={labelClass}>{t('commercial.client')}</dt>
+                    <dd className="text-base font-semibold text-gray-900">{viewRecord.client_name}</dd>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className={labelClass}>{t('commercial.responsible')}</dt>
+                      <dd className="font-medium text-gray-800">{viewRecord.responsible || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className={labelClass}>{t('commercial.tell')}</dt>
+                      <dd className="font-medium text-gray-800 tracking-wider tabular-nums">{viewRecord.tell || '—'}</dd>
+                    </div>
+                  </div>
+                  <div>
+                    <dt className={labelClass}>TIM NO</dt>
+                    <dd className="font-medium text-gray-800 tabular-nums uppercase">{viewRecord.timno || '—'}</dd>
                   </div>
                 </div>
-              </dl>
+              </div>
+
+              {/* Section: Reference Documents */}
+              <div className="space-y-4 rounded-2xl border border-gray-100 bg-slate-50/50 p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-[#0F3C66]">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F3C66]/10">
+                    <FileText size={18} />
+                  </div>
+                  <h3 className="font-bold uppercase tracking-wider text-xs">Reference Documents</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className={labelClass}>{t('commercial.commercialInvoiceNo')}</dt>
+                      <dd className="font-medium text-[#0F3C66] tabular-nums font-mono text-xs uppercase">{viewRecord.commercial_invoice_no || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className={labelClass}>{t('commercial.commercialInvoiceDate')}</dt>
+                      <dd className="font-medium text-gray-800 tabular-nums">
+                        {viewRecord.commercial_invoice_date?.substring(0, 10).split('-').reverse().join('/') || '—'}
+                      </dd>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-3">
+                    <div>
+                      <dt className={labelClass}>{t('commercial.purchaseOrderNo')}</dt>
+                      <dd className="font-medium text-[#0F3C66] tabular-nums font-mono text-xs uppercase">{viewRecord.purchase_order_no || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className={labelClass}>{t('commercial.purchaseOrderDate')}</dt>
+                      <dd className="font-medium text-gray-800 tabular-nums">
+                        {viewRecord.purchase_order_date?.substring(0, 10).split('-').reverse().join('/') || '—'}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-6">
+
+            {/* Section: Description */}
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <dt className={labelClass}>{t('commercial.goodsDescription')}</dt>
+              <dd className="mt-1 text-sm leading-relaxed text-gray-700 font-medium italic underline decoration-blue-100 underline-offset-4">
+                &ldquo;{viewRecord.goods_description || '—'}&rdquo;
+              </dd>
+              <div className="mt-4 flex flex-wrap gap-4 border-t border-gray-50 pt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-tight">{t('commercial.quantity')}:</span>
+                  <span className="text-sm font-bold text-[#0F3C66]">{viewRecord.quantity || '0'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-tight">{t('commercial.unitPrice')}:</span>
+                  <span className="text-sm font-bold text-[#0F3C66]">{formatAmount(viewRecord.unit_price || 0)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Financial Details */}
+            <div className="rounded-2xl border border-[#0F3C66]/10 bg-white shadow-md overflow-hidden">
+              <div className="bg-[#0F3C66] px-5 py-3 text-white">
+                <h3 className="text-sm font-bold uppercase tracking-wider">{t('commercial.servicesTotal')} Breakdown</h3>
+              </div>
+              <div className="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{t('commercial.chamberServiceAmount')}</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatAmount(viewRecord.chamber_service_amount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{t('commercial.serviceCharge')}</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatAmount(viewRecord.service_charge)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{t('commercial.bankFee')}</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatAmount(viewRecord.bank_commission_fee)}</span>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3 bg-slate-50/30">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{t('commercial.transport')} (DHL)</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatAmount(viewRecord.transport_dhl)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{t('commercial.certificateFee')}</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatAmount(viewRecord.certificate_fee)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                    <span className="text-sm font-bold text-[#0F3C66] uppercase tracking-tight">{t('commercial.total')}</span>
+                    <span className="text-xl font-black text-[#0F3C66] tabular-nums tracking-tighter">
+                      {formatAmount(viewRecord.total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-2">
               <SecondaryButton
                 type="button"
                 onClick={() => setViewRecord(null)}
+                className="px-6"
               >
                 {t('common.cancel')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
                 onClick={() => void openCommercialDetailPrint(viewRecord)}
-                className="inline-flex items-center gap-2"
+                className="inline-flex items-center gap-2 group transition-all"
               >
-                <Printer size={16} />
-                {t('commercial.print')}
+                <Printer size={18} className="group-hover:scale-110 transition-transform" />
+                <span className="font-bold">{t('commercial.print')} Detail</span>
               </PrimaryButton>
             </div>
           </div>
@@ -1006,3 +1098,5 @@ export function CommercialChamber() {
     </div>
   );
 }
+
+

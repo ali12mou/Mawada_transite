@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users } from 'lucide-react';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 interface Owner {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  address: string;
-  user_id?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  is_user: boolean;
   created_at: string;
 }
 
@@ -18,28 +20,24 @@ export function Associations() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [owners, setOwners] = useState<Owner[]>([]);
-  const [filteredOwners, setFilteredOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [entriesPerPage, setEntriesPerPage] = useState(5);
-  const [currentPage, setCurrentPage] = useState(1);
   const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    is_user: false
   });
 
   useEffect(() => {
     fetchOwners();
   }, []);
-
-  useEffect(() => {
-    filterOwners();
-  }, [owners, searchTerm]);
 
   const fetchOwners = async () => {
     try {
@@ -55,20 +53,6 @@ export function Associations() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterOwners = () => {
-    let filtered = [...owners];
-
-    if (searchTerm) {
-      filtered = filtered.filter(owner =>
-        owner.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        owner.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        owner.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredOwners(filtered);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,16 +92,17 @@ export function Associations() {
   const handleEdit = (owner: Owner) => {
     setEditingOwner(owner);
     setFormData({
-      name: owner.name || '',
+      name: owner.name,
       email: owner.email || '',
       phone: owner.phone || '',
-      address: owner.address || ''
+      address: owner.address || '',
+      is_user: owner.is_user
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce propriétaire ?')) return;
+    if (!confirm(t('associations.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -137,229 +122,247 @@ export function Associations() {
       name: '',
       email: '',
       phone: '',
-      address: ''
+      address: '',
+      is_user: false
     });
+    setEditingOwner(null);
   };
 
-  const totalPages = Math.ceil(filteredOwners.length / entriesPerPage);
+  const filteredOwners = owners.filter(owner =>
+    owner.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    owner.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    owner.phone?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredOwners.length / entriesPerPage));
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const currentOwners = filteredOwners.slice(startIndex, endIndex);
+  const currentOwners = filteredOwners.slice(startIndex, startIndex + entriesPerPage);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">{t('common.loading')}</div>
+        <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer les Propriétaires</h1>
-        <button
-          onClick={() => {
-            setEditingOwner(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Ajouter un Nouveau Propriétaire
-        </button>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-800">{t('associations.manageTitle')}</h2>
+          <Users size={24} className="text-gray-600" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
+          <button
+            onClick={() => {
+              setEditingOwner(null);
+              resetForm();
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm flex items-center gap-2"
+          >
+            <Plus size={18} />
+            {t('associations.addButton')}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span>Show</span>
-              <input
-                type="number"
-                value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded"
-                min="1"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder={t('common.search')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+        <div className="p-4 border-b flex justify-between items-center">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Show</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] outline-none"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span>{t('common.entries')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">{t('common.searchLabel')}</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom <span className="ml-1">▲</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Téléphone <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Adresse <span className="ml-1">▼</span>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Utilisateur</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('associations.colName')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('associations.colPhone')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('associations.colEmail')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('associations.colUser')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentOwners.map((owner) => (
-                <tr key={owner.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{owner.name}</td>
-                  <td className="px-4 py-3 text-sm">{owner.email || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{owner.phone || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{owner.address || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{owner.user_id ? 'Yes' : '-'}</td>
+            <tbody className="divide-y divide-gray-200">
+              {currentOwners?.map((owner) => (
+                <tr key={owner.id} className="hover:bg-gray-50 transition">
+                  <td className="px-4 py-3 text-sm text-gray-900 font-medium">{owner.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{owner.phone || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-blue-600 font-medium">{owner.email || '-'}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(owner)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(owner.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      owner.is_user ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {owner.is_user ? t('associations.yes') : 'No'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-center">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => handleEdit(owner),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(owner.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
-              {currentOwners.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    Aucun propriétaire trouvé
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredOwners.length)} of {filteredOwners.length} entries
+        <div className="p-4 border-t flex justify-between items-center bg-gray-50 rounded-b-lg text-sm text-gray-600">
+          <div>
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(startIndex + entriesPerPage, filteredOwners.length)} {t('common.of')} {filteredOwners.length} {t('common.entries')}
           </div>
-
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-white disabled:opacity-50 transition shadow-sm"
             >
-              <ChevronLeft className="w-4 h-4" />
+              {t('common.previous')}
             </button>
-
-            <span className="px-3 py-1 bg-white border rounded">{currentPage}</span>
-
+            <span className="font-medium text-gray-700">{currentPage} / {totalPages}</span>
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-white disabled:opacity-50 transition shadow-sm"
             >
-              <ChevronRight className="w-4 h-4" />
+              {t('common.next')}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter un propriétaire</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingOwner(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Téléphone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Adresse <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enregistrer les modifications
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); resetForm(); }}
+        title={editingOwner ? t('common.edit') : t('associations.addButton')}
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              {t('associations.colName')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              {t('associations.colEmail')}
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              {t('associations.colPhone')} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              {t('associations.colAddress')}
+            </label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-[#0F3C66] outline-none transition"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 py-2">
+            <input
+              type="checkbox"
+              id="is_user"
+              checked={formData.is_user}
+              onChange={(e) => setFormData({ ...formData, is_user: e.target.checked })}
+              className="w-4 h-4 text-[#0F3C66] border-gray-300 rounded focus:ring-[#0F3C66]"
+            />
+            <label htmlFor="is_user" className="text-sm font-bold text-gray-700">
+              {t('associations.colUser')}
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t mt-6 font-bold text-sm">
+            <button
+              type="button"
+              onClick={() => { setShowModal(false); resetForm(); }}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-[#0F3C66] text-white rounded-md hover:bg-[#154b8a] transition shadow-sm"
+            >
+              {t('common.save')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

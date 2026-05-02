@@ -144,7 +144,7 @@ export function Configurations() {
             onClick={() => setActiveTab('base_settings')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'base_settings'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -154,7 +154,7 @@ export function Configurations() {
             onClick={() => setActiveTab('hr')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'hr'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -164,7 +164,7 @@ export function Configurations() {
             onClick={() => setActiveTab('payroll')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'payroll'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -174,7 +174,7 @@ export function Configurations() {
             onClick={() => setActiveTab('presence')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'presence'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -184,7 +184,7 @@ export function Configurations() {
             onClick={() => setActiveTab('auth')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'auth'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -194,7 +194,7 @@ export function Configurations() {
             onClick={() => setActiveTab('security')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'security'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -204,7 +204,7 @@ export function Configurations() {
             onClick={() => setActiveTab('external')}
             className={`w-full text-left px-4 py-2 rounded transition ${
               activeTab === 'external'
-                ? 'bg-blue-50 text-[#1e3a5f] font-medium'
+                ? 'bg-blue-50 text-[#0F3C66] font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -241,7 +241,7 @@ export function Configurations() {
                   type="text"
                   value={getConfigValue('company_name')}
                   onChange={(e) => setConfigValue('company_name', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                 />
               </div>
 
@@ -254,7 +254,7 @@ export function Configurations() {
                     type="text"
                     value={getConfigValue('company_address')}
                     onChange={(e) => setConfigValue('company_address', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
                 <div>
@@ -265,7 +265,7 @@ export function Configurations() {
                     type="text"
                     value={getConfigValue('company_phone')}
                     onChange={(e) => setConfigValue('company_phone', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
@@ -276,7 +276,7 @@ export function Configurations() {
                   type="email"
                   value={getConfigValue('company_email')}
                   onChange={(e) => setConfigValue('company_email', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   placeholder="contact@exemple.dj"
                 />
                 <p className="mt-1 text-xs text-gray-500">
@@ -294,7 +294,7 @@ export function Configurations() {
                     step="0.1"
                     value={getConfigValue('freight_rate')}
                     onChange={(e) => setConfigValue('freight_rate', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
                 <div>
@@ -306,7 +306,7 @@ export function Configurations() {
                     step="0.1"
                     value={getConfigValue('units')}
                     onChange={(e) => setConfigValue('units', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
@@ -320,7 +320,7 @@ export function Configurations() {
                     type="number"
                     value={getConfigValue('ci_amount')}
                     onChange={(e) => setConfigValue('ci_amount', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
                 <div>
@@ -328,7 +328,7 @@ export function Configurations() {
                   <select
                     value={getConfigValue('currency_symbol')}
                     onChange={(e) => setConfigValue('currency_symbol', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   >
                     <option value="USD">USD</option>
                     <option value="FDJ">FDJ</option>
@@ -344,7 +344,7 @@ export function Configurations() {
                   <select
                     value={getConfigValue('decimals')}
                     onChange={(e) => setConfigValue('decimals', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   >
                     <option value="0">0</option>
                     <option value="1">1</option>
@@ -360,7 +360,7 @@ export function Configurations() {
                     type="text"
                     value={getConfigValue('employee_id_prefix')}
                     onChange={(e) => setConfigValue('employee_id_prefix', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
@@ -371,7 +371,7 @@ export function Configurations() {
                   id="welcome_message"
                   checked={getConfigValue('welcome_message_enabled') === 'true'}
                   onChange={(e) => setConfigValue('welcome_message_enabled', e.target.checked ? 'true' : 'false')}
-                  className="w-5 h-5 text-[#1e3a5f] rounded focus:ring-[#e67e22]"
+                  className="w-5 h-5 text-[#0F3C66] rounded focus:ring-[#EE964C]"
                 />
                 <label htmlFor="welcome_message" className="text-sm text-gray-700">
                   Activer le message de bienvenue à chaque démarrage
@@ -386,7 +386,7 @@ export function Configurations() {
                   type="number"
                   value={getConfigValue('djf_exchange_rate')}
                   onChange={(e) => setConfigValue('djf_exchange_rate', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                 />
               </div>
             </div>
@@ -400,7 +400,7 @@ export function Configurations() {
               <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Letter Head (en-tête)</label>
-                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#1e3a5f] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
+                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#0F3C66] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
                     Choisir un fichier
                     <input
                       type="file"
@@ -422,7 +422,7 @@ export function Configurations() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Footer Logo</label>
-                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#1e3a5f] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
+                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#0F3C66] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
                     Choisir un fichier
                     <input
                       type="file"
@@ -444,7 +444,7 @@ export function Configurations() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Signature Logo</label>
-                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#1e3a5f] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
+                  <label className="inline-block w-full cursor-pointer rounded-lg bg-[#0F3C66] px-4 py-2 text-center text-sm text-white transition hover:bg-[#152a44]">
                     Choisir un fichier
                     <input
                       type="file"
@@ -482,7 +482,7 @@ export function Configurations() {
                     type="number"
                     value={getConfigValue('payroll_start_day')}
                     onChange={(e) => setConfigValue('payroll_start_day', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
                 <div>
@@ -493,7 +493,7 @@ export function Configurations() {
                     type="number"
                     value={getConfigValue('payroll_end_day')}
                     onChange={(e) => setConfigValue('payroll_end_day', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
@@ -513,7 +513,7 @@ export function Configurations() {
                   type="number"
                   value={getConfigValue('absence_threshold')}
                   onChange={(e) => setConfigValue('absence_threshold', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e67e22] focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                 />
               </div>
             </div>
@@ -528,21 +528,21 @@ export function Configurations() {
                 <span className="text-sm text-gray-700">Activer les limites de connexion</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#e67e22]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e3a5f]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EE964C]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F3C66]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between py-3 border-b">
                 <span className="text-sm text-gray-700">Activer l'expiration du mot de passe</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#e67e22]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e3a5f]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EE964C]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F3C66]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm text-gray-700">Activer la journalisation détaillée et les actions sensibles.</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#e67e22]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e3a5f]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EE964C]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F3C66]"></div>
                 </label>
               </div>
             </div>
@@ -552,7 +552,7 @@ export function Configurations() {
         <div className="flex justify-end mt-6">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 bg-[#1e3a5f] text-white px-6 py-2 rounded-lg hover:bg-[#152a44] transition"
+            className="flex items-center gap-2 bg-[#0F3C66] text-white px-6 py-2 rounded-lg hover:bg-[#152a44] transition"
           >
             <Save size={20} />
             {t('common.save')}
@@ -566,3 +566,5 @@ export function Configurations() {
     </div>
   );
 }
+
+

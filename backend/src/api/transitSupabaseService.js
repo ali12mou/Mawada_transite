@@ -121,7 +121,7 @@ export async function replaceContainers(fileId, lines) {
   const supabase = requireClient();
   await supabase.from('logistics_file_containers').delete().eq('logistics_file_id', fileId);
   if (!lines?.length) return;
-  const rows = lines.map((l, i) => ({
+  const rows = lines?.map((l, i) => ({
     logistics_file_id: fileId,
     container_size: l.container_size ?? null,
     number_of_units: l.number_of_units ?? 1,
@@ -384,7 +384,7 @@ function sanitizeLetterRow(o) {
 
 async function insertChamberInvoiceItems(supabase, invoiceId, items) {
   const list = Array.isArray(items) ? items : [];
-  const base = list.map((item) => ({
+  const base = list?.map((item) => ({
     chamber_invoice_id: invoiceId,
     description_of_goods: item.description_of_goods ?? '',
     origin: item.origin ?? '',
@@ -393,7 +393,7 @@ async function insertChamberInvoiceItems(supabase, invoiceId, items) {
     unit_price: Number(item.unit_price) || 0,
     total_amount: Number(item.total_amount) || 0,
   }));
-  const withHs = list.map((item) => ({
+  const withHs = list?.map((item) => ({
     chamber_invoice_id: invoiceId,
     description_of_goods: item.description_of_goods ?? '',
     origin: item.origin ?? '',

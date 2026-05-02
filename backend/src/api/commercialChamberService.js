@@ -16,7 +16,7 @@ function toNumber(value) {
 
 export async function listCommercialChambers() {
   const docs = await CommercialChamber.find({}).sort({ createdAt: -1 });
-  return docs.map((d) => d.toJSON());
+  return docs?.map((d) => d.toJSON());
 }
 
 export async function getCommercialChamberById(id) {

@@ -1,27 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Briefcase } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 
-interface EmployeeProfession {
+interface Profession {
   id: string;
   name: string;
-  description: string;
   department: string;
+  description: string;
   is_active: boolean;
   created_at: string;
 }
 
 export function EmployeeProfessions() {
   const { t } = useLanguage();
-  const [professions, setProfessions] = useState<EmployeeProfession[]>([]);
+  const [professions, setProfessions] = useState<Profession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     department: '',
+    description: '',
     is_active: true,
   });
 
@@ -70,11 +70,11 @@ export function EmployeeProfessions() {
     }
   };
 
-  const handleEdit = (profession: EmployeeProfession) => {
+  const handleEdit = (profession: Profession) => {
     setFormData({
       name: profession.name,
-      description: profession.description,
       department: profession.department,
+      description: profession.description,
       is_active: profession.is_active,
     });
     setEditingId(profession.id);
@@ -82,7 +82,7 @@ export function EmployeeProfessions() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this profession?')) {
+    if (confirm(t('professions.deleteConfirm'))) {
       try {
         const { error } = await supabase
           .from('employee_professions')
@@ -100,8 +100,8 @@ export function EmployeeProfessions() {
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
       department: '',
+      description: '',
       is_active: true,
     });
     setEditingId(null);
@@ -120,15 +120,15 @@ export function EmployeeProfessions() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Employee Professions</h2>
-          <p className="text-gray-600 mt-1">Manage employee job positions and roles</p>
+          <h2 className="text-2xl font-bold text-gray-800">{t('professions.title')}</h2>
+          <p className="text-gray-600 mt-1">{t('professions.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
         >
           <Plus size={20} />
-          Add Profession
+          {t('professions.addProfession')}
         </button>
       </div>
 
@@ -136,44 +136,45 @@ export function EmployeeProfessions() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
             <h3 className="text-xl font-bold mb-4">
-              {editingId ? 'Edit Profession' : 'Add New Profession'}
+              {editingId ? t('professions.modalTitleEdit') : t('professions.modalTitleAdd')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Profession Name *
+                    {t('professions.fieldName')} *
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department
+                    {t('professions.fieldDepartment')} *
                   </label>
                   <input
                     type="text"
+                    required
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  {t('professions.fieldDescription')}
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -186,7 +187,7 @@ export function EmployeeProfessions() {
                   className="rounded border-gray-300"
                 />
                 <label htmlFor="is_active" className="text-sm text-gray-700">
-                  Active
+                  {t('professions.fieldActive')}
                 </label>
               </div>
 
@@ -196,13 +197,13 @@ export function EmployeeProfessions() {
                   onClick={resetForm}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
-                  {editingId ? 'Update' : 'Create'}
+                  {editingId ? t('common.save') : t('common.add')}
                 </button>
               </div>
             </form>
@@ -216,48 +217,44 @@ export function EmployeeProfessions() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Profession
+                  {t('professions.colName')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
+                  {t('professions.colDepartment')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
+                  {t('professions.colDescription')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  {t('professions.colStatus')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t('common.action')}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {professions.map((profession) => (
+              {professions?.map((profession) => (
                 <tr key={profession.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#1e3a5f] rounded-lg flex items-center justify-center">
-                        <Briefcase className="text-white" size={20} />
-                      </div>
                       <div className="font-medium text-gray-900">{profession.name}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{profession.department || '-'}</div>
+                    <div className="text-sm text-gray-600">{profession.department}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-600">{profession.description || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        profession.is_active
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${profession.is_active
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}
+                        }`}
                     >
-                      {profession.is_active ? 'Active' : 'Inactive'}
+                      {profession.is_active ? t('professions.statusActive') : t('professions.statusInactive')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -281,7 +278,7 @@ export function EmployeeProfessions() {
               {professions.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No professions found. Add your first profession to get started.
+                    {t('professions.emptyMessage')}
                   </td>
                 </tr>
               )}
@@ -292,3 +289,5 @@ export function EmployeeProfessions() {
     </div>
   );
 }
+
+

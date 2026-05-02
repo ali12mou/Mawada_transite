@@ -76,8 +76,8 @@ export function Attendance() {
 
   const calculateWorkHours = (checkIn: string, checkOut: string) => {
     if (!checkIn || !checkOut) return 0;
-    const [inHour, inMin] = checkIn.split(':').map(Number);
-    const [outHour, outMin] = checkOut.split(':').map(Number);
+    const [inHour, inMin] = checkIn.split(':')?.map(Number);
+    const [outHour, outMin] = checkOut.split(':')?.map(Number);
     const inMinutes = inHour * 60 + inMin;
     const outMinutes = outHour * 60 + outMin;
     const totalMinutes = outMinutes - inMinutes;
@@ -206,12 +206,12 @@ export function Attendance() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
             />
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f] transition"
+            className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
           >
             <Plus size={20} />
             Mark Attendance
@@ -236,10 +236,10 @@ export function Attendance() {
                     value={formData.employee_id}
                     onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                     disabled={!!editingId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent disabled:bg-gray-100"
                   >
                     <option value="">Select Employee</option>
-                    {employees.map((employee) => (
+                    {employees?.map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.full_name}
                       </option>
@@ -256,7 +256,7 @@ export function Attendance() {
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     disabled={!!editingId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
               </div>
@@ -270,7 +270,7 @@ export function Attendance() {
                     type="time"
                     value={formData.check_in}
                     onChange={(e) => setFormData({ ...formData, check_in: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -281,7 +281,7 @@ export function Attendance() {
                     type="time"
                     value={formData.check_out}
                     onChange={(e) => setFormData({ ...formData, check_out: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -292,7 +292,7 @@ export function Attendance() {
                     required
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                   >
                     <option value="present">Present</option>
                     <option value="absent">Absent</option>
@@ -324,7 +324,7 @@ export function Attendance() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
                 />
               </div>
 
@@ -338,7 +338,7 @@ export function Attendance() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-[#2d4a6f]"
+                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
                 >
                   {editingId ? 'Update' : 'Save'}
                 </button>
@@ -377,7 +377,7 @@ export function Attendance() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {attendances.map((attendance) => (
+              {attendances?.map((attendance) => (
                 <tr key={attendance.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">
@@ -443,3 +443,5 @@ export function Attendance() {
     </div>
   );
 }
+
+

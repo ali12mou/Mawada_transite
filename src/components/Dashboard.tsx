@@ -200,8 +200,8 @@ export function Dashboard() {
               <p className="text-sm font-medium text-gray-700 mb-1">Total Orders</p>
               <p className="text-3xl font-bold text-gray-900">{stats.totalOrders}</p>
             </div>
-            <div className="bg-[#e67e22]/10 p-3 rounded-lg">
-              <Receipt className="text-[#e67e22]" size={24} />
+            <div className="bg-[#EE964C]/10 p-3 rounded-lg">
+              <Receipt className="text-[#EE964C]" size={24} />
             </div>
           </div>
           <div className="space-y-1 text-sm">
@@ -222,8 +222,8 @@ export function Dashboard() {
               <p className="text-sm font-medium text-gray-700 mb-1">Total Expenses</p>
               <p className="text-3xl font-bold text-gray-900">{formatAmount(stats.totalExpenses)}</p>
             </div>
-            <div className="bg-[#1e3a5f]/10 p-3 rounded-lg">
-              <Banknote className="text-[#1e3a5f]" size={24} aria-hidden />
+            <div className="bg-[#0F3C66]/10 p-3 rounded-lg">
+              <Banknote className="text-[#0F3C66]" size={24} aria-hidden />
             </div>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-600 flex-wrap">
@@ -348,7 +348,7 @@ export function Dashboard() {
                     </td>
                   </tr>
                 ) : (
-                  newEmployees.slice(0, 5).map((emp) => (
+                  newEmployees.slice(0, 5)?.map((emp) => (
                     <tr key={emp.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 text-sm">{emp.employee_id}</td>
                       <td className="py-3 px-4 text-sm">{emp.full_name}</td>
@@ -400,7 +400,7 @@ export function Dashboard() {
                     </td>
                   </tr>
                 ) : (
-                  onLeaveEmployees.slice(0, 5).map((emp) => (
+                  onLeaveEmployees.slice(0, 5)?.map((emp) => (
                     <tr key={emp.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 text-sm">{emp.employee_id}</td>
                       <td className="py-3 px-4 text-sm">{emp.full_name}</td>
@@ -433,7 +433,7 @@ export function Dashboard() {
                   cy="50"
                   r="40"
                   fill="none"
-                  stroke="#1e3a5f"
+                  stroke="#0F3C66"
                   strokeWidth="20"
                   strokeDasharray={`${femalePercentage * 2.51} 251`}
                 />
@@ -442,7 +442,7 @@ export function Dashboard() {
                   cy="50"
                   r="40"
                   fill="none"
-                  stroke="#e67e22"
+                  stroke="#EE964C"
                   strokeWidth="20"
                   strokeDasharray={`${malePercentage * 2.51} 251`}
                   strokeDashoffset={`-${femalePercentage * 2.51}`}
@@ -450,7 +450,7 @@ export function Dashboard() {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-[#1e3a5f]">{femalePercentage}%</div>
+                  <div className="text-2xl font-bold text-[#0F3C66]">{femalePercentage}%</div>
                 </div>
               </div>
             </div>
@@ -458,14 +458,14 @@ export function Dashboard() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#1e3a5f] rounded-full"></div>
+                <div className="w-3 h-3 bg-[#0F3C66] rounded-full"></div>
                 <span className="text-sm text-gray-700">Female</span>
               </div>
               <span className="text-sm font-semibold">{genderStats.female}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#e67e22] rounded-full"></div>
+                <div className="w-3 h-3 bg-[#EE964C] rounded-full"></div>
                 <span className="text-sm text-gray-700">Male</span>
               </div>
               <span className="text-sm font-semibold">{genderStats.male}</span>
@@ -483,7 +483,7 @@ export function Dashboard() {
                   cy="50"
                   r="40"
                   fill="none"
-                  stroke="#1e3a5f"
+                  stroke="#0F3C66"
                   strokeWidth="20"
                   strokeDasharray={`${citizenPercentage * 2.51} 251`}
                 />
@@ -492,7 +492,7 @@ export function Dashboard() {
                   cy="50"
                   r="40"
                   fill="none"
-                  stroke="#e67e22"
+                  stroke="#EE964C"
                   strokeWidth="20"
                   strokeDasharray={`${foreignPercentage * 2.51} 251`}
                   strokeDashoffset={`-${citizenPercentage * 2.51}`}
@@ -500,7 +500,7 @@ export function Dashboard() {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-[#1e3a5f]">{citizenPercentage}%</div>
+                  <div className="text-2xl font-bold text-[#0F3C66]">{citizenPercentage}%</div>
                 </div>
               </div>
             </div>
@@ -508,14 +508,14 @@ export function Dashboard() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#1e3a5f] rounded-full"></div>
+                <div className="w-3 h-3 bg-[#0F3C66] rounded-full"></div>
                 <span className="text-sm text-gray-700">citizen</span>
               </div>
               <span className="text-sm font-semibold">{residenceStats.citizen}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#e67e22] rounded-full"></div>
+                <div className="w-3 h-3 bg-[#EE964C] rounded-full"></div>
                 <span className="text-sm text-gray-700">Foriegn</span>
               </div>
               <span className="text-sm font-semibold">{residenceStats.foreign}</span>
@@ -553,7 +553,7 @@ export function Dashboard() {
                     <td colSpan={4} className="text-center py-4 text-sm">-</td>
                   </tr>
                 ) : (
-                  employees.slice(0, 1).map((emp) => (
+                  employees.slice(0, 1)?.map((emp) => (
                     <tr key={emp.id} className="border-b">
                       <td className="py-2 px-2 text-xs">-</td>
                       <td className="py-2 px-2 text-xs">-</td>
@@ -577,3 +577,5 @@ export function Dashboard() {
     </div>
   );
 }
+
+

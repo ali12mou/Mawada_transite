@@ -13,9 +13,10 @@ import {
   type LocalCompanyCreateInput,
 } from '../api/localCompanyApi';
 import { openLocalCompanyPrint } from '../lib/localCompanyPrintHtml';
+import { ActionMenu } from './common/ActionMenu';
 
 const inputClass =
-  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-[#1e3a5f] focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/15';
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15';
 const labelClass = 'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500';
 
 function buildLocalCompanyCreateInput(
@@ -169,7 +170,7 @@ function LocalCompanyFileSlot({
   return (
     <div className="relative">
       <span className={labelClass}>{label}</span>
-      <div className="relative flex min-h-[118px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#1e3a5f]/25 bg-gradient-to-b from-slate-50/90 to-white px-3 py-4 transition hover:border-[#1e3a5f]/45 hover:bg-slate-50/80">
+      <div className="relative flex min-h-[118px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#0F3C66]/25 bg-gradient-to-b from-slate-50/90 to-white px-3 py-4 transition hover:border-[#0F3C66]/45 hover:bg-slate-50/80">
         <input
           id={inputId}
           type="file"
@@ -182,7 +183,7 @@ function LocalCompanyFileSlot({
         />
         {file ? (
           <>
-            <FileText className="text-[#1e3a5f]" size={26} strokeWidth={1.5} aria-hidden />
+            <FileText className="text-[#0F3C66]" size={26} strokeWidth={1.5} aria-hidden />
             <label
               htmlFor={inputId}
               className="mt-2 cursor-pointer break-all text-center text-sm font-medium text-slate-800 line-clamp-3 hover:underline"
@@ -209,10 +210,10 @@ function LocalCompanyFileSlot({
             htmlFor={inputId}
             className="flex cursor-pointer flex-col items-center justify-center gap-1.5 text-sm text-slate-600"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e3a5f]/10 text-[#1e3a5f]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3C66]/10 text-[#0F3C66]">
               <Upload size={20} strokeWidth={1.75} aria-hidden />
             </div>
-            <span className="font-semibold text-[#1e3a5f]">{t('commercial.chooseFile')}</span>
+            <span className="font-semibold text-[#0F3C66]">{t('commercial.chooseFile')}</span>
           </label>
         )}
       </div>
@@ -418,7 +419,7 @@ export function LocalCompany() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
+            className="flex items-center gap-2 bg-[#0F3C66] text-white px-4 py-2 rounded-lg hover:bg-[#152a44] transition"
           >
             <Plus size={20} />
             {t('common.addNew')}
@@ -430,21 +431,19 @@ export function LocalCompany() {
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('local')}
-            className={`px-6 py-3 font-medium transition ${
-              activeTab === 'local'
-                ? 'bg-[#2d3e50] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className={`px-6 py-3 font-medium transition ${activeTab === 'local'
+              ? 'bg-[#2d3e50] text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
           >
             {t('local.localCompany')}
           </button>
           <button
             onClick={() => setActiveTab('full')}
-            className={`px-6 py-3 font-medium transition ${
-              activeTab === 'full'
-                ? 'bg-[#2d3e50] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className={`px-6 py-3 font-medium transition ${activeTab === 'full'
+              ? 'bg-[#2d3e50] text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
           >
             {t('local.fullLocalCompany')}
           </button>
@@ -513,7 +512,7 @@ export function LocalCompany() {
                         </td>
                       </tr>
                     ) : (
-                      filteredCompanies.map((company, index) => (
+                      filteredCompanies?.map((company, index) => (
                         <tr key={company.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4">{index + 1}</td>
                           <td className="py-3 px-4">{company.client_name}</td>
@@ -525,39 +524,32 @@ export function LocalCompany() {
                           <td className="py-3 px-4 text-right">{(company.quantity ?? 0).toFixed(2)}</td>
                           <td className="py-3 px-4 text-right">{(company.truck_loading_quantity ?? 0).toFixed(2)}</td>
                           <td className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                title={t('local.viewRecord')}
-                                onClick={() => setViewingRecord(company)}
-                                className="rounded p-1 text-blue-600 transition hover:bg-blue-50 hover:text-blue-800"
-                              >
-                                <Eye size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                title={t('local.editRecord')}
-                                onClick={() => openEditModal(company)}
-                                className="rounded p-1 text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-800"
-                              >
-                                <Edit2 size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                title={t('common.delete')}
-                                onClick={() => requestDelete(company)}
-                                className="rounded p-1 text-red-600 transition hover:bg-red-50 hover:text-red-800"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                title={t('local.printService')}
-                                onClick={() => void openLocalCompanyPrint(company)}
-                                className="rounded p-1 text-[#1e3a5f] transition hover:bg-slate-100 hover:text-[#152a44]"
-                              >
-                                <Printer size={18} />
-                              </button>
+                            <div className="flex items-center justify-center">
+                              <ActionMenu
+                                actions={[
+                                  {
+                                    label: t('local.viewRecord'),
+                                    icon: <Eye size={16} />,
+                                    onClick: () => setViewingRecord(company),
+                                  },
+                                  {
+                                    label: t('local.editRecord'),
+                                    icon: <Edit2 size={16} />,
+                                    onClick: () => openEditModal(company),
+                                  },
+                                  {
+                                    label: t('local.printService'),
+                                    icon: <Printer size={16} />,
+                                    onClick: () => void openLocalCompanyPrint(company),
+                                  },
+                                  {
+                                    label: t('common.delete'),
+                                    icon: <Trash2 size={16} />,
+                                    onClick: () => requestDelete(company),
+                                    variant: 'danger',
+                                  },
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -575,7 +567,7 @@ export function LocalCompany() {
                   <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
                     {'<'}
                   </button>
-                  <button className="px-3 py-1 bg-[#1e3a5f] text-white rounded">1</button>
+                  <button className="px-3 py-1 bg-[#0F3C66] text-white rounded">1</button>
                   <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">2</button>
                   <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">3</button>
                   <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
@@ -607,7 +599,7 @@ export function LocalCompany() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
           <div className="flex min-h-0 max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] px-6 py-4 text-white">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-[#0F3C66] to-[#154b8a] px-6 py-4 text-white">
               <div>
                 <h2 className="text-xl font-semibold">
                   {editingId ? t('local.editRecord') : t('local.addUpdate')}
@@ -629,9 +621,8 @@ export function LocalCompany() {
               <div className="mx-auto flex max-w-md items-center justify-between gap-2">
                 <div className="flex flex-1 flex-col items-center gap-1">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                      currentStep === 1 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
-                    }`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 1 ? 'bg-[#0F3C66] text-white shadow-md' : 'bg-emerald-100 text-emerald-800'
+                      }`}
                   >
                     1
                   </div>
@@ -640,9 +631,8 @@ export function LocalCompany() {
                 <div className="h-0.5 flex-1 rounded bg-gray-200" />
                 <div className="flex flex-1 flex-col items-center gap-1">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                      currentStep === 2 ? 'bg-[#1e3a5f] text-white shadow-md' : 'bg-gray-200 text-gray-500'
-                    }`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${currentStep === 2 ? 'bg-[#0F3C66] text-white shadow-md' : 'bg-gray-200 text-gray-500'
+                      }`}
                   >
                     2
                   </div>
@@ -653,402 +643,402 @@ export function LocalCompany() {
 
             <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-              {currentStep === 1 && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.vendorCompany')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.vendor_company}
-                        onChange={(e) => setFormData({ ...formData, vendor_company: e.target.value })}
-                        className={inputClass}
-                        placeholder={t('local.vendorCompanyPlaceholder')}
-                        required
-                        autoComplete="organization"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.purchasingCompany')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.purchasing_company}
-                        onChange={(e) => setFormData({ ...formData, purchasing_company: e.target.value })}
-                        className={inputClass}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.goodsDescription')} *
-                      </label>
-                      <select
-                        value={formData.goods_description}
-                        onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
-                        className={inputClass}
-                        required
-                      >
-                        <option value="">Select</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Automobile">Automobile</option>
-                        <option value="Clothing">Clothing</option>
-                        <option value="Furniture">Furniture</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.client')} *
-                      </label>
-                      <select
-                        value={formClientId}
-                        onChange={e => {
-                          const id = e.target.value;
-                          setFormClientId(id);
-                          const c = clientsList.find(x => x.id === id);
-                          setFormData({
-                            ...formData,
-                            client_name: c ? formatClientLabel(c) : '',
-                          });
-                        }}
-                        className={inputClass}
-                        required
-                      >
-                        <option value="">{t('clients.selectClient')}</option>
-                        {clientsList.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {formatClientLabel(c)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.sourceDestination')} *
-                      </label>
-                      <select
-                        value={formData.source_destination}
-                        onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
-                        className={inputClass}
-                        required
-                      >
-                        <option value="">Select</option>
-                        <option value="Muqdisho -To- Hargeysa">Muqdisho -To- Hargeysa</option>
-                        <option value="Bweyne -To- Kismaayo">Bweyne -To- Kismaayo</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.closureDate')} *
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.closure_date}
-                        onChange={(e) => setFormData({ ...formData, closure_date: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.billOfLoading')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.bill_of_loading}
-                        onChange={(e) => setFormData({ ...formData, bill_of_loading: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.declarationS')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.declaration_s}
-                        onChange={(e) => setFormData({ ...formData, declaration_s: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.declarationE')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.declaration_e}
-                        onChange={(e) => setFormData({ ...formData, declaration_e: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.fileFee')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.file_fee}
-                        onChange={(e) => setFormData({ ...formData, file_fee: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.quantity')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.truckLoadingQuantity')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.truck_loading_quantity}
-                        onChange={(e) => setFormData({ ...formData, truck_loading_quantity: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.transitFee')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.transit_fee}
-                        onChange={(e) => setFormData({ ...formData, transit_fee: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.serviceFee')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.service_fee}
-                        onChange={(e) => setFormData({ ...formData, service_fee: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.escortFee')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.escort_fee}
-                        onChange={(e) => setFormData({ ...formData, escort_fee: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.total')}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.total}
-                        onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 2 && (
-                <div className="space-y-5">
-                  <div className="rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-50 to-white p-4 shadow-sm">
-                    <div className="flex gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-sm font-bold text-amber-800"
-                        aria-hidden
-                      >
-                        !
+                {currentStep === 1 && (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.vendorCompany')} *
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.vendor_company}
+                          onChange={(e) => setFormData({ ...formData, vendor_company: e.target.value })}
+                          className={inputClass}
+                          placeholder={t('local.vendorCompanyPlaceholder')}
+                          required
+                          autoComplete="organization"
+                        />
                       </div>
-                      <p className="text-sm leading-relaxed text-amber-950">{t('local.documentsNote')}</p>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.purchasingCompany')} *
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.purchasing_company}
+                          onChange={(e) => setFormData({ ...formData, purchasing_company: e.target.value })}
+                          className={inputClass}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.goodsDescription')} *
+                        </label>
+                        <select
+                          value={formData.goods_description}
+                          onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
+                          className={inputClass}
+                          required
+                        >
+                          <option value="">Select</option>
+                          <option value="Electronics">Electronics</option>
+                          <option value="Automobile">Automobile</option>
+                          <option value="Clothing">Clothing</option>
+                          <option value="Furniture">Furniture</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.client')} *
+                        </label>
+                        <select
+                          value={formClientId}
+                          onChange={e => {
+                            const id = e.target.value;
+                            setFormClientId(id);
+                            const c = clientsList.find(x => x.id === id);
+                            setFormData({
+                              ...formData,
+                              client_name: c ? formatClientLabel(c) : '',
+                            });
+                          }}
+                          className={inputClass}
+                          required
+                        >
+                          <option value="">{t('clients.selectClient')}</option>
+                          {clientsList?.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {formatClientLabel(c)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.sourceDestination')} *
+                        </label>
+                        <select
+                          value={formData.source_destination}
+                          onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
+                          className={inputClass}
+                          required
+                        >
+                          <option value="">Select</option>
+                          <option value="Muqdisho -To- Hargeysa">Muqdisho -To- Hargeysa</option>
+                          <option value="Bweyne -To- Kismaayo">Bweyne -To- Kismaayo</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.closureDate')} *
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.closure_date}
+                          onChange={(e) => setFormData({ ...formData, closure_date: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.billOfLoading')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.bill_of_loading}
+                          onChange={(e) => setFormData({ ...formData, bill_of_loading: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.declarationS')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.declaration_s}
+                          onChange={(e) => setFormData({ ...formData, declaration_s: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.declarationE')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.declaration_e}
+                          onChange={(e) => setFormData({ ...formData, declaration_e: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.fileFee')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.file_fee}
+                          onChange={(e) => setFormData({ ...formData, file_fee: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.quantity')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.quantity}
+                          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.truckLoadingQuantity')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.truck_loading_quantity}
+                          onChange={(e) => setFormData({ ...formData, truck_loading_quantity: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.transitFee')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.transit_fee}
+                          onChange={(e) => setFormData({ ...formData, transit_fee: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.serviceFee')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.service_fee}
+                          onChange={(e) => setFormData({ ...formData, service_fee: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.escortFee')}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.escort_fee}
+                          onChange={(e) => setFormData({ ...formData, escort_fee: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.total')}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.total}
+                          onChange={(e) => setFormData({ ...formData, total: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <LocalCompanyFileSlot
-                      slot="sydonia"
-                      label="Sydonia"
-                      file={documents.sydonia}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                    <LocalCompanyFileSlot
-                      slot="deliveryOrder"
-                      label={t('local.deliveryOrder')}
-                      file={documents.deliveryOrder}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                    <LocalCompanyFileSlot
-                      slot="commercialInvoice"
-                      label={t('commercial.commercialInvoice')}
-                      file={documents.commercialInvoice}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                  </div>
+                {currentStep === 2 && (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-50 to-white p-4 shadow-sm">
+                      <div className="flex gap-3">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-sm font-bold text-amber-800"
+                          aria-hidden
+                        >
+                          !
+                        </div>
+                        <p className="text-sm leading-relaxed text-amber-950">{t('local.documentsNote')}</p>
+                      </div>
+                    </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <LocalCompanyFileSlot
-                      slot="packingList"
-                      label={t('commercial.packingList')}
-                      file={documents.packingList}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                    <LocalCompanyFileSlot
-                      slot="transferDocS"
-                      label={t('local.transferDocS')}
-                      file={documents.transferDocS}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <LocalCompanyFileSlot
+                        slot="sydonia"
+                        label="Sydonia"
+                        file={documents.sydonia}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <LocalCompanyFileSlot
+                        slot="deliveryOrder"
+                        label={t('local.deliveryOrder')}
+                        file={documents.deliveryOrder}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <LocalCompanyFileSlot
+                        slot="commercialInvoice"
+                        label={t('commercial.commercialInvoice')}
+                        file={documents.commercialInvoice}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                    </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <LocalCompanyFileSlot
-                      slot="numero9"
-                      label={t('local.numero9')}
-                      file={documents.numero9}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <LocalCompanyFileSlot
+                        slot="packingList"
+                        label={t('commercial.packingList')}
+                        file={documents.packingList}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <LocalCompanyFileSlot
+                        slot="transferDocS"
+                        label={t('local.transferDocS')}
+                        file={documents.transferDocS}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <LocalCompanyFileSlot
+                        slot="numero9"
+                        label={t('local.numero9')}
+                        file={documents.numero9}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.numero9Price')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.numero_9_price}
+                          onChange={(e) => setFormData({ ...formData, numero_9_price: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <LocalCompanyFileSlot
+                        slot="tiCancellation"
+                        label={t('local.tiCancellation')}
+                        file={documents.tiCancellation}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <LocalCompanyFileSlot
+                        slot="declarationCancellation"
+                        label={t('local.declarationCancellation')}
+                        file={documents.declarationCancellation}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <LocalCompanyFileSlot
+                        slot="numero4"
+                        label={t('local.numero4')}
+                        file={documents.numero4}
+                        onChange={setDocumentForSlot}
+                        t={t}
+                      />
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.numero4Price')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.numero_4_price}
+                          onChange={(e) => setFormData({ ...formData, numero_4_price: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.transfer')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.transfer}
+                          onChange={(e) => setFormData({ ...formData, transfer: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          {t('local.declarationCancellationPrice')} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.declaration_cancellation_price}
+                          onChange={(e) => setFormData({ ...formData, declaration_cancellation_price: e.target.value })}
+                          className={`${inputClass} tabular-nums`}
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <label className={labelClass}>
-                        {t('local.numero9Price')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.numero_9_price}
-                        onChange={(e) => setFormData({ ...formData, numero_9_price: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
+                      <LocalCompanyFileSlot
+                        slot="fullScannedDocument"
+                        label={`${t('local.fullScannedDocument')} *`}
+                        file={documents.fullScannedDocument}
+                        onChange={setDocumentForSlot}
+                        t={t}
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <LocalCompanyFileSlot
-                      slot="tiCancellation"
-                      label={t('local.tiCancellation')}
-                      file={documents.tiCancellation}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                    <LocalCompanyFileSlot
-                      slot="declarationCancellation"
-                      label={t('local.declarationCancellation')}
-                      file={documents.declarationCancellation}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <LocalCompanyFileSlot
-                      slot="numero4"
-                      label={t('local.numero4')}
-                      file={documents.numero4}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.numero4Price')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.numero_4_price}
-                        onChange={(e) => setFormData({ ...formData, numero_4_price: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.transfer')}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.transfer}
-                        onChange={(e) => setFormData({ ...formData, transfer: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        {t('local.declarationCancellationPrice')} *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.declaration_cancellation_price}
-                        onChange={(e) => setFormData({ ...formData, declaration_cancellation_price: e.target.value })}
-                        className={`${inputClass} tabular-nums`}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <LocalCompanyFileSlot
-                      slot="fullScannedDocument"
-                      label={`${t('local.fullScannedDocument')} *`}
-                      file={documents.fullScannedDocument}
-                      onChange={setDocumentForSlot}
-                      t={t}
-                    />
-                  </div>
-                </div>
-              )}
+                )}
 
               </div>
 
@@ -1068,16 +1058,16 @@ export function LocalCompany() {
                   <button
                     type="button"
                     onClick={() => setCurrentStep(2)}
-                    className="ml-auto rounded-xl bg-[#1e3a5f] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
+                    className="ml-auto rounded-xl bg-[#0F3C66] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
                   >
                     {t('local.next')}
                   </button>
                 ) : (
                   <button
                     type="submit"
-                    className="ml-auto rounded-xl bg-[#1e3a5f] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a44]"
+                    className="ml-auto rounded-xl bg-[#0F3C66] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
                   >
-                    {t('commercial.finish')}
+                    {t('local.finish')}
                   </button>
                 )}
               </div>
@@ -1089,7 +1079,7 @@ export function LocalCompany() {
       {viewingRecord && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] px-5 py-4 text-white">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#0F3C66] to-[#154b8a] px-5 py-4 text-white">
               <h2 className="text-lg font-semibold">{t('local.viewRecord')}</h2>
               <div className="flex items-center gap-2">
                 <button
@@ -1125,7 +1115,7 @@ export function LocalCompany() {
                   [t('local.transitFee'), formatAmount(viewingRecord.transit_fee ?? 0)],
                   [t('local.serviceFee'), formatAmount(viewingRecord.service_fee ?? 0)],
                   [t('local.total'), formatAmount(viewingRecord.total ?? 0)],
-                ].map(([label, val], idx) => (
+                ]?.map(([label, val], idx) => (
                   <div key={`view-field-${idx}`} className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2">
                     <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
                     <dd className="mt-1 font-medium text-slate-900">{val}</dd>
@@ -1137,7 +1127,7 @@ export function LocalCompany() {
               <button
                 type="button"
                 onClick={() => setViewingRecord(null)}
-                className="rounded-lg bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#152a44]"
+                className="rounded-lg bg-[#0F3C66] px-4 py-2 text-sm font-semibold text-white hover:bg-[#152a44]"
               >
                 {t('common.cancel')}
               </button>
@@ -1195,3 +1185,5 @@ export function LocalCompany() {
     </div>
   );
 }
+
+

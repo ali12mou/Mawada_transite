@@ -89,7 +89,7 @@ export function ServicesReports() {
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition">
-                <Building2 className="w-8 h-8 text-[#1e3a5f]" />
+                <Building2 className="w-8 h-8 text-[#0F3C66]" />
               </div>
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
@@ -129,7 +129,7 @@ export function ServicesReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
             {t('services.backToReports')}
           </button>
@@ -146,7 +146,7 @@ export function ServicesReports() {
                 type="date"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
 
@@ -157,10 +157,10 @@ export function ServicesReports() {
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="All">{t('financial.all')}</option>
-                {clients.map(client => (
+                {clients?.map(client => (
                   <option key={client.id} value={client.id}>{client.name}</option>
                 ))}
               </select>
@@ -175,7 +175,7 @@ export function ServicesReports() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('services.search') + '...'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
           </div>
@@ -195,7 +195,7 @@ export function ServicesReports() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.map((order) => (
+                {orders?.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-blue-600">{order.reference}</td>
                     <td className="px-4 py-3 text-sm">{getClientName(order.client_id)}</td>
@@ -230,7 +230,7 @@ export function ServicesReports() {
         <div className="mb-6">
           <button
             onClick={() => setCurrentView('main')}
-            className="text-[#1e3a5f] hover:underline mb-4 flex items-center gap-2"
+            className="text-[#0F3C66] hover:underline mb-4 flex items-center gap-2"
           >
             {t('services.backToReports')}
           </button>
@@ -247,7 +247,7 @@ export function ServicesReports() {
                 type="date"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               />
             </div>
 
@@ -258,7 +258,7 @@ export function ServicesReports() {
               <select
                 value={selectedSeller}
                 onChange={(e) => setSelectedSeller(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="All">{t('financial.all')}</option>
               </select>
@@ -271,7 +271,7 @@ export function ServicesReports() {
               <select
                 value={selectedSource}
                 onChange={(e) => setSelectedSource(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
               >
                 <option value="All">{t('financial.all')}</option>
               </select>
@@ -295,7 +295,7 @@ export function ServicesReports() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {localCompanies.map((company, index) => (
+                {localCompanies?.map((company, index) => (
                   <tr key={company.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">{index + 1}</td>
                     <td className="px-4 py-3 text-sm">{company.client_name || '-'}</td>
@@ -328,3 +328,5 @@ export function ServicesReports() {
 
   return null;
 }
+
+

@@ -7,7 +7,9 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | unde
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 // Ne pas lancer d’erreur à l’import : sinon React ne monte pas et la page reste blanche.
-const url = isSupabaseConfigured ? supabaseUrl! : 'http://127.0.0.1:54321';
+const url = isSupabaseConfigured ? supabaseUrl! : 'http://localhost:54321';
 const key = isSupabaseConfigured ? supabaseAnonKey! : 'local-dev-missing-env';
 
 export const supabase = createClient(url, key);
+
+

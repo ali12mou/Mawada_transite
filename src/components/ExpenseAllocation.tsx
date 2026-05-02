@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Edit2, Trash2, X, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 
 interface ExpenseAllocation {
   id: string;
@@ -16,15 +16,7 @@ interface ExpenseAllocation {
   created_at: string;
 }
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const MONTHS_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-];
+// Months are now pulled from i18n
 
 export function ExpenseAllocation() {
   const { user } = useAuth();
@@ -85,7 +77,7 @@ export function ExpenseAllocation() {
 
   const generateName = () => {
     if (allocationType === 'Recurring Expense') {
-      const monthName = MONTHS_FR[formData.month - 1];
+      const monthName = t(`common.months.${formData.month}`);
       return `${monthName}_${formData.year}`;
     }
     return formData.name;
@@ -155,7 +147,7 @@ export function ExpenseAllocation() {
 
   const handleDelete = async (id: string, isLocked: boolean) => {
     if (isLocked) return;
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette allocation ?')) return;
+    if (!confirm(t('expenses.allocDeleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -182,7 +174,7 @@ export function ExpenseAllocation() {
 
   const formatDisplayDate = (allocation: ExpenseAllocation) => {
     if (allocation.allocation_type === 'Recurring Expense' && allocation.year && allocation.month) {
-      return `${MONTHS_FR[allocation.month - 1]}_${allocation.year}`;
+      return `${t(`common.months.${allocation.month}`)}_${allocation.year}`;
     }
     return allocation.allocation_date || '-';
   };
@@ -203,7 +195,7 @@ export function ExpenseAllocation() {
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer l'attribution des dépenses</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('expenses.allocManageTitle')}</h1>
         <button
           onClick={() => {
             setEditingAllocation(null);
@@ -212,7 +204,7 @@ export function ExpenseAllocation() {
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Ajouter Nouveau
+          {t('expenses.addCategory')}
         </button>
       </div>
 
@@ -220,7 +212,7 @@ export function ExpenseAllocation() {
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <span>Show</span>
+              <span>{t('common.show')}</span>
               <input
                 type="number"
                 value={entriesPerPage}
@@ -247,26 +239,25 @@ export function ExpenseAllocation() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom <span className="ml-1">▲</span>
+                  {t('common.name')} <span className="ml-1">▲</span>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Montant</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type d'allocation</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.fieldDate')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colAmount')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.allocColType')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentAllocations.map((allocation) => (
+              {currentAllocations?.map((allocation) => (
                 <tr key={allocation.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{allocation.name}</td>
                   <td className="px-4 py-3 text-sm">{formatDisplayDate(allocation)}</td>
                   <td className="px-4 py-3 text-sm">{allocation.amount}</td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-1 text-xs rounded ${
-                      allocation.allocation_type === 'Recurring Expense'
+                    <span className={`px-2 py-1 text-xs rounded ${allocation.allocation_type === 'Recurring Expense'
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
-                    }`}>
+                      }`}>
                       {allocation.allocation_type}
                     </span>
                   </td>
@@ -274,7 +265,7 @@ export function ExpenseAllocation() {
                     {allocation.is_locked ? (
                       <div className="flex items-center gap-1 text-gray-500">
                         <Lock className="w-4 h-4" />
-                        <span className="text-xs">Locked</span>
+                        <span className="text-xs">{t('expenses.locked')}</span>
                       </div>
                     ) : (
                       <div className="flex gap-2">
@@ -298,7 +289,7 @@ export function ExpenseAllocation() {
               {currentAllocations.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    Aucune allocation trouvée
+                    {t('expenses.allocEmpty')}
                   </td>
                 </tr>
               )}
@@ -308,7 +299,7 @@ export function ExpenseAllocation() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredAllocations.length)} of {filteredAllocations.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredAllocations.length)} {t('common.of')} {filteredAllocations.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -320,13 +311,12 @@ export function ExpenseAllocation() {
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {[...Array(Math.min(4, totalPages))].map((_, i) => (
+            {[...Array(Math.min(4, totalPages))]?.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 text-sm ${
-                  currentPage === i + 1 ? 'bg-blue-600 text-white border rounded' : 'hover:bg-gray-100'
-                }`}
+                className={`px-3 py-1 text-sm ${currentPage === i + 1 ? 'bg-blue-600 text-white border rounded' : 'hover:bg-gray-100'
+                  }`}
               >
                 {i + 1}
               </button>
@@ -347,7 +337,7 @@ export function ExpenseAllocation() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full">
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter/Mettre à jour l'allocation des dépenses</h2>
+              <h2 className="text-xl font-semibold">{t('expenses.allocModalTitle')}</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -362,36 +352,34 @@ export function ExpenseAllocation() {
 
             <form onSubmit={handleSubmit} className="p-6">
               <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Type d'allocation des dépenses</h3>
+                <h3 className="text-lg font-medium text-gray-700 mb-4">{t('expenses.allocSubTitle')}</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => setAllocationType('Other Expense')}
-                    className={`p-4 border-2 rounded-lg text-left transition-all ${
-                      allocationType === 'Other Expense'
+                    className={`p-4 border-2 rounded-lg text-left transition-all ${allocationType === 'Other Expense'
                         ? 'border-blue-600 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className={`font-semibold mb-1 ${allocationType === 'Other Expense' ? 'text-blue-600' : 'text-gray-700'}`}>
-                      Autres dépenses
+                      {t('expenses.allocOther')}
                     </div>
-                    <div className="text-sm text-gray-600">Pour les dépenses ponctuelles ou irrégulières</div>
+                    <div className="text-sm text-gray-600">{t('expenses.allocOtherDesc')}</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAllocationType('Recurring Expense')}
-                    className={`p-4 border-2 rounded-lg text-left transition-all ${
-                      allocationType === 'Recurring Expense'
+                    className={`p-4 border-2 rounded-lg text-left transition-all ${allocationType === 'Recurring Expense'
                         ? 'border-blue-600 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className={`font-semibold mb-1 ${allocationType === 'Recurring Expense' ? 'text-blue-600' : 'text-gray-700'}`}>
-                      Dépenses récurrentes
+                      {t('expenses.allocRecurring')}
                     </div>
-                    <div className="text-sm text-gray-600">Pour les dépenses mensuelles régulières comme le loyer ou les abonnements</div>
+                    <div className="text-sm text-gray-600">{t('expenses.allocRecurringDesc')}</div>
                   </button>
                 </div>
               </div>
@@ -400,38 +388,38 @@ export function ExpenseAllocation() {
                 {allocationType === 'Recurring Expense' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.year')}</label>
                       <select
                         value={formData.year}
                         onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
-                        <option value="">Select Year</option>
-                        {[2024, 2025, 2026, 2027, 2028].map(year => (
+                        <option value="">{t('expenses.selectYear')}</option>
+                        {[2024, 2025, 2026, 2027, 2028]?.map(year => (
                           <option key={year} value={year}>{year}</option>
                         ))}
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mois</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.month')}</label>
                       <select
                         value={formData.month}
                         onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
-                        <option value="">Select Month</option>
-                        {MONTHS.map((month, index) => (
-                          <option key={index} value={index + 1}>{month}</option>
+                        <option value="">{t('expenses.selectMonth')}</option>
+                        {[...Array(12)]?.map((_, index) => (
+                          <option key={index} value={index + 1}>{t(`common.months.${index + 1}`)}</option>
                         ))}
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Name [OPTIONAL GENERATED]
+                        {t('expenses.fieldGeneratedName')}
                       </label>
                       <input
                         type="text"
@@ -446,7 +434,7 @@ export function ExpenseAllocation() {
                 {allocationType === 'Other Expense' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nom [Généré en option]
+                      {t('expenses.fieldGeneratedName')}
                     </label>
                     <input
                       type="text"
@@ -459,7 +447,7 @@ export function ExpenseAllocation() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('expenses.colAmount')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -474,7 +462,7 @@ export function ExpenseAllocation() {
                   type="submit"
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Soumettre
+                  {t('expenses.submit')}
                 </button>
               </div>
             </form>
@@ -484,3 +472,5 @@ export function ExpenseAllocation() {
     </div>
   );
 }
+
+

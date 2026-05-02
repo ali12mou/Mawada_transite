@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Edit2, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ExpenseCategory {
   id: string;
@@ -109,7 +109,7 @@ export function ExpenseCategories() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie de dépense ?')) return;
+    if (!confirm(t('expenses.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -147,7 +147,7 @@ export function ExpenseCategories() {
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer les Types de Dépenses</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('expenses.categoriesTitle')}</h1>
         <button
           onClick={() => {
             setEditingCategory(null);
@@ -156,7 +156,7 @@ export function ExpenseCategories() {
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Ajouter Nouveau
+          {t('expenses.addCategory')}
         </button>
       </div>
 
@@ -164,7 +164,7 @@ export function ExpenseCategories() {
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <span>Show</span>
+              <span>{t('common.show')}</span>
               <input
                 type="number"
                 value={entriesPerPage}
@@ -191,14 +191,14 @@ export function ExpenseCategories() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Catégorie de Dépense <span className="ml-1">▲</span>
+                  {t('expenses.colCategory')} <span className="ml-1">▲</span>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Description</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('expenses.colDescription')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">{t('common.action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentCategories.map((category) => (
+              {currentCategories?.map((category) => (
                 <tr key={category.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{category.name}</td>
                   <td className="px-4 py-3 text-sm">{category.description || '-'}</td>
@@ -223,7 +223,7 @@ export function ExpenseCategories() {
               {currentCategories.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
-                    Aucune catégorie de dépense trouvée
+                    {t('expenses.emptyCategories')}
                   </td>
                 </tr>
               )}
@@ -233,7 +233,7 @@ export function ExpenseCategories() {
 
         <div className="p-4 border-t flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredCategories.length)} of {filteredCategories.length} entries
+            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredCategories.length)} {t('common.of')} {filteredCategories.length} {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
@@ -264,7 +264,7 @@ export function ExpenseCategories() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter/Mettre à Jour les Types de Dépenses</h2>
+              <h2 className="text-xl font-semibold">{t('expenses.modalTitle')}</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -281,7 +281,7 @@ export function ExpenseCategories() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type de Dépense <span className="text-red-500">*</span>
+                    {t('expenses.fieldName')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -294,7 +294,7 @@ export function ExpenseCategories() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                    {t('expenses.fieldDescription')}
                   </label>
                   <input
                     type="text"
@@ -308,7 +308,7 @@ export function ExpenseCategories() {
                   type="submit"
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Enregistrer les modifications
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -318,3 +318,5 @@ export function ExpenseCategories() {
     </div>
   );
 }
+
+

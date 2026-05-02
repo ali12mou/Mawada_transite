@@ -1,44 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Search, Download, MoreVertical, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Download, Edit2, Trash2, Eye, Search } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
+import Modal from './common/Modal';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { fetchClients, type ClientRecord } from '../api/clientsApi';
+import { fetchOrders as apiFetchOrders, createOrder, deleteOrder, type OrderData } from '../api/ordersApi';
 
-interface Order {
+interface Order extends OrderData {
   id: string;
-  order_number: string;
-  bl_number: string;
-  client_name: string;
-  client_phone: string;
-  source_destination: string;
-  delivery_status: string;
-  status: string;
-  item_price: string;
-  amount_djf: number;
-  quantity: number;
-  recharge_amount: number;
-  maritime_line_fees: number;
-  sgtd_wharfage: number;
-  document_9: number;
-  document_4: number;
-  port_handling: number;
-  port_passage: number;
-  file_fees: number;
-  escort_fees: number;
-  transport: number;
-  elevator_cart: number;
-  ctn: number;
-  chamber: number;
-  exit: number;
-  transit: number;
-  total_services: number;
-  total_item_price: number;
-  profit_amount: number;
-  total: number;
-  ci_amount: number;
-  order_date: string;
-  creation_date: string;
+  creation_date?: string;
 }
 
 export function Orders() {
@@ -46,6 +18,7 @@ export function Orders() {
   const { t } = useLanguage();
   const { formatAmount } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -80,11 +53,13 @@ export function Orders() {
     chamber: 0,
     exit: 0,
     transit: 0,
+    ci_amount: 0,
     order_date: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
     fetchOrders();
+    fetchClients().then(setClients).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -93,13 +68,13 @@ export function Orders() {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('creation_date', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
+      const data = await apiFetchOrders();
+      const mappedOrders = data.map((item: OrderData & { _id?: string, createdAt?: string, creation_date?: string, id?: string }) => ({
+        ...item,
+        id: item._id || item.id || '',
+        creation_date: item.createdAt || item.creation_date || new Date().toISOString()
+      }));
+      setOrders(mappedOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -160,17 +135,16 @@ export function Orders() {
 
       const orderNumber = `ORDER${Date.now().toString().slice(-6)}`;
 
-      const { error } = await supabase.from('orders').insert([{
+      await createOrder({
         ...formData,
         order_number: orderNumber,
         total_services: totalServices,
         total_item_price: totalItemPrice,
         total,
         profit_amount: profitAmount,
+        ci_amount: formData.ci_amount,
         created_by: user?.id
-      }]);
-
-      if (error) throw error;
+      });
 
       setShowModal(false);
       setCurrentStep(1);
@@ -205,8 +179,19 @@ export function Orders() {
       chamber: 0,
       exit: 0,
       transit: 0,
+      ci_amount: 0,
       order_date: new Date().toISOString().split('T')[0]
     });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this order?')) return;
+    try {
+      await deleteOrder(id);
+      fetchOrders();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+    }
   };
 
   const getStatusBadgeClass = (status: string) => {
@@ -251,152 +236,162 @@ export function Orders() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-1">Gérer la liste des commandes</h1>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b flex justify-between items-center">
-          <div className="flex gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Statut de la commande *
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option>All</option>
-                <option>COMPLETED</option>
-                <option>CHECKED</option>
-                <option>PENDING</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Source et Destination *
-              </label>
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option>All</option>
-                <option>DIRE DAWA</option>
-                <option>China</option>
-                <option>Mogadishu</option>
-                <option>Hargeisa</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Page de dates *
-              </label>
-              <input
-                type="text"
-                placeholder="2026-02-28 - 2026-02-28"
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-56 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+        <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66] mb-6">{t('orders.title')}</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('orders.statusFilter')}
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] transition text-sm font-medium"
+            >
+              <option value="All">All</option>
+              <option value="PENDING">PENDING</option>
+              <option value="CHECKED">CHECKED</option>
+              <option value="COMPLETED">COMPLETED</option>
+            </select>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('orders.sourceFilter')}
+            </label>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] transition text-sm font-medium"
             >
+              <option value="All">All</option>
+              <option value="Djibouti -To- DIRE DAWA">Djibouti -To- DIRE DAWA</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              {t('orders.dateRange')}
+            </label>
+            <input
+              type="date"
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] transition text-sm font-medium"
+            />
+          </div>
+
+          <div className="flex items-end gap-2">
+            <button className="flex-1 px-4 py-2 border border-gray-200 text-[#0F3C66] rounded-xl font-bold shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 transition active:scale-95 text-sm">
               <Download className="w-4 h-4" />
-              Imprimer la Commande
+              {t('orders.printOrder')}
             </button>
             <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+              onClick={() => {
+                setShowModal(true);
+                setCurrentStep(1);
+              }}
+              className="flex-1 px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] flex items-center justify-center gap-2 transition active:scale-95 text-sm"
             >
               <Plus className="w-4 h-4" />
-              Ajouter Nouveau
+              {t('orders.addNew')}
             </button>
           </div>
         </div>
+      </div>
 
-        <div className="p-4 border-b flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <input
-              type="number"
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{t('common.show')}</span>
+            <select
               value={entriesPerPage}
               onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-              className="w-16 px-2 py-1 border border-gray-300 rounded"
-              min="1"
-            />
-            <span>entries</span>
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm font-medium text-gray-600">{t('common.entries')}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span>Search:</span>
+          <div className="relative w-72">
             <input
               type="text"
+              placeholder={`${t('common.searchLabel') || t('common.search')}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
             />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">BL Number</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Source et Destination</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut de livraison</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Montant CI</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date de création</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Order Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Créé par</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">#</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colBl')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colClient')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colSourceDest')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colDeliveryStatus')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colTotal')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colCiAmount')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colCreationDate')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('orders.colStatus')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider w-24 text-center">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentOrders.map((order, index) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{order.order_number}</td>
-                  <td className="px-4 py-3 text-sm">{order.bl_number || '-'}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <div>{order.client_name}</div>
-                    <div className="text-xs text-gray-500">{order.client_phone}</div>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {currentOrders?.map((order) => (
+                <tr key={order.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm font-bold text-gray-500">{order.order_number}</td>
+                  <td className="px-5 py-4 text-sm font-mono text-gray-800">{order.bl_number || '-'}</td>
+                  <td className="px-5 py-4 text-sm">
+                    <div className="font-bold text-[#0F3C66]">{order.client_name}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{order.client_phone}</div>
                   </td>
-                  <td className="px-4 py-3 text-sm">{order.source_destination || '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${getDeliveryStatusBadgeClass(order.delivery_status)}`}>
+                  <td className="px-5 py-4 text-sm font-medium text-gray-600">{order.source_destination || '-'}</td>
+                  <td className="px-5 py-4">
+                    <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-lg ${getDeliveryStatusBadgeClass(order.delivery_status)}`}>
                       {order.delivery_status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(order.total)}</td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(order.ci_amount)}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {new Date(order.creation_date).toLocaleDateString('fr-FR')}
+                  <td className="px-5 py-4 text-sm font-mono text-[#0F3C66] font-bold">{formatCurrency(order.total)}</td>
+                  <td className="px-5 py-4 text-sm font-mono font-medium text-gray-600">{formatCurrency(order.ci_amount)}</td>
+                  <td className="px-5 py-4 text-sm font-medium text-gray-500">
+                    {new Date(order.creation_date || new Date().toISOString()).toLocaleDateString('fr-FR')}
                   </td>
-                  <td className="px-4 py-3 text-sm">
-                    {order.order_date ? new Date(order.order_date).toLocaleDateString('fr-FR') : '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${getStatusBadgeClass(order.status)}`}>
+                  <td className="px-5 py-4">
+                    <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-lg ${getStatusBadgeClass(order.status)}`}>
                       {order.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">-</td>
-                  <td className="px-4 py-3">
-                    <button className="text-gray-600 hover:text-gray-900">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.view'),
+                            icon: <Eye size={16} />,
+                            onClick: () => console.log('View Order', order.id),
+                          },
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => console.log('Edit Order', order.id),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(order.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -404,524 +399,281 @@ export function Orders() {
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} entries
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center">
+          <div className="text-sm font-medium text-gray-500">
+            {t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(endIndex, filteredOrders.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredOrders.length}</span> {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Previous
+              {t('common.previous') || 'Previous'}
             </button>
 
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1)?.map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-10 h-10 rounded-xl transition-all font-bold text-sm ${
+                    currentPage === page
+                      ? 'bg-[#0F3C66] text-white shadow-lg shadow-[#0F3C66]/20 active:scale-95'
+                      : 'border border-gray-200 hover:bg-white hover:border-[#0F3C66]/30 text-gray-600'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
 
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Next
+              {t('common.next') || 'Next'}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Ajouter/Mettre à jour la commande</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setCurrentStep(1);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="flex items-center justify-center mb-6">
-                <div className="flex items-center gap-4">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                    currentStep === 1 ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    1
-                  </div>
-                  <div className="w-24 h-1 bg-gray-300"></div>
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                    currentStep === 2 ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    2
-                  </div>
-                </div>
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          resetForm();
+        }}
+        title={t('orders.addUpdate') || 'Add/Update Order'}
+        size="xxl"
+      >
+        <div className="p-2">
+              <div className="flex gap-4 mb-8">
+                <div className={`flex-1 h-2 rounded-full ${currentStep === 1 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                <div className={`flex-1 h-2 rounded-full ${currentStep === 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
               </div>
 
-              <form onSubmit={handleSubmit}>
+              <div className="flex justify-between mb-8 text-sm font-medium">
+                <span className={currentStep === 1 ? 'text-blue-600' : 'text-gray-400'}>{t('orders.step1')}</span>
+                <span className={currentStep === 2 ? 'text-blue-600' : 'text-gray-400'}>{t('orders.step2')}</span>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {currentStep === 1 ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Client *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.client_name}
-                        onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Mohamed Ali - 09812991912 -"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Source et Destination *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.source_destination}
-                        onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Djibouti -To- DIRE DAWA"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Item Price *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.item_price}
-                        onChange={(e) => setFormData({ ...formData, item_price: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Container Shipping - 810 (USD)"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        BL Number
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.bl_number}
-                        onChange={(e) => setFormData({ ...formData, bl_number: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="1234567"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Montant en DJF
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.amount_djf}
-                        onChange={(e) => setFormData({ ...formData, amount_djf: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Quantité *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Montant de la recharge
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.recharge_amount}
-                        onChange={(e) => setFormData({ ...formData, recharge_amount: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Frais de ligne maritime *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.maritime_line_fees}
-                        onChange={(e) => setFormData({ ...formData, maritime_line_fees: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        SGTD Wharfage *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.sgtd_wharfage}
-                        onChange={(e) => setFormData({ ...formData, sgtd_wharfage: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Document N° 9
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.document_9}
-                        onChange={(e) => setFormData({ ...formData, document_9: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Document N° 4
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.document_4}
-                        onChange={(e) => setFormData({ ...formData, document_4: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Chargement ou Main-d'œuvre *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.port_handling}
-                        onChange={(e) => setFormData({ ...formData, port_handling: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Passage de Porte *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.port_passage}
-                        onChange={(e) => setFormData({ ...formData, port_passage: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Frais de Dossier *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.file_fees}
-                        onChange={(e) => setFormData({ ...formData, file_fees: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Frais d'Escorte
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.escort_fees}
-                        onChange={(e) => setFormData({ ...formData, escort_fees: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Transport *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.transport}
-                        onChange={(e) => setFormData({ ...formData, transport: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Chariot Elévateur
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.elevator_cart}
-                        onChange={(e) => setFormData({ ...formData, elevator_cart: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        CTN
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.ctn}
-                        onChange={(e) => setFormData({ ...formData, ctn: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Chambre
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.chamber}
-                        onChange={(e) => setFormData({ ...formData, chamber: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Sortie
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.exit}
-                        onChange={(e) => setFormData({ ...formData, exit: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Transit *
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.transit}
-                        onChange={(e) => setFormData({ ...formData, transit: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Total des services
-                      </label>
-                      <input
-                        type="number"
-                        disabled
-                        value={
-                          Number(formData.maritime_line_fees) +
-                          Number(formData.sgtd_wharfage) +
-                          Number(formData.document_9) +
-                          Number(formData.document_4) +
-                          Number(formData.port_handling) +
-                          Number(formData.port_passage) +
-                          Number(formData.file_fees) +
-                          Number(formData.escort_fees) +
-                          Number(formData.transport) +
-                          Number(formData.elevator_cart) +
-                          Number(formData.ctn) +
-                          Number(formData.chamber) +
-                          Number(formData.exit) +
-                          Number(formData.transit)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.order_date}
-                        onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="bg-blue-900 text-yellow-400 p-4 rounded-md mb-6">
-                      <p className="text-sm">
-                        NOTE:Les documents suivants sont requis. Veuillez vous assurer qu'ils sont valides et en bon état.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-6 p-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Livraison *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('orders.colClient')} *</label>
+                        <div className="relative">
+                          <select
+                            required
+                            value={formData.client_name}
+                            onChange={(e) => {
+                              const client = clients.find(c => c.name === e.target.value);
+                              setFormData({ 
+                                ...formData, 
+                                client_name: e.target.value,
+                                client_phone: client?.phone || '' 
+                              });
+                            }}
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium appearance-none"
+                          >
+                            <option value="" disabled>{t('orders.clientPlaceholder') || 'Select Client...'}</option>
+                            {clients.map(c => (
+                              <option key={c.id} value={c.name}>
+                                {c.name} {c.phone ? `- ${c.phone}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                          </div>
+                        </div>
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Connaissement *
-                        </label>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('orders.sourceFilter')} *</label>
                         <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          type="text"
+                          required
+                          placeholder={t('orders.sourceDestPlaceholder')}
+                          value={formData.source_destination}
+                          onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
                         />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Syndonia *
-                        </label>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('orders.pricePlaceholder')} *</label>
                         <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          type="text"
+                          required
+                          placeholder={t('orders.pricePlaceholder')}
+                          value={formData.item_price}
+                          onChange={(e) => setFormData({ ...formData, item_price: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
                         />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Exigence de déclaration de pays *
-                        </label>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('orders.colBl')} *</label>
                         <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          type="text"
+                          required
+                          placeholder={t('orders.blPlaceholder')}
+                          value={formData.bl_number}
+                          onChange={(e) => setFormData({ ...formData, bl_number: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
                         />
                       </div>
+                    </div>
 
+                    <div className="border-t border-gray-100 pt-6">
+                      <h4 className="text-[11px] font-bold text-[#0F3C66] mb-4 uppercase tracking-wide">{t('orders.pricingAndFees')}</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {[
+                          { key: 'amount_djf', label: t('orders.amountDjf') },
+                          { key: 'quantity', label: t('orders.quantity') },
+                          { key: 'recharge_amount', label: t('orders.rechargeAmount') },
+                          { key: 'maritime_line_fees', label: t('orders.maritimeFees') },
+                          { key: 'sgtd_wharfage', label: t('orders.sgtdWharfage') },
+                          { key: 'document_9', label: t('orders.doc9') },
+                          { key: 'document_4', label: t('orders.doc4') },
+                          { key: 'port_handling', label: t('orders.portHandling') },
+                          { key: 'port_passage', label: t('orders.portPassage') },
+                          { key: 'file_fees', label: `${t('orders.fileFees')} *` },
+                          { key: 'escort_fees', label: t('orders.escortFees') },
+                          { key: 'transport', label: `${t('orders.transport')} *` },
+                          { key: 'elevator_cart', label: t('orders.elevatorCart') },
+                          { key: 'ctn', label: t('orders.ctn') },
+                          { key: 'chamber', label: t('orders.chamber') },
+                          { key: 'exit', label: t('orders.exit') },
+                          { key: 'transit', label: `${t('orders.transit')} *` },
+                        ]?.map((field) => (
+                          <div key={field.key}>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide truncate" title={field.label as string}>{field.label}</label>
+                            <input
+                              type="number"
+                              value={formData[field.key as keyof typeof formData] as number}
+                              onChange={(e) => setFormData({ ...formData, [field.key]: Number(e.target.value) })}
+                              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-gray-100 pt-6">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Numéro 9 *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Numéro 4 *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Déclaration S *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Déclaration E *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Facture SGTD *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Document CI *
-                        </label>
-                        <input
-                          type="file"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          CI Amount (must match predefined amount in USD) *
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                          {t('orders.totalServices')}
                         </label>
                         <input
                           type="number"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          disabled
+                          value={
+                            Number(formData.maritime_line_fees) +
+                            Number(formData.sgtd_wharfage) +
+                            Number(formData.document_9) +
+                            Number(formData.document_4) +
+                            Number(formData.port_handling) +
+                            Number(formData.port_passage) +
+                            Number(formData.file_fees) +
+                            Number(formData.escort_fees) +
+                            Number(formData.transport) +
+                            Number(formData.elevator_cart) +
+                            Number(formData.ctn) +
+                            Number(formData.chamber) +
+                            Number(formData.exit) +
+                            Number(formData.transit)
+                          }
+                          className="w-full px-4 py-2.5 bg-gray-100/50 text-[#0F3C66] font-bold border border-gray-200 rounded-xl outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                          {t('orders.dateLabel')}
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.order_date}
+                          onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6 p-1">
+                    <div className="bg-[#0F3C66]/5 rounded-xl border border-[#0F3C66]/10 p-4 mb-4">
+                      <div className="flex gap-3">
+                        <div className="text-[#EE964C] mt-0.5">⚠️</div>
+                        <div>
+                          <p className="text-[11px] font-bold text-[#0F3C66] uppercase tracking-wide">{t('orders.reqDocs')}</p>
+                          <p className="text-sm font-medium text-gray-600">{t('orders.reqDocsDesc')}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {[
+                        { label: `${t('orders.livraison')} *` },
+                        { label: `${t('orders.connaissement')} *` },
+                        { label: `${t('orders.syndonia')} *` },
+                        { label: `${t('orders.countryDeclaration')} *` },
+                        { label: `${t('orders.doc9')} *` },
+                        { label: `${t('orders.doc4')} *` },
+                        { label: `${t('orders.docS')} *` },
+                        { label: `${t('orders.docE')} *` },
+                        { label: `${t('orders.factureSgtd')} *` },
+                        { label: `${t('orders.docCi')} *` },
+                      ].map((doc, idx) => (
+                        <div key={idx}>
+                          <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide truncate" title={doc.label}>{doc.label}</label>
+                          <input
+                            type="file"
+                            className="w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#0F3C66]/5 file:text-[#0F3C66] hover:file:bg-[#0F3C66]/10 cursor-pointer block border border-gray-200 bg-gray-50 rounded-xl"
+                          />
+                        </div>
+                      ))}
+                      
+                      <div className="md:col-span-2 lg:col-span-3 border-t border-gray-100 pt-5 mt-2">
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide text-center">
+                          {t('orders.ciAmountDesc')} *
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.ci_amount || 0}
+                          onChange={(e) => setFormData({ ...formData, ci_amount: Number(e.target.value) })}
+                          className="max-w-xs mx-auto block w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] focus:bg-white outline-none transition text-sm font-medium text-center"
                         />
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-between mt-6">
-                  {currentStep === 2 && (
+                <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+                  {currentStep === 2 ? (
                     <button
                       type="button"
                       onClick={() => setCurrentStep(1)}
-                      className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                      className="px-6 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition shadow-sm"
                     >
-                      Précédent
+                      {t('orders.previous')}
                     </button>
-                  )}
+                  ) : <div />}
 
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ml-auto"
+                    className="px-6 py-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
                   >
-                    {currentStep === 1 ? 'Suivant' : 'Terminer'}
+                    {currentStep === 1 ? t('orders.next') : t('orders.finish')}
                   </button>
                 </div>
               </form>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
+
+

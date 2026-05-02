@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Plus, Search, Edit2, Trash2, Eye, FileText, Printer, X } from 'lucide-react';
+import { Edit2, Trash2, Eye, Printer, Plus, Search } from 'lucide-react';
+import { ActionMenu } from './common/ActionMenu';
+import Modal from './common/Modal';
 
 interface Document4 {
   id: string;
@@ -164,7 +166,7 @@ export function Document4() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
+    if (!confirm(t('document4.deleteConfirm'))) return;
 
     try {
       const { error } = await supabase
@@ -220,86 +222,96 @@ export function Document4() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Document N° 4</h1>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('document4.title')}</h1>
+        <button
+          onClick={() => {
+            setEditingDocument(null);
+            resetForm();
+            setShowModal(true);
+          }}
+          className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 hover:bg-[#154b8a] transition-all font-bold tracking-wide active:scale-95 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          {t('document4.addNew') || t('common.addNew')}
+        </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <input
-              type="number"
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex justify-between items-center">
+          <div className="flex items-center gap-3 text-sm font-medium text-gray-600">
+            <span>{t('common.show')}</span>
+            <select
               value={entriesPerPage}
               onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-              className="w-16 px-2 py-1 border border-gray-300 rounded"
-              min="1"
-            />
-            <span>entries</span>
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span>{t('common.entries')}</span>
           </div>
 
-          <button
-            onClick={() => {
-              setEditingDocument(null);
-              resetForm();
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Ajouter une nouvelle entrée
-          </button>
-
-          <div className="flex items-center gap-2">
-            <span>Search:</span>
+          <div className="relative w-72">
             <input
               type="text"
+              placeholder={`${t('common.searchLabel') || t('common.search')}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm"
             />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name of recipient/declarant</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Quantity Entered</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Arrival date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">#</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document4.colRecipientDeclarant') || 'Recipient Declarant'}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document4.colQuantityEntered') || 'Quantity Entered'}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document4.colArrivalDate') || 'Arrival Date'}</th>
+                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24 text-center">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentDocuments.map((doc, index) => (
-                <tr key={doc.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{startIndex + index + 1}</td>
-                  <td className="px-4 py-3 text-sm">{doc.recipient_declarant_name || '-'}</td>
-                  <td className="px-4 py-3 text-sm">{doc.quantity_entered || '-'}</td>
-                  <td className="px-4 py-3 text-sm">
+            <tbody className="bg-white divide-y divide-gray-100">
+              {currentDocuments?.map((doc, index) => (
+                <tr key={doc.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm font-medium text-gray-500">{startIndex + index + 1}</td>
+                  <td className="px-5 py-4 text-sm font-bold text-gray-800">{doc.recipient_declarant_name || '-'}</td>
+                  <td className="px-5 py-4 text-sm font-mono text-gray-600">{doc.quantity_entered || '-'}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">
                     {doc.arrival_date ? new Date(doc.arrival_date).toLocaleDateString() : '-'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(doc)}
-                        className="text-emerald-600 hover:text-emerald-800"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(doc.id)}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-800 hover:text-gray-900">
-                        <Printer className="w-4 h-4" />
-                      </button>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.view'),
+                            icon: <Eye size={16} />,
+                            onClick: () => console.log('View Document 4', doc.id),
+                          },
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => handleEdit(doc),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(doc.id),
+                            variant: 'danger',
+                          },
+                          {
+                            label: t('common.print'),
+                            icon: <Printer size={16} />,
+                            onClick: () => console.log('Print Document 4', doc.id),
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -308,329 +320,117 @@ export function Document4() {
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredDocuments.length)} of {filteredDocuments.length} entries
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center">
+          <div className="text-sm font-medium text-gray-500">
+            {t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(endIndex, filteredDocuments.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredDocuments.length}</span> {t('common.entries')}
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Previous
+              {t('common.previous') || 'Previous'}
             </button>
 
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => Math.abs(p - currentPage) < 3).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`w-10 h-10 rounded-xl transition-all font-bold text-sm ${
+                    currentPage === p
+                      ? 'bg-[#0F3C66] text-white shadow-lg shadow-[#0F3C66]/20 active:scale-95'
+                      : 'border border-gray-200 hover:bg-white hover:border-[#0F3C66]/30 text-gray-600'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
 
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              Next
+              {t('common.next') || 'Next'}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
-                Ajouter/mettre à jour une entrée
-              </h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingDocument(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingDocument(null);
+          resetForm();
+        }}
+        title={editingDocument ? t('document4.addUpdate') || 'Update Document No 4' : t('document4.addUpdate') || 'Add Document No 4'}
+        size="xl"
+      >
+        <form onSubmit={handleSubmit} className="p-2">
+          <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[
+                { label: t('document4.licenseCode') || 'License Code', key: 'license_code' },
+                { label: t('document4.operator') || 'Operator', key: 'operator' },
+                { label: t('document4.recipientDeclarantName') || 'Recipient Declarant', key: 'recipient_declarant_name' },
+                { label: t('document4.codeNo') || 'Code No', key: 'code_no' },
+                { label: t('document4.declarantNifCode') || 'Declarant NIF Code', key: 'declarant_nif_code' },
+                { label: t('document4.recipientName') || 'Recipient Name', key: 'recipient_name' },
+                { label: t('document4.recipientNifCode') || 'Recipient NIF Code', key: 'recipient_nif_code' },
+                { label: t('document4.fzWarehouseDeclaration') || 'FZ Warehouse', key: 'fz_warehouse_declaration' },
+                { label: t('document4.quantityEntered') || 'Quantity Entered', key: 'quantity_entered' },
+                { label: t('document4.boatName') || 'Boat Name', key: 'boat_name' },
+                { label: t('document4.arrivalDate') || 'Arrival Date', key: 'arrival_date', type: 'date' },
+                { label: t('document4.tripNumber') || 'Trip Number', key: 'trip_number' },
+                { label: t('document4.billOfLadingNumber') || 'Bill of Lading', key: 'bill_of_lading_number' },
+                { label: t('document4.countryOrigin') || 'Country Origin', key: 'country_origin' },
+                { label: t('document4.shCode') || 'SH Code', key: 'sh_code' },
+                { label: t('document4.exitQty') || 'Exit Qty', key: 'exit_qty' },
+                { label: t('document4.merchandiseDescription') || 'Merchandise Description', key: 'merchandise_description' },
+                { label: t('document4.grossWeight') || 'Gross Weight', key: 'gross_weight' },
+                { label: t('document4.declaredValue') || 'Declared Value', key: 'declared_value', type: 'number' },
+                { label: t('document4.exitPoint') || 'Exit Point', key: 'exit_point' },
+                { label: t('document4.destination') || 'Destination', key: 'destination' }
+              ].map((field) => (
+                <div key={field.key}>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                    {field.label}
+                  </label>
+                  <input
+                    type={field.type || 'text'}
+                    value={formData[field.key as keyof typeof formData] as string | number}
+                    onChange={(e) => setFormData({ ...formData, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
+                  />
+                </div>
+              ))}
             </div>
-
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Code de licence
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.license_code}
-                    onChange={(e) => setFormData({ ...formData, license_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Operator
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.operator}
-                    onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom du destinataire/déclarant
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.recipient_declarant_name}
-                    onChange={(e) => setFormData({ ...formData, recipient_declarant_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CODE NO
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.code_no}
-                    onChange={(e) => setFormData({ ...formData, code_no: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Code NIF du déclarant
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.declarant_nif_code}
-                    onChange={(e) => setFormData({ ...formData, declarant_nif_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom du destinataire
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.recipient_name}
-                    onChange={(e) => setFormData({ ...formData, recipient_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Code NIF du destinataire
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.recipient_nif_code}
-                    onChange={(e) => setFormData({ ...formData, recipient_nif_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Déclaration d'entrée FZ/Entrepôt
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.fz_warehouse_declaration}
-                    onChange={(e) => setFormData({ ...formData, fz_warehouse_declaration: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantité entrée
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.quantity_entered}
-                    onChange={(e) => setFormData({ ...formData, quantity_entered: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom du Bateau
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.boat_name}
-                    onChange={(e) => setFormData({ ...formData, boat_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date d'arrivée
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.arrival_date}
-                    onChange={(e) => setFormData({ ...formData, arrival_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Numéro de voyage
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.trip_number}
-                    onChange={(e) => setFormData({ ...formData, trip_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Numéro du connaissement
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bill_of_lading_number}
-                    onChange={(e) => setFormData({ ...formData, bill_of_lading_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pays d'origine
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.country_origin}
-                    onChange={(e) => setFormData({ ...formData, country_origin: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Code SH
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.sh_code}
-                    onChange={(e) => setFormData({ ...formData, sh_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Qté Sortie
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.exit_qty}
-                    onChange={(e) => setFormData({ ...formData, exit_qty: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description de la Marchandise
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.merchandise_description}
-                    onChange={(e) => setFormData({ ...formData, merchandise_description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Poids brut
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.gross_weight}
-                    onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valeur déclarée
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.declared_value}
-                    onChange={(e) => setFormData({ ...formData, declared_value: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Point de sortie
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.exit_point}
-                    onChange={(e) => setFormData({ ...formData, exit_point: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Destination
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.destination}
-                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enregistrer les modifications
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => { setShowModal(false); resetForm(); }}
+              className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition active:scale-95 font-bold text-sm"
+            >
+              {t('common.cancel') || 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 hover:bg-[#154b8a] transition active:scale-95 font-bold text-sm"
+            >
+              {t('common.save')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
+

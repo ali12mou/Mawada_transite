@@ -31,7 +31,7 @@ function fmtDateFr(iso: string): string {
   return esc(iso);
 }
 
-const ORANGE = '#e67e22';
+const ORANGE = '#EE964C';
 const ORANGE_DARK = '#d35400';
 
 /** Deux lignes Mob / TEL depuis le champ téléphone (séparateurs | / ; saut de ligne). */
@@ -40,13 +40,13 @@ function splitPhones(phone: string): { mob: string; tel: string } {
   if (!raw) return { mob: '—', tel: '—' };
   const parts = raw
     .split(/\||\/|\n|;|(?:\s{2,})/)
-    .map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
+    ?.map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
     .filter(Boolean);
   if (parts.length >= 2) return { mob: parts[0], tel: parts[1] };
   return { mob: raw, tel: '' };
 }
 
-/** Détail commercial — design aligné sur le modèle « Commercial Detail » (A4, orange #e67e22). */
+/** Détail commercial — design aligné sur le modèle « Commercial Detail » (A4, orange #EE964C). */
 export function buildCommercialDetailPrintHtml(
   record: CommercialChamberRecord,
   branding: DocumentBranding,
@@ -102,7 +102,7 @@ export function buildCommercialDetailPrintHtml(
   <style>
     ${STYLE_A4_SHEET}
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
-    .page { max-width: 100%; margin: 0 auto; position: relative; }
+    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
     .letterhead { text-align: center; margin-bottom: 14px; }
     .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
     .watermark {
@@ -140,6 +140,7 @@ export function buildCommercialDetailPrintHtml(
       background: linear-gradient(180deg, ${ORANGE} 0%, ${ORANGE_DARK} 100%) !important;
       color: #fff !important; font-weight: 700; border: none; padding: 11px 12px;
     }
+    .doc-footer { margin-top: auto; }
     .footer-bar { height: 4px; background: ${ORANGE}; margin-top: 8px; margin-bottom: 12px; border-radius: 1px; }
     .footer-grid { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; font-size: 9.5pt; color: #222; line-height: 1.5; position: relative; z-index: 1; }
     .footer-left, .footer-right { flex: 1; min-width: 200px; }
@@ -221,8 +222,11 @@ export function buildCommercialDetailPrintHtml(
       </tbody>
     </table>
 
-    ${footerBlock}
-    <p class="ref-note">Réf. dossier : ${esc(record.commercial_no)}</p>
+    <div style="flex-grow: 1;"></div>
+    <footer class="doc-footer">
+      ${footerBlock}
+      <p class="ref-note">Réf. dossier : ${esc(record.commercial_no)}</p>
+    </footer>
   </div>
 </body>
 </html>`;
@@ -259,7 +263,7 @@ export function buildCommercialListPrintHtml(
   const lines = [branding.companyName, branding.companyPhone, branding.companyEmail].filter(Boolean);
   const head = lines.join(' · ');
   const rowHtml = rows
-    .map(
+    ?.map(
       (r) =>
         `<tr>
       <td>${esc(r.commercial_no)}</td>
@@ -301,3 +305,5 @@ export async function openCommercialListPrint(rows: CommercialChamberRecord[]): 
   w.document.write(appendAutoPrintBeforeBodyClose(html));
   w.document.close();
 }
+
+

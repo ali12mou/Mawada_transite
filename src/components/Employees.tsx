@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Edit2, Trash2, X, ChevronLeft, ChevronRight, User, CreditCard, Banknote, FileText } from 'lucide-react';
+import { Edit2, Trash2, User, CreditCard, Banknote, FileText, Plus, Search, Users } from 'lucide-react';
 import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from './common/FormComponents';
+import Modal from './common/Modal';
+import { ActionMenu } from './common/ActionMenu';
 
 interface Employee {
   id: string;
@@ -48,17 +50,17 @@ export function Employees() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [modalStep, setModalStep] = useState<ModalStep>('personal');
-  const [residenceFilter, setResidenceFilter] = useState('Tous');
+  const [residenceFilter, setResidenceFilter] = useState('all');
 
   const [formData, setFormData] = useState({
     full_name: '',
-    gender: 'Homme',
+    gender: 'Male',
     birth_place: '',
     nationality: '',
-    civil_status: 'Célibataire',
-    judicial_record: 'Non',
-    residence_status: 'Citoyen',
-    identification_type: 'Numéro de passeport',
+    civil_status: 'Single',
+    judicial_record: 'No',
+    residence_status: 'Citizen',
+    identification_type: 'Passport Number',
     identification_number: '',
     address: '',
     phone_number: '',
@@ -67,7 +69,7 @@ export function Employees() {
     bank_name: '',
     account_name: '',
     account_number: '',
-    employee_type: 'Imposable',
+    employee_type: 'Taxable',
     profession: 'Project Manager',
     contract_type: '',
     contract_start_date: '',
@@ -103,8 +105,12 @@ export function Employees() {
   const filterEmployees = () => {
     let filtered = [...employees];
 
-    if (residenceFilter !== 'Tous') {
-      filtered = filtered.filter(emp => emp.residence_status === residenceFilter);
+    if (residenceFilter !== 'all') {
+      filtered = filtered.filter(emp => {
+        if (residenceFilter === 'citizen') return emp.residence_status === 'Citizen';
+        if (residenceFilter === 'foreign') return emp.residence_status === 'Foreigner';
+        return true;
+      });
     }
 
     if (searchTerm) {
@@ -174,13 +180,13 @@ export function Employees() {
     setEditingEmployee(employee);
     setFormData({
       full_name: employee.full_name || '',
-      gender: employee.gender || 'Homme',
+      gender: employee.gender || 'Male',
       birth_place: employee.birth_place || '',
       nationality: employee.nationality || '',
-      civil_status: employee.civil_status || 'Célibataire',
-      judicial_record: employee.judicial_record || 'Non',
-      residence_status: employee.residence_status || 'Citoyen',
-      identification_type: employee.identification_type || 'Numéro de passeport',
+      civil_status: employee.civil_status || 'Single',
+      judicial_record: employee.judicial_record || 'No',
+      residence_status: employee.residence_status || 'Citizen',
+      identification_type: employee.identification_type || 'Passport Number',
       identification_number: employee.identification_number || '',
       address: employee.address || '',
       phone_number: employee.phone_number || '',
@@ -189,7 +195,7 @@ export function Employees() {
       bank_name: employee.bank_name || '',
       account_name: employee.account_name || '',
       account_number: employee.account_number || '',
-      employee_type: employee.employee_type || 'Imposable',
+      employee_type: employee.employee_type || 'Taxable',
       profession: employee.profession || '',
       contract_type: employee.contract_type || '',
       contract_start_date: employee.contract_start_date || '',
@@ -202,7 +208,7 @@ export function Employees() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) return;
+    if (!confirm(t('common.confirmDelete'))) return;
 
     try {
       const { error } = await supabase
@@ -220,13 +226,13 @@ export function Employees() {
   const resetForm = () => {
     setFormData({
       full_name: '',
-      gender: 'Homme',
+      gender: 'Male',
       birth_place: '',
       nationality: '',
-      civil_status: 'Célibataire',
-      judicial_record: 'Non',
-      residence_status: 'Citoyen',
-      identification_type: 'Numéro de passeport',
+      civil_status: 'Single',
+      judicial_record: 'No',
+      residence_status: 'Citizen',
+      identification_type: 'Passport Number',
       identification_number: '',
       address: '',
       phone_number: '',
@@ -235,7 +241,7 @@ export function Employees() {
       bank_name: '',
       account_name: '',
       account_number: '',
-      employee_type: 'Imposable',
+      employee_type: 'Taxable',
       profession: 'Project Manager',
       contract_type: '',
       contract_start_date: '',
@@ -256,10 +262,10 @@ export function Employees() {
       case 'personal':
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Informations personnelles</h3>
+            <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepPersonal')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>Nom complet</FormLabel>
+                <FormLabel>{t('employees.fieldFullName')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.full_name}
@@ -268,7 +274,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Lieu de naissance</FormLabel>
+                <FormLabel>{t('employees.fieldBirthPlace')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.birth_place}
@@ -276,17 +282,17 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Sexe</FormLabel>
+                <FormLabel>{t('employees.fieldGender')}</FormLabel>
                 <FormSelect
                   value={formData.gender}
                   onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                 >
-                  <option value="Homme">Homme</option>
-                  <option value="Female">Female</option>
+                  <option value="Male">{t('employees.genderMale')}</option>
+                  <option value="Female">{t('employees.genderFemale')}</option>
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Nationalité</FormLabel>
+                <FormLabel>{t('employees.fieldNationality')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.nationality}
@@ -294,59 +300,59 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>État civil</FormLabel>
+                <FormLabel>{t('employees.fieldCivilStatus')}</FormLabel>
                 <FormSelect
                   value={formData.civil_status}
                   onChange={(e) => setFormData({ ...formData, civil_status: e.target.value })}
                 >
-                  <option value="Célibataire">Célibataire</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
+                  <option value="Single">{t('employees.civilSingle')}</option>
+                  <option value="Married">{t('employees.civilMarried')}</option>
+                  <option value="Divorced">{t('employees.civilDivorced')}</option>
+                  <option value="Widowed">{t('employees.civilWidowed')}</option>
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Casier judiciaire</FormLabel>
+                <FormLabel>{t('employees.fieldJudicialRecord')}</FormLabel>
                 <FormSelect
                   value={formData.judicial_record}
                   onChange={(e) => setFormData({ ...formData, judicial_record: e.target.value })}
                 >
-                  <option value="Non">Non</option>
-                  <option value="Yes">Yes</option>
+                  <option value="No">{t('employees.no')}</option>
+                  <option value="Yes">{t('employees.yes')}</option>
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Statut de résidence</FormLabel>
+                <FormLabel>{t('employees.fieldResidenceStatus')}</FormLabel>
                 <FormSelect
                   value={formData.residence_status}
                   onChange={(e) => setFormData({ ...formData, residence_status: e.target.value })}
                 >
-                  <option value="Citoyen">Citoyen</option>
-                  <option value="Foriegn">Foriegn</option>
+                  <option value="Citizen">{t('employees.residenceCitizen')}</option>
+                  <option value="Foreigner">{t('employees.residenceForeigner')}</option>
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Type d'identification</FormLabel>
+                <FormLabel>{t('employees.fieldIdType')}</FormLabel>
                 <FormSelect
                   value={formData.identification_type}
                   onChange={(e) => setFormData({ ...formData, identification_type: e.target.value })}
                 >
-                  <option value="Numéro de passeport">Numéro de passeport</option>
-                  <option value="Identity Card">Identity Card</option>
+                  <option value="Passport Number">{t('employees.idPassport')}</option>
+                  <option value="Identity Card">{t('employees.idNational')}</option>
                 </FormSelect>
               </div>
               <div className="col-span-2">
-                <FormLabel>Type d'employé</FormLabel>
+                <FormLabel>{t('employees.fieldEmployeeType')}</FormLabel>
                 <FormSelect
                   value={formData.employee_type}
                   onChange={(e) => setFormData({ ...formData, employee_type: e.target.value })}
                 >
-                  <option value="Imposable">Imposable</option>
-                  <option value="Non-Taxable">Non-Taxable</option>
+                  <option value="Taxable">{t('employees.typeTaxable')}</option>
+                  <option value="Non-Taxable">{t('employees.typeNonTaxable')}</option>
                 </FormSelect>
               </div>
               <div className="col-span-2">
-                <FormLabel>Profession de l'employé</FormLabel>
+                <FormLabel>{t('employees.fieldProfession')}</FormLabel>
                 <FormSelect
                   value={formData.profession}
                   onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
@@ -364,7 +370,7 @@ export function Employees() {
                 type="button"
                 onClick={() => setModalStep('contact')}
               >
-                Suivant
+                {t('employees.next')}
               </PrimaryButton>
             </div>
           </div>
@@ -373,10 +379,10 @@ export function Employees() {
       case 'contact':
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Détails de contact</h3>
+            <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepContact')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>Adresse</FormLabel>
+                <FormLabel>{t('employees.fieldAddress')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.address}
@@ -384,7 +390,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Numéro de téléphone</FormLabel>
+                <FormLabel>{t('employees.fieldPhone')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.phone_number}
@@ -392,7 +398,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Adresse e-mail</FormLabel>
+                <FormLabel>{t('employees.fieldEmail')}</FormLabel>
                 <FormInput
                   type="email"
                   value={formData.email}
@@ -400,7 +406,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Contact d'urgence</FormLabel>
+                <FormLabel>{t('employees.fieldEmergency')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.emergency_contact}
@@ -413,13 +419,13 @@ export function Employees() {
                 type="button"
                 onClick={() => setModalStep('personal')}
               >
-                Précédent
+                {t('employees.previous')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
                 onClick={() => setModalStep('banking')}
               >
-                Suivant
+                {t('employees.next')}
               </PrimaryButton>
             </div>
           </div>
@@ -428,22 +434,23 @@ export function Employees() {
       case 'banking':
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Informations bancaires</h3>
+            <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepBanking')}</h3>
             <div className="grid grid-cols-3 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>Banque</FormLabel>
+                <FormLabel>{t('employees.fieldBank')}</FormLabel>
                 <FormSelect
                   value={formData.bank_name}
                   onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                   className="border-blue-500"
                 >
-                  <option value="">l'Est africain Bank</option>
+                  <option value="">Select Bank</option>
+                  <option value="East African Bank">East African Bank</option>
                   <option value="Bank A">Bank A</option>
                   <option value="Bank B">Bank B</option>
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Nom du compte</FormLabel>
+                <FormLabel>{t('employees.fieldAccountName')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.account_name}
@@ -451,7 +458,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Numéro de compte</FormLabel>
+                <FormLabel>{t('employees.fieldAccountNumber')}</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.account_number}
@@ -464,13 +471,13 @@ export function Employees() {
                 type="button"
                 onClick={() => setModalStep('contact')}
               >
-                Précédent
+                {t('employees.previous')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
                 onClick={() => setModalStep('contract')}
               >
-                Suivant
+                {t('employees.next')}
               </PrimaryButton>
             </div>
           </div>
@@ -479,10 +486,10 @@ export function Employees() {
       case 'contract':
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Informations du contrat</h3>
+            <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepContract')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>Type de contrat</FormLabel>
+                <FormLabel>{t('employees.fieldContractType')}</FormLabel>
                 <FormSelect
                   value={formData.contract_type}
                   onChange={(e) => setFormData({ ...formData, contract_type: e.target.value })}
@@ -494,7 +501,7 @@ export function Employees() {
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>Date de début</FormLabel>
+                <FormLabel>{t('employees.fieldStartDate')}</FormLabel>
                 <FormInput
                   type="date"
                   value={formData.contract_start_date}
@@ -502,7 +509,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Date de fin</FormLabel>
+                <FormLabel>{t('employees.fieldEndDate')}</FormLabel>
                 <FormInput
                   type="date"
                   value={formData.contract_end_date}
@@ -512,7 +519,7 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>Date d'emploi</FormLabel>
+                <FormLabel>{t('employees.fieldEmploymentDate')}</FormLabel>
                 <FormInput
                   type="date"
                   value={formData.employment_date}
@@ -528,7 +535,7 @@ export function Employees() {
                   className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="allow_end_date" className="text-sm font-medium text-slate-700">
-                  Permettre de fournir une date de fin pour le contrat
+                  {t('employees.fieldAllowEndDate')}
                 </label>
               </div>
             </div>
@@ -537,13 +544,13 @@ export function Employees() {
                 type="button"
                 onClick={() => setModalStep('banking')}
               >
-                Précédent
+                {t('employees.previous')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
                 onClick={handleSubmit}
               >
-                Soumettre
+                {t('employees.submit')}
               </PrimaryButton>
             </div>
           </div>
@@ -561,107 +568,130 @@ export function Employees() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Gérer les employés</h1>
-        <button
-          onClick={() => {
-            setEditingEmployee(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Ajouter un nouvel employé
-        </button>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('employees.manageTitle')}</h1>
+          <Users size={24} className="text-[#0F3C66] opacity-80" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
+          <button
+            onClick={() => {
+              setEditingEmployee(null);
+              resetForm();
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
+          >
+            <Plus size={16} />
+            {t('employees.addEmployee')}
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Résidence des employés</label>
+        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('employees.residenceLabel')}</label>
         <select
           value={residenceFilter}
           onChange={(e) => setResidenceFilter(e.target.value)}
-          className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-64 px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm font-medium shadow-sm"
         >
-          <option value="Tous">Tous</option>
-          <option value="citizen">citizen</option>
-          <option value="Foriegn">Foriegn</option>
+          <option value="all">{t('employees.all')}</option>
+          <option value="citizen">{t('employees.residenceCitizen')}</option>
+          <option value="foreign">{t('employees.residenceForeigner')}</option>
         </select>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <span>Show</span>
-              <input
-                type="number"
-                value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 rounded"
-                min="1"
-              />
-            </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{t('common.show')}</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm font-medium text-gray-600">{t('common.entries') || 'entries'}</span>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder={t('common.search')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div className="relative w-72">
+            <input
+              type="text"
+              placeholder={`${t('common.search')}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full border-collapse">
+            <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  # <span className="ml-1">▲</span>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50 w-16">
+                  #
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer">
-                  Nom complet <span className="ml-1">▲</span>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50 cursor-pointer">
+                  {t('employees.colFullName')} <span className="ml-1 opacity-50">▲</span>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Genre</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Numéro de téléphone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Statut de résidence</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type d'identification</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Numéro d'urgence</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date d'entrée</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type d'employé</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Action</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colGender')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colPhone')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colResidence')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colIdType')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colEmergency')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colEntryDate')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('employees.colEmployeeType')}</th>
+                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentEmployees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{employee.employee_id}</td>
-                  <td className="px-4 py-3 text-sm">{employee.full_name}</td>
-                  <td className="px-4 py-3 text-sm">{employee.gender}</td>
-                  <td className="px-4 py-3 text-sm">{employee.phone_number}</td>
-                  <td className="px-4 py-3 text-sm">{employee.residence_status}</td>
-                  <td className="px-4 py-3 text-sm">{employee.identification_type}</td>
-                  <td className="px-4 py-3 text-sm">{employee.emergency_contact}</td>
-                  <td className="px-4 py-3 text-sm">{employee.employment_date}</td>
-                  <td className="px-4 py-3 text-sm">{employee.employee_type}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(employee)}
-                        className="text-gray-600 hover:text-gray-800 p-1"
-                      >
-                        ⋮
-                      </button>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {currentEmployees?.map((employee) => (
+                <tr key={employee.id} className="hover:bg-[#0F3C66]/5 transition group">
+                  <td className="px-5 py-4 text-sm text-gray-500 font-bold">{employee.employee_id}</td>
+                  <td className="px-5 py-4 text-sm font-bold text-[#0F3C66]">{employee.full_name}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{employee.gender}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600 font-medium">{employee.phone_number}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{employee.residence_status}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{employee.identification_type}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{employee.emergency_contact}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">{employee.employment_date}</td>
+                  <td className="px-5 py-4 text-sm text-gray-600">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                      {employee.employee_type}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionMenu
+                        actions={[
+                          {
+                            label: t('common.edit'),
+                            icon: <Edit2 size={16} />,
+                            onClick: () => handleEdit(employee),
+                          },
+                          {
+                            label: t('common.delete'),
+                            icon: <Trash2 size={16} />,
+                            onClick: () => handleDelete(employee.id),
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
               {currentEmployees.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                    Aucun employé trouvé
+                  <td colSpan={10} className="px-5 py-8 text-center text-gray-500 italic">
+                    {t('employees.emptyEmployees')}
                   </td>
                 </tr>
               )}
@@ -669,105 +699,86 @@ export function Employees() {
           </table>
         </div>
 
-        <div className="p-4 border-t flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredEmployees.length)} of {filteredEmployees.length} entries
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center text-sm">
+          <div className="text-gray-500 font-medium">
+            {t('common.showing')} <span className="font-bold text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(endIndex, filteredEmployees.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredEmployees.length}</span> {t('common.entries') || 'entries'}
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              <ChevronLeft className="w-4 h-4" />
+              {t('common.previous') || 'Previous'}
             </button>
 
-            <span className="px-3 py-1 bg-white border rounded">{currentPage}</span>
-            {currentPage + 1 <= totalPages && <span className="px-3 py-1">{currentPage + 1}</span>}
-            {currentPage + 2 <= totalPages && <span className="px-3 py-1">{currentPage + 2}</span>}
+            <span className="px-4 py-2 font-bold text-sm text-gray-700 border border-gray-200 bg-white rounded-xl shadow-sm">{currentPage}</span>
+            {currentPage + 1 <= totalPages && <span className="px-3 py-1 font-bold text-sm text-gray-500">{currentPage + 1}</span>}
+            {currentPage + 2 <= totalPages && <span className="px-3 py-1 font-bold text-sm text-gray-500">{currentPage + 2}</span>}
 
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
             >
-              <ChevronRight className="w-4 h-4" />
+              {t('common.next') || 'Next'}
             </button>
           </div>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => {
-                setShowModal(false);
-                setEditingEmployee(null);
-                resetForm();
-            }}></div>
-
-            <div className="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full max-w-4xl border border-slate-100">
-              <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-                <h2 className="text-xl font-semibold text-slate-800">Ajouter/Mettre à jour les informations de l'employé</h2>
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingEmployee(null);
-                    resetForm();
-                  }}
-                  className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="flex border-b">
-                <button
-                  onClick={() => setModalStep('personal')}
-                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
-                    modalStep === 'personal' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <User className="w-4 h-4" />
-                  <span>Informations personnelles</span>
-                </button>
-                <button
-                  onClick={() => setModalStep('contact')}
-                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
-                    modalStep === 'contact' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>Détails de contact</span>
-                </button>
-                <button
-                  onClick={() => setModalStep('banking')}
-                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
-                    modalStep === 'banking' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <Banknote className="w-4 h-4" />
-                  <span>Informations bancaires</span>
-                </button>
-                <button
-                  onClick={() => setModalStep('contract')}
-                  className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors ${
-                    modalStep === 'contract' ? 'bg-[#3b82f6] text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Informations du contrat</span>
-                </button>
-              </div>
-
-              <div className="p-6 bg-white min-h-[400px]">
-                {renderModalContent()}
-              </div>
-            </div>
-          </div>
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingEmployee(null);
+          resetForm();
+        }}
+        title={editingEmployee ? t('employees.modalTitle') : t('employees.addEmployee')}
+        size="xl"
+      >
+        <div className="flex border-b border-gray-100 overflow-x-auto bg-gray-50/50 p-2 gap-2 rounded-t-xl mb-4">
+          <button
+            onClick={() => setModalStep('personal')}
+            className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'personal' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
+              }`}
+          >
+            <User className="w-4 h-4" />
+            <span>{t('employees.stepPersonal')}</span>
+          </button>
+          <button
+            onClick={() => setModalStep('contact')}
+            className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'contact' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
+              }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>{t('employees.stepContact')}</span>
+          </button>
+          <button
+            onClick={() => setModalStep('banking')}
+            className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'banking' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
+              }`}
+          >
+            <Banknote className="w-4 h-4" />
+            <span>{t('employees.stepBanking')}</span>
+          </button>
+          <button
+            onClick={() => setModalStep('contract')}
+            className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'contract' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
+              }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>{t('employees.stepContract')}</span>
+          </button>
         </div>
-      )}
+
+        <div className="p-2 min-h-[400px]">
+          {renderModalContent()}
+        </div>
+      </Modal>
     </div>
   );
 }
+
+
