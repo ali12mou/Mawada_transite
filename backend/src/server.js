@@ -4,7 +4,6 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectMongo } from './config/mongodb.js';
-import { getSupabaseAdminClient } from './config/supabase.js';
 import healthRoutes from './routes/health.routes.js';
 import mongoRoutes from './routes/mongo.routes.js';
 import syncRoutes from './routes/sync.routes.js';
@@ -19,6 +18,9 @@ import localCompanyRoutes from './routes/local-company.routes.js';
 import suppliersRoutes from './routes/suppliers.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import chamberInvoicesRoutes from './routes/chamber-invoices.routes.js';
+import hrRoutes from './routes/hr.routes.js';
+import expensesRoutes from './routes/expenses.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +42,9 @@ app.use('/api/transit', transitRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/commercial-chamber', commercialChamberRoutes);
 app.use('/api/chamber-invoices', chamberInvoicesRoutes);
+app.use('/api/hr', hrRoutes);
+app.use('/api/expenses', expensesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/document-9', document9Routes);
 app.use('/api/config', configRoutes);
 app.use('/api/companies', companiesRoutes);
@@ -58,10 +63,7 @@ async function start() {
     await connectMongo();
     app.listen(port, () => {
       console.log(`Backend API running on http://localhost:${port}`);
-      const sb = getSupabaseAdminClient();
-      console.log(
-        `[transit] Factures chambre : ${sb ? 'Supabase (PostgreSQL)' : 'MongoDB — collection chamber_invoice_docs (Supabase non configuré)'}`
-      );
+      console.log(`[transit] Connected natively strictly to MongoDB backend`);
     });
   } catch (error) {
     console.error('Failed to start backend:', error);

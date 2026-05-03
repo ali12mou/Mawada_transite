@@ -31,6 +31,24 @@ export async function createDocument(collectionName, payload) {
   const collection = getCollection(collectionName);
   const insertResult = await collection.insertOne(payload);
   return {
-    insertedId: insertResult.insertedId
+    insertedId: insertResult.insertedId,
+    ...payload
   };
+}
+
+export async function updateDocument(collectionName, id, payload) {
+  const { ObjectId } = await import('mongodb');
+  const collection = getCollection(collectionName);
+  const { _id, ...updateData } = payload;
+  await collection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updateData }
+  );
+  return { id, ...updateData };
+}
+
+export async function deleteDocument(collectionName, id) {
+  const { ObjectId } = await import('mongodb');
+  const collection = getCollection(collectionName);
+  await collection.deleteOne({ _id: new ObjectId(id) });
 }

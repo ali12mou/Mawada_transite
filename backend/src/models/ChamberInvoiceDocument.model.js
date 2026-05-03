@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 /**
- * Persistance « facture de chambre » lorsque Supabase n’est pas configuré.
+ * Mongoose model for Chamber Invoices.
  * Collection MongoDB : chamber_invoice_docs
  */
 const chamberInvoiceDocumentSchema = new mongoose.Schema(

@@ -1,30 +1,21 @@
 import { Router } from 'express';
-import * as transit from '../api/transitSupabaseService.js';
+import * as transit from '../api/transitMongoService.js';
 import * as chamberMongo from '../api/chamberInvoiceMongoService.js';
-import { getSupabaseAdminClient } from '../config/supabase.js';
 
 const router = Router();
 
 function handleError(res, error) {
+  console.error('[transit] Error:', error);
   const msg = error?.message || 'Erreur serveur';
-  const code = error?.code;
-  if (code === 'SUPABASE_NOT_CONFIGURED') {
-    return res.status(503).json({ message: msg });
-  }
-  if (error?.statusCode === 404) {
+  
+  if (error?.statusCode === 404 || error?.name === 'NotFound') {
     return res.status(404).json({ message: msg });
   }
   return res.status(500).json({ message: msg });
 }
 
-/** Si Supabase est configuré, factures chambre en PG ; sinon MongoDB (collection chamber_invoice_docs). */
-function useSupabaseForChamberInvoices() {
-  return Boolean(getSupabaseAdminClient());
-}
-
 router.get('/health', (_req, res) => {
-  const client = getSupabaseAdminClient();
-  res.json({ ok: true, transitData: Boolean(client) });
+  res.json({ ok: true, transitData: true, database: 'mongodb' });
 });
 
 router.get('/config/currency-symbol', async (_req, res) => {
@@ -292,12 +283,10 @@ router.get('/accounting/vendor-bills', async (_req, res) => {
   }
 });
 
-/** Facture de chambre — Supabase si configuré, sinon MongoDB (aucune clé Supabase requise en secours). */
+/** Chamber Invoices - Exclusively MongoDB */
 router.get('/chamber-invoices', async (_req, res) => {
   try {
-    const data = useSupabaseForChamberInvoices()
-      ? await transit.listChamberInvoices()
-      : await chamberMongo.listChamberInvoicesMongo();
+    const data = await chamberMongo.listChamberInvoicesMongo();
     res.json({ data });
   } catch (error) {
     handleError(res, error);
@@ -306,9 +295,7 @@ router.get('/chamber-invoices', async (_req, res) => {
 
 router.get('/chamber-invoices/:id', async (req, res) => {
   try {
-    const data = useSupabaseForChamberInvoices()
-      ? await transit.getChamberInvoiceFull(req.params.id)
-      : await chamberMongo.getChamberInvoiceFullMongo(req.params.id);
+    const data = await chamberMongo.getChamberInvoiceFullMongo(req.params.id);
     res.json({ data });
   } catch (error) {
     handleError(res, error);
@@ -317,9 +304,7 @@ router.get('/chamber-invoices/:id', async (req, res) => {
 
 router.post('/chamber-invoices', async (req, res) => {
   try {
-    const data = useSupabaseForChamberInvoices()
-      ? await transit.createChamberInvoice(req.body || {})
-      : await chamberMongo.createChamberInvoiceMongo(req.body || {});
+    const data = await chamberMongo.createChamberInvoiceMongo(req.body || {});
     res.status(201).json({ data });
   } catch (error) {
     handleError(res, error);
@@ -328,9 +313,7 @@ router.post('/chamber-invoices', async (req, res) => {
 
 router.put('/chamber-invoices/:id', async (req, res) => {
   try {
-    const data = useSupabaseForChamberInvoices()
-      ? await transit.updateChamberInvoice(req.params.id, req.body || {})
-      : await chamberMongo.updateChamberInvoiceMongo(req.params.id, req.body || {});
+    const data = await chamberMongo.updateChamberInvoiceMongo(req.params.id, req.body || {});
     res.json({ data });
   } catch (error) {
     handleError(res, error);
@@ -339,11 +322,7 @@ router.put('/chamber-invoices/:id', async (req, res) => {
 
 router.delete('/chamber-invoices/:id', async (req, res) => {
   try {
-    if (useSupabaseForChamberInvoices()) {
-      await transit.deleteChamberInvoice(req.params.id);
-    } else {
-      await chamberMongo.deleteChamberInvoiceMongo(req.params.id);
-    }
+    await chamberMongo.deleteChamberInvoiceMongo(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     handleError(res, error);

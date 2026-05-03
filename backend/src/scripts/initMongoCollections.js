@@ -18,6 +18,7 @@ const collectionsToCreate = [
   'chamber_invoice',
   'chamber_invoice_docs',
   'performa',
+  'performa_items',
   'customer_file',
   'certificate_origin',
   'suppliers',
