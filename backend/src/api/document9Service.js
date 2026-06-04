@@ -38,6 +38,51 @@ const ALLOWED = new Set([
   'transaction_types',
   'transport_modes',
   'created_by',
+  'seller_company',
+  'buyer_company',
+  'client_name',
+  'source_destination_label',
+  'closing_date',
+  'bill_of_loading',
+  'declaration_s',
+  'declaration_e',
+  'dossier_fee',
+  'truck_load_quantity',
+  'transit_fee',
+  'service_fee',
+  'pass_cancel_fee',
+  'transfer_total',
+  'doc_sydonia',
+  'doc_delivery_order',
+  'doc_commercial',
+  'doc_packing_list',
+  'doc_transfer_declaration_s',
+  'doc_full_scan',
+  'doc_number_9_file',
+  'price_number_9',
+  'doc_number_4_file',
+  'price_number_4',
+  'doc_ti_cancel_file',
+  'price_ti_cancel',
+  'doc_declaration_se_cancel_file',
+  'price_declaration_se_cancel',
+]);
+
+const NUMERIC_KEYS = new Set([
+  'invoice_count',
+  'value',
+  'declaration_s',
+  'declaration_e',
+  'dossier_fee',
+  'truck_load_quantity',
+  'transit_fee',
+  'service_fee',
+  'pass_cancel_fee',
+  'transfer_total',
+  'price_number_9',
+  'price_number_4',
+  'price_ti_cancel',
+  'price_declaration_se_cancel',
 ]);
 
 function pickPayload(body) {
@@ -45,7 +90,7 @@ function pickPayload(body) {
   if (!body || typeof body !== 'object') return out;
   for (const key of ALLOWED) {
     if (body[key] === undefined) continue;
-    if (key === 'invoice_count' || key === 'value') {
+    if (NUMERIC_KEYS.has(key)) {
       const n = Number(body[key]);
       out[key] = Number.isFinite(n) ? n : 0;
     } else if (key === 'transaction_types' || key === 'transport_modes') {
