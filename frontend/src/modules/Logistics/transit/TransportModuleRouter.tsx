@@ -7,6 +7,7 @@ import { FleetModule } from './FleetModule';
 import { ExpenseRequestsTransitModule } from './ExpenseRequestsTransitModule';
 import { PurchaseTransitModule } from './PurchaseTransitModule';
 import { SalesTransitModule } from './SalesTransitModule';
+import { OtherProfitTransitModule } from './OtherProfitTransitModule';
 import { AccountingTransitModule } from './AccountingTransitModule';
 import { ReportingTransitModule } from './ReportingTransitModule';
 import { ConfigTransitModule } from './ConfigTransitModule';
@@ -30,6 +31,8 @@ export function TransportModuleRouter({ moduleKey }: { moduleKey: string }) {
       return <PurchaseTransitModule />;
     case 'sales-management':
       return <SalesTransitModule />;
+    case 'other-profit':
+      return <OtherProfitTransitModule />;
     case 'accounting-system':
       return <AccountingTransitModule />;
     case 'transport-reporting-analytics':

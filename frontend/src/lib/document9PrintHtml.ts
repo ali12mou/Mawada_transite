@@ -50,6 +50,144 @@ function box(checked: boolean): string {
   return checked ? '☑' : '☐';
 }
 
+function hasText(v: string | undefined | null): boolean {
+  return String(v ?? '').trim() !== '';
+}
+
+function hasNumber(v: number | undefined | null): boolean {
+  return v != null && Number.isFinite(v) && v !== 0;
+}
+
+type FieldRow = { label: string; value: string };
+
+function collectStep3Rows(doc: Document9Record): FieldRow[] {
+  const rows: FieldRow[] = [];
+  const add = (label: string, v: string | number | undefined | null, asNumber?: boolean) => {
+    if (asNumber) {
+      if (!hasNumber(v as number)) return;
+      rows.push({ label, value: fmtValue(v as number) });
+    } else if (hasText(String(v ?? ''))) {
+      rows.push({ label, value: esc(v) });
+    }
+  };
+  add('Entreprise vendeuse', doc.seller_company);
+  add('Entreprise acheteuse', doc.buyer_company);
+  add('Nom du client', doc.client_name);
+  add('Source et destination', doc.source_destination_label);
+  if (hasText(doc.closing_date)) {
+    rows.push({ label: 'Date de clôture', value: fmtDate(doc.closing_date) });
+  }
+  add('Bill of loading', doc.bill_of_loading);
+  add('Déclaration S', doc.declaration_s, true);
+  add('Déclaration E', doc.declaration_e, true);
+  add('Frais de dossier', doc.dossier_fee, true);
+  add('Quantité chargement camion', doc.truck_load_quantity, true);
+  add('Frais de transit', doc.transit_fee, true);
+  add('Frais de service', doc.service_fee, true);
+  add('Annulation laissez-passer', doc.pass_cancel_fee, true);
+  add('Total transfert', doc.transfer_total, true);
+  return rows;
+}
+
+type DocPriceRow = { docLabel: string; file?: string; priceLabel?: string; price?: number };
+
+function collectStep4Rows(doc: Document9Record): DocPriceRow[] {
+  const items: DocPriceRow[] = [
+    { docLabel: 'Sydonia', file: doc.doc_sydonia },
+    { docLabel: 'Ordre de livraison', file: doc.doc_delivery_order },
+    { docLabel: 'Commercial', file: doc.doc_commercial },
+    { docLabel: 'Liste de colisage', file: doc.doc_packing_list },
+    { docLabel: 'Déclaration de transfert document S', file: doc.doc_transfer_declaration_s },
+    { docLabel: 'Document scanné complet', file: doc.doc_full_scan },
+    {
+      docLabel: 'Numéro 9',
+      file: doc.doc_number_9_file,
+      priceLabel: 'Prix numéro 9',
+      price: doc.price_number_9,
+    },
+    {
+      docLabel: 'Numéro 4',
+      file: doc.doc_number_4_file,
+      priceLabel: 'Prix numéro 4',
+      price: doc.price_number_4,
+    },
+    {
+      docLabel: 'Annulation TI',
+      file: doc.doc_ti_cancel_file,
+      priceLabel: "Prix annulation TI",
+      price: doc.price_ti_cancel,
+    },
+    {
+      docLabel: 'Annulation déclaration S ou E',
+      file: doc.doc_declaration_se_cancel_file,
+      priceLabel: 'Prix annulation déclaration S ou E',
+      price: doc.price_declaration_se_cancel,
+    },
+  ];
+  return items.filter(
+    (i) => hasText(i.file) || (i.price != null && hasNumber(i.price))
+  );
+}
+
+function buildTransferSupplementHtml(doc: Document9Record): string {
+  const step3 = collectStep3Rows(doc);
+  const step4 = collectStep4Rows(doc);
+  if (!step3.length && !step4.length) return '';
+
+  let step3Body = '';
+  for (let i = 0; i < step3.length; i += 2) {
+    const a = step3[i];
+    const b = step3[i + 1];
+    step3Body += `<tr>${suppCell(a.label, a.value)}${
+      b ? suppCell(b.label, b.value) : '<td class="supp-lbl"></td><td class="supp-val"></td>'
+    }</tr>`;
+  }
+  const step3Table =
+    step3.length > 0
+      ? `
+    <div class="section-bar supplement-bar">Complément transfert — informations (étape 3)</div>
+    <table class="supp-table" cellspacing="0" cellpadding="0">
+      <tbody>${step3Body}</tbody>
+    </table>`
+      : '';
+
+  const step4Table =
+    step4.length > 0
+      ? `
+    <div class="section-bar supplement-bar">Complément transfert — documents et tarifs (étape 4)</div>
+    <table class="supp-docs" cellspacing="0" cellpadding="0">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Fichier</th>
+          <th>Tarif (FDJ)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${step4
+          .map(
+            (r) => `<tr>
+          <td>${esc(r.docLabel)}</td>
+          <td>${hasText(r.file) ? esc(r.file) : '—'}</td>
+          <td>${r.price != null && hasNumber(r.price) ? `${fmtValue(r.price)} FDJ` : '—'}</td>
+        </tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>`
+      : '';
+
+  return `
+    <div class="supplement-wrap">
+      ${step3Table}
+      ${step4Table}
+    </div>`;
+}
+
+function suppCell(label: string, value: string): string {
+  return `<td class="supp-lbl">${esc(label)}</td><td class="supp-val">${value || '—'}</td>`;
+}
+
 /**
  * Gabarit « AVIS DE LIVRAISON » (document n° 9) — feuille type douanes
  * (sans en-tête République / logo : bloc titre + 9 + licence dès le haut).
@@ -215,6 +353,26 @@ export function buildDocument9PrintHtml(
     .sign { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 7.5pt; }
     .sign td { border: 2px solid #000; border-top: 1px solid #000; padding: 10px 6px; min-height: 56px; vertical-align: bottom; text-align: center; width: 33.33%; }
     .sig-img { max-height: 44px; max-width: 100%; object-fit: contain; display: block; margin: 4px auto 0; }
+    .banner u { text-decoration: underline; }
+    .supplement-wrap {
+      margin-top: 10px;
+      border: 2px solid #000;
+      page-break-inside: avoid;
+    }
+    .supplement-bar {
+      border: none;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      background: #d8d8d8;
+      font-size: 8.5pt;
+    }
+    .supp-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .supp-table td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+    .supp-lbl { width: 22%; font-weight: bold; background: #f0f0f0; }
+    .supp-val { width: 28%; }
+    .supp-docs { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .supp-docs th, .supp-docs td { border: 1px solid #000; padding: 4px 6px; }
+    .supp-docs th { background: #e0e0e0; font-weight: bold; text-align: center; }
     @media screen {
       html {
         background: #b8b8b8;
@@ -268,7 +426,7 @@ export function buildDocument9PrintHtml(
       </tr>
     </table>
 
-    <div class="banner">Veuillez autoriser la livraison des marchandises mentionnées ci-dessous</div>
+    <div class="banner"><u>Veuillez autoriser la livraison des marchandises mentionnées ci-dessous</u></div>
 
     <table class="transfert-wrap" cellspacing="0" cellpadding="0">
       <tr>
@@ -348,7 +506,7 @@ export function buildDocument9PrintHtml(
           <th style="width:8%">Qté Sortie</th>
           <th style="width:22%">Description de la Marchandise</th>
           <th style="width:8%">Conditionnement</th>
-          <th style="width:7%">Qté Cumulée</th>
+          <th style="width:7%">Qté Compl.</th>
           <th style="width:8%">Poids Net</th>
           <th style="width:8%">Poids Bruts</th>
           <th style="width:6%">Vol.</th>
@@ -376,7 +534,7 @@ export function buildDocument9PrintHtml(
     <table class="footer-grid" cellspacing="0" cellpadding="0">
       <tr>
         <td style="width:52%">
-          <div class="chk-title">Cocher la case correspndante</div>
+          <div class="chk-title">Cocher la case correspondante</div>
           <div>${txRow}</div>
           <div style="margin-top:8px" class="chk-title">Mode de transport</div>
           <div>${trRow}</div>
@@ -391,15 +549,17 @@ export function buildDocument9PrintHtml(
       </tr>
     </table>
 
-    <p class="decl">Nous déclarons que les données que nous avons fournies ci-dessous sont véritables et complets.</p>
+    <p class="decl">Nous déclarons que les détails que nous avons fournis ci-dessous sont vérifiables et complets.</p>
 
     <table class="sign" cellspacing="0" cellpadding="0">
       <tr>
-        <td>Cachet et signature de l'opérateur de FZ / Zone franche<br/>${sig}</td>
-        <td>Cachet et signature du destinataire / déclarant</td>
+        <td>Cachet et signature de l'opérateur de FZ / Zone franche :<br/>${sig}</td>
+        <td>Cachet et signature du destinataire / déclarant :</td>
         <td>Visa du Bureau FZ des régimes suspensifs / bureau de free zone</td>
       </tr>
     </table>
+
+    ${buildTransferSupplementHtml(doc)}
   </div>
 </body>
 </html>`;

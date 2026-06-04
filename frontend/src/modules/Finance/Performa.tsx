@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Edit, Trash2, Plus, Eye, FileText, X } from 'lucide-react';
+import { useState, useEffect, type ReactNode } from 'react';
+import { Edit, Trash2, Plus, Eye, FileText } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
+import { fetchClients, type ClientRecord } from '../../api/clientsApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
-  buildPerformaPrintHtml,
   openPerformaPrintWindow,
   type PerformaPrintItem,
   type PerformaPrintRecord,
 } from '../../lib/performaPrintHtml';
-import { fetchDocumentBranding } from '../../lib/documentBranding';
-import { brandingFromConfig, type DocumentBranding } from '../../types/documentBranding';
+import { PerformaViewModal, type PerformaViewData } from './performaView';
 
 interface PerformaData {
   id: string;
@@ -29,6 +28,30 @@ interface PerformaItem {
   quantity: number;
   unit_price: number;
   total_unit_price: number;
+}
+
+const emptyPerformaItem = (): PerformaItem => ({
+  description_of_goods: '',
+  origin: '',
+  hs_code: '',
+  quantity: 0,
+  unit_price: 0,
+  total_unit_price: 0,
+});
+
+const pfLabelClass = 'mb-1 block text-sm font-semibold text-gray-800';
+const pfInputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]/30';
+const pfSelectClass = pfInputClass;
+const pfGrid2 = 'grid grid-cols-1 gap-4 sm:grid-cols-2';
+
+function PerformaField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <label className={pfLabelClass}>{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export function Performa() {
@@ -58,27 +81,38 @@ export function Performa() {
     fiscal_id_number: '',
   });
 
-  const [branding, setBranding] = useState<DocumentBranding | null>(null);
-  const [previewPerforma, setPreviewPerforma] = useState<{
-    p: PerformaPrintRecord;
-    items: PerformaPrintItem[];
-  } | null>(null);
+  const [viewData, setViewData] = useState<PerformaViewData | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
+  const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [banksList, setBanksList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>([]);
 
-  const [performaItems, setPerformaItems] = useState<PerformaItem[]>([
-    { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-    { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-  ]);
-
-  useEffect(() => {
-    fetchDocumentBranding()
-      .then(setBranding)
-      .catch(() => setBranding(brandingFromConfig({})));
-  }, []);
+  const [performaItems, setPerformaItems] = useState<PerformaItem[]>([emptyPerformaItem()]);
 
   useEffect(() => {
     loadPerformas();
   }, []);
+
+  useEffect(() => {
+    if (!showModal) return;
+    (async () => {
+      try {
+        const [clients, locations, banks, categories] = await Promise.all([
+          fetchClients(),
+          genericApi.list('locations'),
+          genericApi.list('banks'),
+          genericApi.list('product_categories'),
+        ]);
+        setClientsList(clients);
+        setLocationsList(locations || []);
+        setBanksList(banks || []);
+        setGoodsCategories(categories || []);
+      } catch (error) {
+        console.error('Error loading performa form lists:', error);
+      }
+    })();
+  }, [showModal]);
 
   const loadPerformas = async () => {
     try {
@@ -99,7 +133,12 @@ export function Performa() {
     try {
       const payload = {
         ...formData,
-        items: performaItems,
+        invoice_date: formData.invoice_date || new Date().toISOString().slice(0, 10),
+        buyer_tin: formData.fiscal_id_number || formData.buyer_tin,
+        items: performaItems.map((it) => ({
+          ...it,
+          origin: it.origin || formData.origin,
+        })),
         updated_at: new Date().toISOString(),
       };
 
@@ -154,17 +193,11 @@ export function Performa() {
       payment: '',
       fiscal_id_number: '',
     });
-    setPerformaItems([
-      { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-      { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-    ]);
+    setPerformaItems([emptyPerformaItem()]);
   };
 
   const addPerformaItem = () => {
-    setPerformaItems([
-      ...performaItems,
-      { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-    ]);
+    setPerformaItems([...performaItems, emptyPerformaItem()]);
   };
 
   const removePerformaItem = (index: number) => {
@@ -217,6 +250,22 @@ export function Performa() {
     }));
   }
 
+  async function loadPerformaForView(id: string): Promise<PerformaViewData | null> {
+    try {
+      if (!id) return null;
+      const row = (await genericApi.get('performa', id)) as Record<string, unknown>;
+      if (!row) return null;
+      const items = (row.items || []) as Record<string, unknown>[];
+      return {
+        record: row,
+        items: mapDbItemsToPrint(items),
+      };
+    } catch (e) {
+      console.error('Error loading performa for view:', e);
+      return null;
+    }
+  }
+
   async function loadPerformaForPrint(id: string): Promise<{ p: PerformaPrintRecord; items: PerformaPrintItem[] } | null> {
     try {
       if (!id) return null;
@@ -246,12 +295,19 @@ export function Performa() {
   }
 
   async function openPreviewModal(id: string) {
-    const full = await loadPerformaForPrint(id);
+    const full = await loadPerformaForView(id);
     if (!full) {
       alert('Impossible de charger le Performa.');
       return;
     }
-    setPreviewPerforma(full);
+    setViewData(full);
+  }
+
+  function viewDataToPrint(full: PerformaViewData): { p: PerformaPrintRecord; items: PerformaPrintItem[] } {
+    return {
+      p: mapDbRowToPrintRecord(full.record),
+      items: full.items,
+    };
   }
 
   async function openEditModal(pId: string) {
@@ -276,7 +332,7 @@ export function Performa() {
         final_destination: String(row.final_destination ?? ''),
         bank: String(row.bank ?? ''),
         payment: String(row.payment ?? ''),
-        fiscal_id_number: String(row.fiscal_id_number ?? row.fiscalIdNumber ?? ''),
+        fiscal_id_number: String(row.fiscal_id_number ?? row.fiscalIdNumber ?? row.buyer_tin ?? ''),
       });
 
       const items = (row.items || []) as any[];
@@ -290,10 +346,7 @@ export function Performa() {
             unit_price: Number(it.unit_price) || 0,
             total_unit_price: Number(it.total_unit_price) || 0,
           }))
-          : [
-            { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-            { description_of_goods: '', origin: '', hs_code: '', quantity: 0, unit_price: 0, total_unit_price: 0 },
-          ]
+          : [emptyPerformaItem()]
       );
 
       setEditingId(pId);
@@ -475,350 +528,282 @@ export function Performa() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-5 w-full max-w-7xl max-h-[95vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">
-                {editingId ? t('performa.addUpdate') : t('performa.addNew')}
-              </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">{t('performa.addUpdate')}</h2>
               <button
+                type="button"
                 onClick={() => {
                   setShowModal(false);
                   resetForm();
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-xl leading-none text-gray-500 hover:text-gray-700"
+                aria-label={t('common.cancel')}
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.performaCode')} (PERFORMA INVOICE No.)
-                    </label>
+              <div className="space-y-5">
+                <div className={pfGrid2}>
+                  <PerformaField label={t('performa.performaCode')}>
                     <input
                       type="text"
                       value={formData.performa_code}
                       onChange={(e) => setFormData({ ...formData, performa_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                       required
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date (document)
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.invoice_date}
-                      onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.vendor')} (vendeur)
-                    </label>
+                  </PerformaField>
+                  <PerformaField label={t('performa.vendor')}>
                     <input
                       type="text"
                       value={formData.vendor}
                       onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                      placeholder="HAMILTON"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse vendeur</label>
-                    <input
-                      type="text"
-                      value={formData.vendor_address}
-                      onChange={(e) => setFormData({ ...formData, vendor_address: e.target.value })}
-                      placeholder="..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tél. vendeur</label>
-                    <input
-                      type="text"
-                      value={formData.vendor_tel}
-                      onChange={(e) => setFormData({ ...formData, vendor_tel: e.target.value })}
-                      placeholder="..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.buyer')}
-                    </label>
-                    <input
-                      type="text"
+                  </PerformaField>
+                  <PerformaField label={t('performa.buyer')}>
+                    <select
                       value={formData.buyer}
-                      onChange={(e) => setFormData({ ...formData, buyer: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('performa.tinNo')}</label>
-                    <input
-                      type="text"
-                      value={formData.buyer_tin}
-                      onChange={(e) => setFormData({ ...formData, buyer_tin: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tél. acheteur</label>
-                    <input
-                      type="text"
-                      value={formData.buyer_tel}
-                      onChange={(e) => setFormData({ ...formData, buyer_tel: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.sourceDestination')}
-                    </label>
-                    <input
-                      type="text"
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        const client = clientsList.find((c) => c.name === name);
+                        setFormData({
+                          ...formData,
+                          buyer: name,
+                          buyer_tel: client?.phone ?? formData.buyer_tel,
+                        });
+                      }}
+                      className={pfSelectClass}
+                    >
+                      <option value="">{t('performa.selectBuyer')}</option>
+                      {clientsList.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PerformaField>
+                  <PerformaField label={t('performa.sourceDestination')}>
+                    <select
                       value={formData.source_destination}
-                      onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
+                      onChange={(e) =>
+                        setFormData({ ...formData, source_destination: e.target.value })
+                      }
+                      className={pfSelectClass}
+                    >
+                      <option value="">{t('performa.selectSourceDestination')}</option>
+                      {locationsList.map((l) => (
+                        <option key={l.id || l._id} value={l.name}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PerformaField>
                 </div>
 
-                <div className="border-t pt-5">
-                  <h3 className="text-base font-semibold mb-3">{t('performa.goodsTable')}</h3>
-
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="w-full text-sm min-w-[720px]">
-                      <thead>
-                        <tr className="bg-[#00a651] text-white">
-                          <th className="text-left py-2.5 px-2 font-semibold w-10">#</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.descriptionOfGoods')}</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.origin')}</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.hsCode')}</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.qty')}</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.unitPrice')}</th>
-                          <th className="text-left py-2.5 px-2 font-semibold">{t('performa.totalUnitPrice')}</th>
-                          <th className="text-center py-2.5 px-2 font-semibold w-16">{t('common.action')}</th>
+                <div className="overflow-x-auto rounded-md border border-gray-200">
+                  <table className="w-full min-w-[640px] text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50 text-left">
+                        <th className="w-10 px-3 py-2.5 font-semibold text-gray-700">#</th>
+                        <th className="px-3 py-2.5 font-semibold text-gray-700">
+                          {t('performa.descriptionOfGoods')}
+                        </th>
+                        <th className="px-3 py-2.5 font-semibold text-gray-700">
+                          {t('performa.hsCode')}
+                        </th>
+                        <th className="w-24 px-3 py-2.5 font-semibold text-gray-700">
+                          {t('performa.qty')}
+                        </th>
+                        <th className="w-28 px-3 py-2.5 font-semibold text-gray-700">
+                          {t('performa.unitPrice')}
+                        </th>
+                        <th className="w-32 px-3 py-2.5 font-semibold text-gray-700">
+                          {t('performa.totalUnitPrice')}
+                        </th>
+                        <th className="w-16 px-3 py-2.5 text-center font-semibold text-gray-700">
+                          {t('common.action')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {performaItems.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-100 bg-white">
+                          <td className="px-3 py-2 align-top text-gray-600">{index + 1}</td>
+                          <td className="px-3 py-2 align-top">
+                            <select
+                              value={item.description_of_goods}
+                              onChange={(e) =>
+                                updatePerformaItem(index, 'description_of_goods', e.target.value)
+                              }
+                              className={pfSelectClass}
+                            >
+                              <option value="">{t('performa.selectGoodsDescription')}</option>
+                              {goodsCategories.map((c) => (
+                                <option key={c.id || c._id} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="text"
+                              value={item.hs_code}
+                              onChange={(e) => updatePerformaItem(index, 'hs_code', e.target.value)}
+                              className={pfInputClass}
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.quantity || ''}
+                              onChange={(e) =>
+                                updatePerformaItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                              }
+                              className={pfInputClass}
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.unit_price || ''}
+                              onChange={(e) =>
+                                updatePerformaItem(index, 'unit_price', parseFloat(e.target.value) || 0)
+                              }
+                              className={pfInputClass}
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="number"
+                              step="0.01"
+                              readOnly
+                              value={item.total_unit_price || ''}
+                              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-center align-top">
+                            {index === performaItems.length - 1 ? (
+                              <button
+                                type="button"
+                                onClick={addPerformaItem}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-lg font-semibold text-[#0F3C66] hover:bg-gray-50"
+                                aria-label={t('common.add')}
+                              >
+                                +
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => removePerformaItem(index)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-red-600"
+                                aria-label={t('common.delete')}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {performaItems?.map((item, index) => (
-                          <tr key={index} className="border-b border-gray-100 bg-white odd:bg-gray-50/50">
-                            <td className="py-2 px-2 align-top">{index + 1}</td>
-                            <td className="py-2 px-2 align-top">
-                              <input
-                                type="text"
-                                value={item.description_of_goods}
-                                onChange={(e) => updatePerformaItem(index, 'description_of_goods', e.target.value)}
-                                className="w-full min-w-[140px] px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-[#00a651]/40 outline-none"
-                              />
-                            </td>
-                            <td className="py-2 px-2 align-top">
-                              <input
-                                type="text"
-                                value={item.origin}
-                                onChange={(e) => updatePerformaItem(index, 'origin', e.target.value)}
-                                placeholder="CHINA"
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-[#00a651]/40 outline-none"
-                              />
-                            </td>
-                            <td className="py-2 px-2 align-top">
-                              <input
-                                type="text"
-                                value={item.hs_code}
-                                onChange={(e) => updatePerformaItem(index, 'hs_code', e.target.value)}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-[#00a651]/40 outline-none"
-                              />
-                            </td>
-                            <td className="py-2 px-2 align-top w-24">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.quantity}
-                                onChange={(e) => updatePerformaItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded"
-                              />
-                            </td>
-                            <td className="py-2 px-2 align-top w-28">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.unit_price}
-                                onChange={(e) => updatePerformaItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded"
-                              />
-                            </td>
-                            <td className="py-2 px-2 align-top w-28">
-                              <input
-                                type="number"
-                                step="0.01"
-                                readOnly
-                                value={item.total_unit_price}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded bg-gray-50 text-gray-800"
-                              />
-                            </td>
-                            <td className="py-2 px-2 text-center align-top">
-                              {performaItems.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removePerformaItem(index)}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                              {index === performaItems.length - 1 && (
-                                <button
-                                  type="button"
-                                  onClick={addPerformaItem}
-                                  className="text-blue-600 hover:text-blue-700 ml-1"
-                                >
-                                  +
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Origine par ligne (comme le modèle). Valeur par défaut pour ligne vide : champ « Origine (global) » ci-dessous.
-                  </p>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 border-t pt-5">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.origin')} (si ligne vide)
-                    </label>
+                <div className={`${pfGrid2} pt-1`}>
+                  <PerformaField label={t('performa.origin')}>
                     <input
                       type="text"
                       value={formData.origin}
                       onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('performa.expedition')}
-                    </label>
+                  </PerformaField>
+                  <PerformaField label={t('performa.expedition')}>
                     <input
                       type="text"
                       value={formData.expedition}
                       onChange={(e) => setFormData({ ...formData, expedition: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.swiftCode')}
-                    </label>
+                  </PerformaField>
+                  <PerformaField label={t('performa.swiftCode')}>
                     <input
                       type="text"
                       value={formData.swift_code}
                       onChange={(e) => setFormData({ ...formData, swift_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.loadingPort')}
-                    </label>
+                  </PerformaField>
+                  <PerformaField label={t('performa.loadingPort')}>
                     <input
                       type="text"
                       value={formData.loading_port}
                       onChange={(e) => setFormData({ ...formData, loading_port: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.finalDestination')}
-                    </label>
-                    <input
-                      type="text"
+                  </PerformaField>
+                  <PerformaField label={t('performa.finalDestination')}>
+                    <select
                       value={formData.final_destination}
-                      onChange={(e) => setFormData({ ...formData, final_destination: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.payment')}
-                    </label>
+                      onChange={(e) =>
+                        setFormData({ ...formData, final_destination: e.target.value })
+                      }
+                      className={pfSelectClass}
+                    >
+                      <option value="">{t('performa.selectFinalDestination')}</option>
+                      {locationsList.map((l) => (
+                        <option key={`dest-${l.id || l._id}`} value={l.name}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PerformaField>
+                  <PerformaField label={t('performa.payment')}>
                     <input
                       type="text"
                       value={formData.payment}
                       onChange={(e) => setFormData({ ...formData, payment: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      className={pfInputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('performa.bank')}
-                    </label>
-                    <input
-                      type="text"
+                  </PerformaField>
+                  <PerformaField label={t('performa.bank')}>
+                    <select
                       value={formData.bank}
                       onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                      placeholder="..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tax ID Number
-                    </label>
+                      className={pfSelectClass}
+                    >
+                      <option value="">{t('performa.selectBank')}</option>
+                      {banksList.map((b) => (
+                        <option key={b.id || b._id} value={b.name}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PerformaField>
+                  <PerformaField label={t('performa.fiscalIdNumber')}>
                     <input
                       type="text"
                       value={formData.fiscal_id_number}
-                      onChange={(e) => setFormData({ ...formData, fiscal_id_number: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                      onChange={(e) =>
+                        setFormData({ ...formData, fiscal_id_number: e.target.value })
+                      }
+                      className={pfInputClass}
                     />
-                  </div>
+                  </PerformaField>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewPerforma(buildPrintFromForm())}
-                  className="px-4 py-2 border border-[#0F3C66] text-[#0F3C66] rounded-lg hover:bg-[#0F3C66]/5 transition"
-                >
-                  {t('common.view')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const x = buildPrintFromForm();
-                    void openPerformaPrintWindow(x.p, x.items);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  {t('performa.print')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                >
-                  {t('common.cancel')}
-                </button>
+              <div className="mt-6 flex justify-end">
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#00a651] text-white rounded-lg hover:bg-[#008a45] transition"
+                  className="rounded-md bg-[#0F3C66] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#152a44] transition"
                 >
                   {t('performa.saveChanges')}
                 </button>
@@ -828,42 +813,16 @@ export function Performa() {
         </div>
       )}
 
-      {previewPerforma && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="font-semibold text-[#0F3C66]">PERFORMA INVOICE — {t('common.view')}</h3>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    void openPerformaPrintWindow(previewPerforma.p, previewPerforma.items)
-                  }
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#0F3C66] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
-                >
-                  {t('performa.print')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewPerforma(null)}
-                  className="rounded p-1 text-gray-500 hover:bg-gray-100"
-                  aria-label={t('common.cancel')}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            <iframe
-              title="Aperçu Performa"
-              className="min-h-[70vh] w-full flex-1 border-0 bg-gray-100"
-              srcDoc={buildPerformaPrintHtml(
-                previewPerforma.p,
-                previewPerforma.items,
-                branding ?? brandingFromConfig({})
-              )}
-            />
-          </div>
-        </div>
+      {viewData && (
+        <PerformaViewModal
+          data={viewData}
+          t={t}
+          onClose={() => setViewData(null)}
+          onPrint={() => {
+            const printPayload = viewDataToPrint(viewData);
+            void openPerformaPrintWindow(printPayload.p, printPayload.items);
+          }}
+        />
       )}
 
       <div className="text-center text-sm text-gray-500 py-4">

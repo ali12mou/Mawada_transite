@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './core/Login';
 import { Layout } from './core/Layout';
@@ -6,7 +6,12 @@ import { Dashboard } from './core/Dashboard';
 import { Roles } from './modules/Admin/Roles';
 import { Users } from './modules/Admin/Users';
 import { Configurations } from './modules/Admin/Configurations';
-import { CommercialChamber } from './modules/Finance/CommercialChamber';
+import { OtherProfitTransitModule } from './modules/Logistics/transit/OtherProfitTransitModule';
+import { ModulePlaceholder } from './modules/Shared/ModulePlaceholder';
+
+const CommercialChamber = lazy(() =>
+  import('./modules/Finance/CommercialChamber').then(m => ({ default: m.CommercialChamber }))
+);
 import { LocalCompany } from './modules/Admin/LocalCompany';
 import { TransferDocument9 } from './modules/Logistics/TransferDocument9';
 import { ChamberInvoice } from './modules/Finance/ChamberInvoice';
@@ -78,7 +83,10 @@ function AppContent() {
       return <TransportModuleRouter moduleKey={currentPage} />;
     }
 
+    const page = (() => {
     switch (currentPage) {
+      case 'other-profit':
+        return <OtherProfitTransitModule />;
       case 'roles':
         return <Roles />;
       case 'users':
@@ -87,6 +95,8 @@ function AppContent() {
         return <Configurations />;
       case 'commercial-chamber':
         return <CommercialChamber />;
+      case 'chamber-transfer':
+        return <ModulePlaceholder menuKey="chamber-transfer" />;
       case 'local-company':
         return <LocalCompany />;
       case 'transfer-document-9':
@@ -186,11 +196,22 @@ function AppContent() {
       case 'payroll':
       case 'leave-management':
       case 'attendance-management':
-        return <Dashboard />;
+        return <ModulePlaceholder menuKey={currentPage} />;
       case 'dashboard':
       default:
         return <Dashboard />;
     }
+    })();
+
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-64 items-center justify-center text-gray-500">Chargement…</div>
+        }
+      >
+        {page}
+      </Suspense>
+    );
   };
 
   return (

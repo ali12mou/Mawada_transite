@@ -38,8 +38,8 @@ export async function getChamberInvoiceFull(id: string) {
 export async function createChamberInvoice(payload: {
   header: Record<string, string>;
   items: unknown[];
-  packingList: Record<string, string>;
-  originalLetter: Record<string, string>;
+  packingList: Record<string, unknown>;
+  originalLetter: Record<string, unknown>;
 }) {
   return reqData<Record<string, unknown>>(base(), {
     method: 'POST',
@@ -53,8 +53,8 @@ export async function updateChamberInvoice(
   payload: {
     header: Record<string, string>;
     items: unknown[];
-    packingList: Record<string, string>;
-    originalLetter: Record<string, string>;
+    packingList: Record<string, unknown>;
+    originalLetter: Record<string, unknown>;
   }
 ) {
   return reqData<ChamberInvoiceFullPayload>(`${base()}/${encodeURIComponent(id)}`, {

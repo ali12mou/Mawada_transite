@@ -11,8 +11,8 @@ export function TransferDocument9() {
     <Document9
       pageTitle={t('transfer9.title')}
       addButtonLabel={t('common.addNew')}
-      rowActionsAsDropdown
       transferWizardModal
+      rowActionsAsDropdown
     />
   );
 }

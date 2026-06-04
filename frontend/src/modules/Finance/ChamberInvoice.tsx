@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Edit, Trash2, Plus, Eye, FileText, Printer, X } from 'lucide-react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { Edit, Trash2, Plus, Eye, FileText, Printer } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 
 import {
@@ -9,15 +9,25 @@ import {
   updateChamberInvoice,
   deleteChamberInvoice,
 } from '../../api/chamberInvoicesApi';
+import { fetchClients, type ClientRecord } from '../../api/clientsApi';
+import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
-  buildChamberInvoicePrintHtml,
-  openChamberInvoicePrintWindow,
+  WaybillFormFields,
+  emptyWaybillForm,
+  emptyWaybillLineItem,
+  type WaybillLineItem,
+} from './chamberInvoiceWaybillFields';
+import {
+  ChamberInvoiceViewScreen,
+  type ChamberInvoiceViewData,
+} from './chamberInvoiceView';
+import {
+  openChamberInvoiceFullPrint,
   type ChamberInvoicePrintItem,
   type ChamberInvoicePrintRecord,
 } from '../../lib/chamberInvoicePrintHtml';
-import { fetchDocumentBranding } from '../../lib/documentBranding';
-import { brandingFromConfig, type DocumentBranding } from '../../types/documentBranding';
+import { DocumentBrandBanner } from '../Shared/DocumentBrandBanner';
 
 interface ChamberInvoiceData {
   id: string;
@@ -38,6 +48,49 @@ interface InvoiceItem {
   total_amount: number;
 }
 
+const invoiceLabelClass = 'mb-1 block text-xs font-bold uppercase tracking-wide text-gray-700';
+const invoiceInputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]/30';
+const invoiceSelectClass = invoiceInputClass;
+const invoiceGrid3 = 'grid grid-cols-1 gap-4 md:grid-cols-3';
+
+function InvoiceField({
+  label,
+  children,
+  className = '',
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className={invoiceLabelClass}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function InvoiceFormSection({
+  title,
+  version,
+  children,
+}: {
+  title: string;
+  version?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-900">{title}</h3>
+        {version ? <span className="text-xs text-gray-500">{version}</span> : null}
+      </div>
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
 export function ChamberInvoice() {
   const [invoices, setInvoices] = useState<ChamberInvoiceData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,19 +98,9 @@ export function ChamberInvoice() {
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [branding, setBranding] = useState<DocumentBranding | null>(null);
-  const [previewPrint, setPreviewPrint] = useState<{
-    inv: ChamberInvoicePrintRecord;
-    items: ChamberInvoicePrintItem[];
-  } | null>(null);
+  const [viewData, setViewData] = useState<ChamberInvoiceViewData | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { t } = useLanguage();
-
-  useEffect(() => {
-    fetchDocumentBranding()
-      .then(setBranding)
-      .catch(() => setBranding(brandingFromConfig({})));
-  }, []);
 
   const [formData, setFormData] = useState({
     consignee_name: '',
@@ -69,7 +112,10 @@ export function ChamberInvoice() {
     invoice_number: '',
     invoice_date: '',
     sales_conditions: '',
+    purchase_order_date: '',
     purchase_order: '',
+    proforma_invoice: '',
+    proforma_date: '',
     app_reference_number: '',
     payment_conditions: '',
     invoice_currency: '',
@@ -84,6 +130,15 @@ export function ChamberInvoice() {
     currency: '',
   });
 
+  const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
+  const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>(
+    []
+  );
+  const [banksList, setBanksList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>(
+    []
+  );
+
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
     {
       description_of_goods: '',
@@ -96,46 +151,15 @@ export function ChamberInvoice() {
     },
   ]);
 
-  const [packingList, setPackingList] = useState({
-    consignee_name: '',
-    consignee_tin: '',
-    consignee_tel: '',
-    consignee_source_destination: '',
-    shipper_name: '',
-    shipper_mob: '',
-    shipper_tel: '',
-    shipper_source_destination: '',
-    reference: '',
-    reference_date: '',
-    invoice_number: '',
-    notify_party: '',
-    notify_party_tin: '',
-    notify_party_tel: '',
-    notify_party_source_destination: '',
-    packing_purchase_order: '',
-  });
+  const [packingList, setPackingList] = useState(emptyWaybillForm);
 
-  const [originalLetter, setOriginalLetter] = useState({
-    consignee_name: '',
-    consignee_tin: '',
-    consignee_tel: '',
-    consignee_source_destination: '',
-    shipper_name: '',
-    shipper_mob: '',
-    shipper_tel: '',
-    shipper_source_destination: '',
-    reference: '',
-    reference_date: '',
-    invoice_number: '',
-    notify_party: '',
-    notify_party_tin: '',
-    notify_party_tel: '',
-    notify_party_source_destination: '',
-    otb_purchase_order: '',
-    loading_location: '',
-    transport_details: '',
-    destination_location: '',
-  });
+  const [packingItems, setPackingItems] = useState<WaybillLineItem[]>([emptyWaybillLineItem()]);
+
+  const [originalLetter, setOriginalLetter] = useState(emptyWaybillForm);
+
+  const [originalLetterItems, setOriginalLetterItems] = useState<WaybillLineItem[]>([
+    emptyWaybillLineItem(),
+  ]);
 
   useEffect(() => {
     loadInvoices();
@@ -144,6 +168,26 @@ export function ChamberInvoice() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
+
+  useEffect(() => {
+    if (!showModal) return;
+    (async () => {
+      try {
+        const [clients, locations, banks, categories] = await Promise.all([
+          fetchClients(),
+          genericApi.list('locations'),
+          genericApi.list('banks'),
+          genericApi.list('product_categories'),
+        ]);
+        setClientsList(clients);
+        setLocationsList(locations || []);
+        setBanksList(banks || []);
+        setGoodsCategories(categories || []);
+      } catch (e) {
+        console.error('Error loading chamber invoice form lists:', e);
+      }
+    })();
+  }, [showModal]);
 
   const loadInvoices = async () => {
     try {
@@ -162,8 +206,8 @@ export function ChamberInvoice() {
     const payload = {
       header: formData as Record<string, string>,
       items: invoiceItems as unknown[],
-      packingList: packingList as unknown as Record<string, string>,
-      originalLetter: originalLetter as unknown as Record<string, string>,
+      packingList: { ...packingList, items: packingItems } as Record<string, unknown>,
+      originalLetter: { ...originalLetter, items: originalLetterItems } as Record<string, unknown>,
     };
 
     try {
@@ -206,7 +250,10 @@ export function ChamberInvoice() {
       invoice_number: '',
       invoice_date: '',
       sales_conditions: '',
+      purchase_order_date: '',
       purchase_order: '',
+      proforma_invoice: '',
+      proforma_date: '',
       app_reference_number: '',
       payment_conditions: '',
       invoice_currency: '',
@@ -231,6 +278,38 @@ export function ChamberInvoice() {
         total_amount: 0,
       },
     ]);
+    setPackingList(emptyWaybillForm());
+    setPackingItems([emptyWaybillLineItem()]);
+    setOriginalLetter(emptyWaybillForm());
+    setOriginalLetterItems([emptyWaybillLineItem()]);
+  };
+
+  const addPackingItem = () => {
+    setPackingItems([...packingItems, emptyWaybillLineItem()]);
+  };
+
+  const removePackingItem = (index: number) => {
+    setPackingItems(packingItems.filter((_, i) => i !== index));
+  };
+
+  const updatePackingItem = (index: number, field: keyof WaybillLineItem, value: unknown) => {
+    const next = [...packingItems];
+    next[index] = { ...next[index], [field]: value } as WaybillLineItem;
+    setPackingItems(next);
+  };
+
+  const addOriginalLetterItem = () => {
+    setOriginalLetterItems([...originalLetterItems, emptyWaybillLineItem()]);
+  };
+
+  const removeOriginalLetterItem = (index: number) => {
+    setOriginalLetterItems(originalLetterItems.filter((_, i) => i !== index));
+  };
+
+  const updateOriginalLetterItem = (index: number, field: keyof WaybillLineItem, value: unknown) => {
+    const next = [...originalLetterItems];
+    next[index] = { ...next[index], [field]: value } as WaybillLineItem;
+    setOriginalLetterItems(next);
   };
 
   const addInvoiceItem = () => {
@@ -285,6 +364,9 @@ export function ChamberInvoice() {
         invoice_date: h.invoice_date || '',
         sales_conditions: h.sales_conditions || '',
         purchase_order: h.purchase_order || '',
+        purchase_order_date: h.purchase_order_date || '',
+        proforma_invoice: h.proforma_invoice || '',
+        proforma_date: h.proforma_date || '',
         app_reference_number: h.app_reference_number || '',
         payment_conditions: h.payment_conditions || '',
         invoice_currency: h.invoice_currency || h.currency || '',
@@ -314,22 +396,106 @@ export function ChamberInvoice() {
     }
   }
 
-  async function openPreviewModal(id: string) {
-    const full = await loadInvoiceFull(id);
-    if (!full) {
+  async function loadChamberInvoiceViewData(id: string): Promise<ChamberInvoiceViewData | null> {
+    try {
+      const full = await getChamberInvoiceFull(id);
+      const inv = full.invoice as Record<string, unknown>;
+      if (!inv) return null;
+
+      const str = (v: unknown) => String(v ?? '');
+      const header: Record<string, string> = {
+        consignee_name: str(inv.consignee_name),
+        tin: str(inv.tin),
+        tel: str(inv.tel),
+        source_destination: str(inv.source_destination),
+        commercial_relation: str(inv.commercial_relation),
+        consignment_location: str(inv.consignment_location),
+        invoice_number: str(inv.invoice_number),
+        invoice_date: str(inv.invoice_date).slice(0, 10),
+        sales_conditions: str(inv.sales_conditions),
+        purchase_order_date: str(inv.purchase_order_date).slice(0, 10),
+        purchase_order: str(inv.purchase_order),
+        proforma_invoice: str(inv.proforma_invoice),
+        proforma_date: str(inv.proforma_date).slice(0, 10),
+        app_reference_number: str(inv.app_reference_number),
+        payment_conditions: str(inv.payment_conditions),
+        invoice_currency: str(inv.invoice_currency),
+        expedition: str(inv.expedition),
+        swift_code: str(inv.swift_code),
+        loading_port: str(inv.loading_port),
+        final_destination: str(inv.final_destination),
+        bank_details: str(inv.bank_details),
+        bank_account: str(inv.bank_account),
+        intermediate_bank: str(inv.intermediate_bank),
+        swift_code_2: str(inv.swift_code_2),
+        currency: str(inv.currency),
+      };
+
+      const items = ((full.items || []) as Record<string, unknown>[]).map((it) => ({
+        description_of_goods: str(it.description_of_goods),
+        origin: str(it.origin),
+        hs_code: str(it.hs_code),
+        unit: str(it.unit),
+        quantity: Number(it.quantity) || 0,
+        unit_price: Number(it.unit_price) || 0,
+        total_amount: Number(it.total_amount) || 0,
+      }));
+
+      const mapPackItems = (raw: unknown): WaybillLineItem[] => {
+        if (!Array.isArray(raw)) return [];
+        return raw.map((it: Record<string, unknown>) => ({
+          description_of_goods: str(it.description_of_goods),
+          origin: str(it.origin),
+          unit: str(it.unit),
+          quantity: Number(it.quantity) || 0,
+          net_weight: Number(it.net_weight) || 0,
+          gross_weight: Number(it.gross_weight) || 0,
+          total: Number(it.total) || 0,
+        }));
+      };
+
+      const pack = full.packing as Record<string, unknown> | null;
+      const letter = full.letter as Record<string, unknown> | null;
+      const packItems = pack?.items;
+      const letterItems = letter?.items;
+
+      return {
+        header,
+        items,
+        packing: pack,
+        letter,
+        packingItems: mapPackItems(packItems),
+        letterItems: mapPackItems(letterItems),
+      };
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }
+
+  async function openViewScreen(id: string) {
+    const data = await loadChamberInvoiceViewData(id);
+    if (!data) {
       alert('Impossible de charger la facture.');
       return;
     }
-    setPreviewPrint({ inv: full.header, items: full.items });
+    setViewData(data);
   }
 
   async function handlePrintPdf(id: string) {
-    const full = await loadInvoiceFull(id);
-    if (!full) {
+    const data = await loadChamberInvoiceViewData(id);
+    if (!data) {
       alert('Impossible de charger la facture.');
       return;
     }
-    void openChamberInvoicePrintWindow(full.header, full.items);
+    void openChamberInvoiceFullPrint({
+      inv: data.header as ChamberInvoicePrintRecord,
+      items: data.items,
+      packing: data.packing,
+      packingItems: data.packingItems,
+      letter: data.letter,
+      letterItems: data.letterItems,
+    });
   }
 
   async function openEditModal(id: string) {
@@ -348,7 +514,10 @@ export function ChamberInvoice() {
         invoice_number: String(inv.invoice_number ?? ''),
         invoice_date: d(inv.invoice_date),
         sales_conditions: String(inv.sales_conditions ?? ''),
+        purchase_order_date: d(inv.purchase_order_date),
         purchase_order: String(inv.purchase_order ?? ''),
+        proforma_invoice: String(inv.proforma_invoice ?? ''),
+        proforma_date: d(inv.proforma_date),
         app_reference_number: String(inv.app_reference_number ?? ''),
         payment_conditions: String(inv.payment_conditions ?? ''),
         invoice_currency: String(inv.invoice_currency ?? ''),
@@ -388,89 +557,90 @@ export function ChamberInvoice() {
       );
       const pack = full.packing as Record<string, unknown> | null;
       if (pack) {
+        const { items: packItems, ...packFields } = pack;
         setPackingList({
-          consignee_name: String(pack.consignee_name ?? ''),
-          consignee_tin: String(pack.consignee_tin ?? ''),
-          consignee_tel: String(pack.consignee_tel ?? ''),
-          consignee_source_destination: String(pack.consignee_source_destination ?? ''),
-          shipper_name: String(pack.shipper_name ?? ''),
-          shipper_mob: String(pack.shipper_mob ?? ''),
-          shipper_tel: String(pack.shipper_tel ?? ''),
-          shipper_source_destination: String(pack.shipper_source_destination ?? ''),
-          reference: String(pack.reference ?? ''),
-          reference_date: d(pack.reference_date),
-          invoice_number: String(pack.invoice_number ?? ''),
-          notify_party: String(pack.notify_party ?? ''),
-          notify_party_tin: String(pack.notify_party_tin ?? ''),
-          notify_party_tel: String(pack.notify_party_tel ?? ''),
-          notify_party_source_destination: String(pack.notify_party_source_destination ?? ''),
-          packing_purchase_order: String(pack.packing_purchase_order ?? ''),
+          ...emptyWaybillForm(),
+          consignee_name: String(packFields.consignee_name ?? ''),
+          consignee_tin: String(packFields.consignee_tin ?? ''),
+          consignee_tel: String(packFields.consignee_tel ?? ''),
+          consignee_source_destination: String(packFields.consignee_source_destination ?? ''),
+          shipper_name: String(packFields.shipper_name ?? ''),
+          shipper_mob: String(packFields.shipper_mob ?? ''),
+          shipper_tel: String(packFields.shipper_tel ?? ''),
+          shipper_source_destination: String(packFields.shipper_source_destination ?? ''),
+          reference: String(packFields.reference ?? ''),
+          reference_date: d(packFields.reference_date),
+          invoice_number: String(packFields.invoice_number ?? ''),
+          notify_party: String(packFields.notify_party ?? ''),
+          notify_party_tin: String(packFields.notify_party_tin ?? ''),
+          notify_party_tel: String(packFields.notify_party_tel ?? ''),
+          notify_party_source_destination: String(packFields.notify_party_source_destination ?? ''),
+          packing_purchase_order: String(packFields.packing_purchase_order ?? ''),
+          loading_location: String(packFields.loading_location ?? ''),
+          transport_details: String(packFields.transport_details ?? ''),
+          destination_location: String(packFields.destination_location ?? ''),
         });
+        const rows = Array.isArray(packItems) ? packItems : [];
+        setPackingItems(
+          rows.length > 0
+            ? rows.map((it: Record<string, unknown>) => ({
+                description_of_goods: String(it.description_of_goods ?? ''),
+                origin: String(it.origin ?? ''),
+                unit: String(it.unit ?? ''),
+                quantity: Number(it.quantity) || 0,
+                net_weight: Number(it.net_weight) || 0,
+                gross_weight: Number(it.gross_weight) || 0,
+                total: Number(it.total) || 0,
+              }))
+            : [emptyWaybillLineItem()]
+        );
       } else {
-        setPackingList({
-          consignee_name: '',
-          consignee_tin: '',
-          consignee_tel: '',
-          consignee_source_destination: '',
-          shipper_name: '',
-          shipper_mob: '',
-          shipper_tel: '',
-          shipper_source_destination: '',
-          reference: '',
-          reference_date: '',
-          invoice_number: '',
-          notify_party: '',
-          notify_party_tin: '',
-          notify_party_tel: '',
-          notify_party_source_destination: '',
-          packing_purchase_order: '',
-        });
+        setPackingList(emptyWaybillForm());
+        setPackingItems([emptyWaybillLineItem()]);
       }
       const letter = full.letter as Record<string, unknown> | null;
       if (letter) {
+        const { items: letterItems, ...letterFields } = letter;
         setOriginalLetter({
-          consignee_name: String(letter.consignee_name ?? ''),
-          consignee_tin: String(letter.consignee_tin ?? ''),
-          consignee_tel: String(letter.consignee_tel ?? ''),
-          consignee_source_destination: String(letter.consignee_source_destination ?? ''),
-          shipper_name: String(letter.shipper_name ?? ''),
-          shipper_mob: String(letter.shipper_mob ?? ''),
-          shipper_tel: String(letter.shipper_tel ?? ''),
-          shipper_source_destination: String(letter.shipper_source_destination ?? ''),
-          reference: String(letter.reference ?? ''),
-          reference_date: d(letter.reference_date),
-          invoice_number: String(letter.invoice_number ?? ''),
-          notify_party: String(letter.notify_party ?? ''),
-          notify_party_tin: String(letter.notify_party_tin ?? ''),
-          notify_party_tel: String(letter.notify_party_tel ?? ''),
-          notify_party_source_destination: String(letter.notify_party_source_destination ?? ''),
-          otb_purchase_order: String(letter.otb_purchase_order ?? ''),
-          loading_location: String(letter.loading_location ?? ''),
-          transport_details: String(letter.transport_details ?? ''),
-          destination_location: String(letter.destination_location ?? ''),
+          ...emptyWaybillForm(),
+          consignee_name: String(letterFields.consignee_name ?? ''),
+          consignee_tin: String(letterFields.consignee_tin ?? ''),
+          consignee_tel: String(letterFields.consignee_tel ?? ''),
+          consignee_source_destination: String(letterFields.consignee_source_destination ?? ''),
+          shipper_name: String(letterFields.shipper_name ?? ''),
+          shipper_mob: String(letterFields.shipper_mob ?? ''),
+          shipper_tel: String(letterFields.shipper_tel ?? ''),
+          shipper_source_destination: String(letterFields.shipper_source_destination ?? ''),
+          reference: String(letterFields.reference ?? ''),
+          reference_date: d(letterFields.reference_date),
+          invoice_number: String(letterFields.invoice_number ?? ''),
+          notify_party: String(letterFields.notify_party ?? ''),
+          notify_party_tin: String(letterFields.notify_party_tin ?? ''),
+          notify_party_tel: String(letterFields.notify_party_tel ?? ''),
+          notify_party_source_destination: String(letterFields.notify_party_source_destination ?? ''),
+          packing_purchase_order: String(letterFields.packing_purchase_order ?? ''),
+          otb_purchase_order: String(letterFields.otb_purchase_order ?? ''),
+          loading_location: String(letterFields.loading_location ?? ''),
+          transport_details: String(letterFields.transport_details ?? ''),
+          destination_location: String(letterFields.destination_location ?? ''),
         });
+        const letterRows = Array.isArray(letterItems) ? letterItems : [];
+        setOriginalLetterItems(
+          letterRows.length > 0
+            ? letterRows.map((it: Record<string, unknown>) => ({
+                description_of_goods: String(it.description_of_goods ?? ''),
+                origin: String(it.origin ?? ''),
+                unit: String(it.unit ?? ''),
+                quantity: Number(it.quantity) || 0,
+                net_weight: Number(it.net_weight) || 0,
+                gross_weight: Number(it.gross_weight) || 0,
+                total: Number(it.total) || 0,
+              }))
+            : [emptyWaybillLineItem()]
+        );
       } else {
-        setOriginalLetter({
-          consignee_name: '',
-          consignee_tin: '',
-          consignee_tel: '',
-          consignee_source_destination: '',
-          shipper_name: '',
-          shipper_mob: '',
-          shipper_tel: '',
-          shipper_source_destination: '',
-          reference: '',
-          reference_date: '',
-          invoice_number: '',
-          notify_party: '',
-          notify_party_tin: '',
-          notify_party_tel: '',
-          notify_party_source_destination: '',
-          otb_purchase_order: '',
-          loading_location: '',
-          transport_details: '',
-          destination_location: '',
-        });
+        setOriginalLetter(emptyWaybillForm());
+        setOriginalLetterItems([emptyWaybillLineItem()]);
       }
       setEditingId(id);
       setShowModal(true);
@@ -502,6 +672,26 @@ export function ChamberInvoice() {
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">{t('common.loading')}</div>;
+  }
+
+  if (viewData) {
+    return (
+      <ChamberInvoiceViewScreen
+        data={viewData}
+        t={t}
+        onBack={() => setViewData(null)}
+        onPrint={() =>
+          void openChamberInvoiceFullPrint({
+            inv: viewData.header as ChamberInvoicePrintRecord,
+            items: viewData.items,
+            packing: viewData.packing,
+            packingItems: viewData.packingItems,
+            letter: viewData.letter,
+            letterItems: viewData.letterItems,
+          })
+        }
+      />
+    );
   }
 
   const rangeStart =
@@ -602,7 +792,7 @@ export function ChamberInvoice() {
                             {
                               label: t('common.view'),
                               icon: <Eye size={16} />,
-                              onClick: () => void openPreviewModal(invoice.id),
+                              onClick: () => void openViewScreen(invoice.id),
                             },
                             {
                               label: t('common.edit'),
@@ -664,10 +854,10 @@ export function ChamberInvoice() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-screen-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-xl font-semibold text-[#0F3C66]">
                 {editingId
                   ? `${t('common.edit')} — ${t('chamberInvoice.title')}`
-                  : t('chamberInvoice.details')}
+                  : `${t('common.addNew')} — ${t('menu.chamber-invoice')}`}
               </h2>
               <button
                 type="button"
@@ -682,357 +872,482 @@ export function ChamberInvoice() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.consignee')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.consignee_name}
-                      onChange={(e) => setFormData({ ...formData, consignee_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.tin')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.tin}
-                      onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.tel')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.tel}
-                      onChange={(e) => setFormData({ ...formData, tel: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.sourceDestination')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.source_destination}
-                      onChange={(e) => setFormData({ ...formData, source_destination: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.commercialRelation')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.commercial_relation}
-                      onChange={(e) => setFormData({ ...formData, commercial_relation: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.consignmentLocation')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.consignment_location}
-                      onChange={(e) => setFormData({ ...formData, consignment_location: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+              <DocumentBrandBanner className="mb-5" />
+              <div className="space-y-5">
+                <InvoiceFormSection
+                  title={t('chamberInvoice.details')}
+                  version={t('chamberInvoice.formVersion')}
+                >
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.consignee')}>
+                      <select
+                        value={formData.consignee_name}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          const client = clientsList.find((c) => c.name === name);
+                          setFormData({
+                            ...formData,
+                            consignee_name: name,
+                            tel: client?.phone ?? formData.tel,
+                          });
+                        }}
+                        className={invoiceSelectClass}
+                        required
+                      >
+                        <option value="">{t('chamberInvoice.select')}</option>
+                        {clientsList.map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.tin')}>
+                      <input
+                        type="text"
+                        value={formData.tin}
+                        onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.tel')}>
+                      <input
+                        type="text"
+                        value={formData.tel}
+                        onChange={(e) => setFormData({ ...formData, tel: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.invoiceNumber')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.invoice_number}
-                      onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.invoiceDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.invoice_date}
-                      onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.salesConditions')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.sales_conditions}
-                      onChange={(e) => setFormData({ ...formData, sales_conditions: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.purchaseOrder')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.purchase_order}
-                      onChange={(e) => setFormData({ ...formData, purchase_order: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.appReferenceNumber')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.app_reference_number}
-                      onChange={(e) => setFormData({ ...formData, app_reference_number: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.paymentConditions')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.payment_conditions}
-                      onChange={(e) => setFormData({ ...formData, payment_conditions: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.sourceDestination')}>
+                      <select
+                        value={formData.source_destination}
+                        onChange={(e) =>
+                          setFormData({ ...formData, source_destination: e.target.value })
+                        }
+                        className={invoiceSelectClass}
+                      >
+                        <option value="">{t('chamberInvoice.select')}</option>
+                        {locationsList.map((l) => (
+                          <option key={l.id || l._id} value={l.name}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.commercialRelation')}>
+                      <input
+                        type="text"
+                        value={formData.commercial_relation}
+                        onChange={(e) =>
+                          setFormData({ ...formData, commercial_relation: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.consignmentLocation')}>
+                      <input
+                        type="text"
+                        value={formData.consignment_location}
+                        onChange={(e) =>
+                          setFormData({ ...formData, consignment_location: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.invoiceCurrency')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.invoice_currency}
-                      onChange={(e) => setFormData({ ...formData, invoice_currency: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.expedition')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.expedition}
-                      onChange={(e) => setFormData({ ...formData, expedition: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.swiftCode')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.swift_code}
-                      onChange={(e) => setFormData({ ...formData, swift_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.loadingPort')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.loading_port}
-                      onChange={(e) => setFormData({ ...formData, loading_port: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.finalDestination')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.final_destination}
-                      onChange={(e) => setFormData({ ...formData, final_destination: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.bankDetails')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.bank_details}
-                      onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.invoiceNumber')}>
+                      <input
+                        type="text"
+                        value={formData.invoice_number}
+                        onChange={(e) =>
+                          setFormData({ ...formData, invoice_number: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.invoiceDate')}>
+                      <input
+                        type="date"
+                        value={formData.invoice_date}
+                        onChange={(e) =>
+                          setFormData({ ...formData, invoice_date: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.salesConditions')}>
+                      <input
+                        type="text"
+                        value={formData.sales_conditions}
+                        onChange={(e) =>
+                          setFormData({ ...formData, sales_conditions: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.bankAccount')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.bank_account}
-                      onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.purchaseOrderDate')}>
+                      <input
+                        type="date"
+                        value={formData.purchase_order_date}
+                        onChange={(e) =>
+                          setFormData({ ...formData, purchase_order_date: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.purchaseOrder')}>
+                      <input
+                        type="text"
+                        value={formData.purchase_order}
+                        onChange={(e) =>
+                          setFormData({ ...formData, purchase_order: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.proformaInvoice')}>
+                      <input
+                        type="text"
+                        value={formData.proforma_invoice}
+                        onChange={(e) =>
+                          setFormData({ ...formData, proforma_invoice: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.intermediateBank')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.intermediate_bank}
-                      onChange={(e) => setFormData({ ...formData, intermediate_bank: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('chamberInvoice.swiftCode')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.swift_code_2}
-                      onChange={(e) => setFormData({ ...formData, swift_code_2: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                </div>
 
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">{t('chamberInvoice.goodsDescription')}</h3>
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.proformaDate')}>
+                      <input
+                        type="date"
+                        value={formData.proforma_date}
+                        onChange={(e) =>
+                          setFormData({ ...formData, proforma_date: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <div className="hidden md:block" aria-hidden />
+                    <div className="hidden md:block" aria-hidden />
+                  </div>
 
-                  {invoiceItems?.map((item, index) => (
-                    <div key={index} className="mb-4 p-4 border rounded-lg">
-                      <div className="grid grid-cols-1 gap-4 mb-2 sm:grid-cols-2 lg:grid-cols-8">
-                        <div className="sm:col-span-2 lg:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={`goods-desc-${index}`}>
-                            {t('chamberInvoice.description')}
-                          </label>
-                          <textarea
-                            id={`goods-desc-${index}`}
-                            rows={3}
-                            value={item.description_of_goods}
-                            onChange={(e) => updateInvoiceItem(index, 'description_of_goods', e.target.value)}
-                            placeholder={t('chamberInvoice.descriptionPlaceholder')}
-                            className="w-full resize-y min-h-[4.5rem] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className={invoiceGrid3}>
+                    <InvoiceField label={t('chamberInvoice.appReferenceNumber')}>
+                      <input
+                        type="text"
+                        value={formData.app_reference_number}
+                        onChange={(e) =>
+                          setFormData({ ...formData, app_reference_number: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.paymentConditions')}>
+                      <input
+                        type="text"
+                        value={formData.payment_conditions}
+                        onChange={(e) =>
+                          setFormData({ ...formData, payment_conditions: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.invoiceCurrency')}>
+                      <input
+                        type="text"
+                        value={formData.invoice_currency}
+                        onChange={(e) =>
+                          setFormData({ ...formData, invoice_currency: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                  </div>
+                </InvoiceFormSection>
+
+                <InvoiceFormSection title={t('chamberInvoice.packingListTitle')}>
+                  <WaybillFormFields
+                    idPrefix="pack"
+                    data={packingList}
+                    onChange={setPackingList}
+                    items={packingItems}
+                    onAddItem={addPackingItem}
+                    onRemoveItem={removePackingItem}
+                    onUpdateItem={updatePackingItem}
+                    purchaseOrderMode="packing"
+                    clientsList={clientsList}
+                    locationsList={locationsList}
+                    goodsCategories={goodsCategories}
+                    t={t}
+                  />
+                </InvoiceFormSection>
+
+                <InvoiceFormSection title={t('chamberInvoice.originalLetterTitle')}>
+                  <WaybillFormFields
+                    idPrefix="otb"
+                    data={originalLetter}
+                    onChange={setOriginalLetter}
+                    items={originalLetterItems}
+                    onAddItem={addOriginalLetterItem}
+                    onRemoveItem={removeOriginalLetterItem}
+                    onUpdateItem={updateOriginalLetterItem}
+                    purchaseOrderMode="otb"
+                    clientsList={clientsList}
+                    locationsList={locationsList}
+                    goodsCategories={goodsCategories}
+                    t={t}
+                  />
+                </InvoiceFormSection>
+
+                <InvoiceFormSection title={t('chamberInvoice.shippingBankSection')}>
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.expedition')}>
+                      <input
+                        type="text"
+                        value={formData.expedition}
+                        onChange={(e) => setFormData({ ...formData, expedition: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.swiftCode')}>
+                      <input
+                        type="text"
+                        value={formData.swift_code}
+                        onChange={(e) => setFormData({ ...formData, swift_code: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.loadingPort')}>
+                      <input
+                        type="text"
+                        value={formData.loading_port}
+                        onChange={(e) => setFormData({ ...formData, loading_port: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                  </div>
+
+                  <div className={`${invoiceGrid3} mb-4`}>
+                    <InvoiceField label={t('chamberInvoice.finalDestination')}>
+                      <select
+                        value={formData.final_destination}
+                        onChange={(e) =>
+                          setFormData({ ...formData, final_destination: e.target.value })
+                        }
+                        className={invoiceSelectClass}
+                      >
+                        <option value="">{t('chamberInvoice.select')}</option>
+                        {locationsList.map((l) => (
+                          <option key={`dest-${l.id || l._id}`} value={l.name}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.bankDetails')}>
+                      <select
+                        value={formData.bank_details}
+                        onChange={(e) =>
+                          setFormData({ ...formData, bank_details: e.target.value })
+                        }
+                        className={invoiceSelectClass}
+                      >
+                        <option value="">{t('chamberInvoice.select')}</option>
+                        {banksList.map((b) => (
+                          <option key={b.id || b._id} value={b.name}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.bankAccount')}>
+                      <input
+                        type="text"
+                        value={formData.bank_account}
+                        onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <InvoiceField label={t('chamberInvoice.intermediateBank')}>
+                      <input
+                        type="text"
+                        value={formData.intermediate_bank}
+                        onChange={(e) =>
+                          setFormData({ ...formData, intermediate_bank: e.target.value })
+                        }
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                    <InvoiceField label={t('chamberInvoice.swiftCode')}>
+                      <input
+                        type="text"
+                        value={formData.swift_code_2}
+                        onChange={(e) => setFormData({ ...formData, swift_code_2: e.target.value })}
+                        className={invoiceInputClass}
+                      />
+                    </InvoiceField>
+                  </div>
+
+                  <div className="mt-5 overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-gray-100 text-left text-xs font-bold uppercase text-gray-800">
+                          <th className="w-10 border border-gray-200 px-2 py-2 text-center">
+                            {t('chamberInvoice.colNumber')}
+                          </th>
+                          <th className="min-w-[200px] border border-gray-200 px-2 py-2">
+                            {t('chamberInvoice.goodsDescription')}
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.origin')}
-                          </label>
-                          <input
-                            type="text"
-                            value={item.origin}
-                            onChange={(e) => updateInvoiceItem(index, 'origin', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.hsCode')}
-                          </label>
-                          <input
-                            type="text"
-                            value={item.hs_code}
-                            onChange={(e) => updateInvoiceItem(index, 'hs_code', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.unit')}
-                          </label>
-                          <input
-                            type="text"
-                            value={item.unit}
-                            onChange={(e) => updateInvoiceItem(index, 'unit', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.qty')}
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.quantity}
-                            onChange={(e) => updateInvoiceItem(index, 'quantity', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.unitPrice')}
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={(e) => updateInvoiceItem(index, 'unit_price', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          </th>
+                          <th className="border border-gray-200 px-2 py-2">
                             {t('chamberInvoice.totalAmount')}
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.total_amount}
-                            onChange={(e) => updateInvoiceItem(index, 'total_amount', parseFloat(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          />
-                        </div>
-                      </div>
-                      {invoiceItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeInvoiceItem(index)}
-                          className="text-red-600 hover:text-red-700 text-sm"
-                        >
-                          Remove Item
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={addInvoiceItem}
-                    className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    + Add Item
-                  </button>
-                </div>
+                          </th>
+                          <th className="w-14 border border-gray-200 px-2 py-2 text-center">
+                            {t('chamberInvoice.colAction')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoiceItems.map((item, index) => (
+                          <tr key={index} className="bg-white">
+                            <td className="border border-gray-200 px-2 py-2 text-center font-medium text-gray-600">
+                              {index + 1}
+                            </td>
+                            <td className="border border-gray-200 px-2 py-2">
+                              <select
+                                value={item.description_of_goods}
+                                onChange={(e) =>
+                                  updateInvoiceItem(index, 'description_of_goods', e.target.value)
+                                }
+                                className={invoiceSelectClass}
+                              >
+                                <option value="">{t('chamberInvoice.selectDescription')}</option>
+                                {goodsCategories.map((c) => (
+                                  <option key={c.id || c._id} value={c.name}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="text"
+                                value={item.origin}
+                                onChange={(e) =>
+                                  updateInvoiceItem(index, 'origin', e.target.value)
+                                }
+                                className={invoiceInputClass}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="text"
+                                value={item.hs_code}
+                                onChange={(e) =>
+                                  updateInvoiceItem(index, 'hs_code', e.target.value)
+                                }
+                                className={invoiceInputClass}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="text"
+                                value={item.unit}
+                                onChange={(e) => updateInvoiceItem(index, 'unit', e.target.value)}
+                                className={invoiceInputClass}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.quantity || ''}
+                                onChange={(e) =>
+                                  updateInvoiceItem(
+                                    index,
+                                    'quantity',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className={invoiceInputClass}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.unit_price || ''}
+                                onChange={(e) =>
+                                  updateInvoiceItem(
+                                    index,
+                                    'unit_price',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className={invoiceInputClass}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-1 py-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                readOnly
+                                value={item.total_amount || ''}
+                                className={`${invoiceInputClass} bg-gray-50`}
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-2 py-2 text-center">
+                              {index === invoiceItems.length - 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={addInvoiceItem}
+                                  title={t('chamberInvoice.addRow')}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => removeInvoiceItem(index)}
+                                  className="text-xs font-medium text-red-600 hover:text-red-800"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </InvoiceFormSection>
               </div>
 
               <div className="mt-6 flex justify-end gap-2">
@@ -1054,47 +1369,6 @@ export function ChamberInvoice() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {previewPrint && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="font-semibold text-[#0F3C66]">
-                {t('chamberInvoice.title')} — {t('common.view')}
-              </h3>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    void openChamberInvoicePrintWindow(previewPrint.inv, previewPrint.items)
-                  }
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#0F3C66] px-3 py-1.5 text-sm text-white hover:bg-[#163252]"
-                >
-                  <Printer className="h-4 w-4" />
-                  Imprimer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewPrint(null)}
-                  className="rounded p-1 text-gray-500 hover:bg-gray-100"
-                  aria-label={t('common.cancel')}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            <iframe
-              title="Aperçu facture chambre"
-              className="min-h-[70vh] w-full flex-1 border-0 bg-gray-100"
-              srcDoc={buildChamberInvoicePrintHtml(
-                previewPrint.inv,
-                previewPrint.items,
-                branding ?? brandingFromConfig({})
-              )}
-            />
           </div>
         </div>
       )}

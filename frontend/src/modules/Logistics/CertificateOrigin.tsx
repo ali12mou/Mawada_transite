@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, Eye, Award, Edit, X } from 'lucide-react';
+import { Trash2, Plus, Eye, Award, Edit, X, Printer } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { fetchClients, type ClientRecord } from '../../api/clientsApi';
 import { formatClientLabel } from '../../lib/clientLabel';
+import { openCertificateOriginPrint } from '../../lib/certificateOriginPrintHtml';
 
 interface CertificateData {
   id: string;
@@ -159,6 +160,27 @@ export function CertificateOrigin() {
     });
   };
 
+  const openPrint = (cert: CertificateData) => {
+    void openCertificateOriginPrint({
+      certificate_number: cert.certificate_number,
+      customer: cert.customer,
+      destination: cert.destination,
+      destination_to: (cert as any).destination_to,
+      tin_number: (cert as any).tin_number,
+      tax_id_nif: (cert as any).tax_id_nif,
+      telephone: (cert as any).telephone,
+      description: cert.description,
+      hs_code: cert.hs_code,
+      mt: (cert as any).mt,
+      gross_weight: (cert as any).gross_weight,
+      transport_type: (cert as any).transport_type,
+      loaded_by: (cert as any).loaded_by,
+      origin_product: (cert as any).origin_product,
+      declaration_form: (cert as any).declaration_form,
+      created_at: cert.created_at,
+    });
+  };
+
   const filteredCertificates = certificates.filter(cert =>
     (cert.customer && cert.customer.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (cert.description && cert.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -257,6 +279,11 @@ export function CertificateOrigin() {
                                 label: t('common.view'),
                                 icon: <Eye size={16} />,
                                 onClick: () => openEditModal(pId, true),
+                              },
+                              {
+                                label: t('commercial.print'),
+                                icon: <Printer size={16} />,
+                                onClick: () => openPrint(cert),
                               },
                               {
                                 label: t('common.edit'),

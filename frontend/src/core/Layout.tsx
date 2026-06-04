@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -39,6 +39,8 @@ import {
   UserCog,
   CheckSquare,
   Scale,
+  HandCoins,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -72,7 +74,21 @@ interface MenuItem {
 
 const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   { id: 'dashboard', label: t('menu.dashboard'), icon: LayoutDashboard },
-  { id: 'services', label: t('menu.services'), icon: Package, children: ['commercial-chamber', 'local-company', 'transfer-document-9', 'chamber-invoice', 'performa', 'customer-file', 'certificate-origin'] },
+  {
+    id: 'services',
+    label: t('menu.services'),
+    icon: Package,
+    children: [
+      'commercial-chamber',
+      'chamber-transfer',
+      'local-company',
+      'transfer-document-9',
+      'chamber-invoice',
+      'performa',
+      'certificate-origin',
+      'other-profit',
+    ],
+  },
   { id: 'imports', label: t('menu.imports'), icon: Import, children: ['suppliers', 'orders', 'order-verification', 'order-reception', 'delivered-orders', 'document-9', 'document-4', 'clearance', 'invoice-report'] },
   { id: 'warehouses', label: t('menu.warehouses'), icon: Warehouse, children: ['products', 'inventories', 'warehouse'] },
   {
@@ -121,13 +137,53 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
-  const menuItems = getMenuItems(t);
+  const menuItems = useMemo(() => getMenuItems(t), [t]);
+
+  const findMenuContext = useCallback(
+    (pageId: string): { parentId?: string; subMenuId?: string } => {
+      for (const item of menuItems) {
+        if (item.children?.includes(pageId)) return { parentId: item.id };
+        if (item.subMenus) {
+          for (const sub of item.subMenus) {
+            if (sub.children?.includes(pageId)) {
+              return { parentId: item.id, subMenuId: sub.id };
+            }
+          }
+        }
+      }
+      return {};
+    },
+    [menuItems]
+  );
 
   useEffect(() => {
     if (isTransportModulePage(currentPage)) {
-      setExpandedItems(prev => (prev.includes('transports') ? prev : [...prev, 'transports']));
+      setExpandedItems(['transports']);
+      setExpandedSubMenus([]);
+      return;
     }
-  }, [currentPage]);
+    const ctx = findMenuContext(currentPage);
+    if (ctx.parentId) {
+      setExpandedItems([ctx.parentId]);
+      setExpandedSubMenus(ctx.subMenuId ? [ctx.subMenuId] : []);
+    }
+  }, [currentPage, findMenuContext]);
+
+  const navigateToPage = useCallback(
+    (pageId: string) => {
+      if (!onNavigate) return;
+      const ctx = findMenuContext(pageId);
+      if (isTransportModulePage(pageId)) {
+        setExpandedItems(['transports']);
+        setExpandedSubMenus([]);
+      } else if (ctx.parentId) {
+        setExpandedItems([ctx.parentId]);
+        setExpandedSubMenus(ctx.subMenuId ? [ctx.subMenuId] : []);
+      }
+      onNavigate(pageId);
+    },
+    [findMenuContext, onNavigate]
+  );
 
   const handleMenuItemClick = (item: MenuItem) => {
     if (item.id === 'transports' && item.children) {
@@ -163,6 +219,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
     switch (id) {
       case 'commercial-chamber': return Building2;
+      case 'chamber-transfer': return ArrowRightLeft;
       case 'local-company': return MapPin;
       case 'transfer-document-9':
       case 'document-9':
@@ -172,6 +229,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       case 'performa': return ClipboardList;
       case 'customer-file': return Folder;
       case 'certificate-origin': return Shield;
+      case 'other-profit': return HandCoins;
       case 'suppliers': return Users;
       case 'orders': return Package;
       case 'order-verification': return CheckSquare;
@@ -249,6 +307,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             const isExpanded = expandedItems.includes(item.id);
             const isActive =
               currentPage === item.id ||
+              (item.children?.includes(currentPage) ?? false) ||
+              (item.subMenus?.some(
+                sm => sm.id === currentPage || (sm.children?.includes(currentPage) ?? false)
+              ) ??
+                false) ||
               (item.id === 'transports' && isTransportModulePage(currentPage));
 
             return (
@@ -279,7 +342,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                       return (
                         <button
                           key={child}
-                          onClick={() => onNavigate && onNavigate(child)}
+                          onClick={() => navigateToPage(child)}
                           className={`w-full flex items-center gap-3 px-12 py-2 text-left text-sm transition ${currentPage === child
                             ? 'bg-[#154b8a]/50 text-[#EE964C]'
                             : 'hover:bg-[#154b8a]/30'
@@ -321,7 +384,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                                 return (
                                   <button
                                     key={child}
-                                    onClick={() => onNavigate && onNavigate(child)}
+                                    onClick={() => navigateToPage(child)}
                                     className={`w-full flex items-center gap-3 pl-16 pr-4 py-2 text-left text-xs transition ${currentPage === child
                                       ? 'bg-[#154b8a]/50 text-[#EE964C]'
                                       : 'hover:bg-[#154b8a]/30'

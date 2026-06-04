@@ -15,7 +15,10 @@ import {
 } from '../../lib/document9PrintHtml';
 import { fetchDocumentBranding } from '../../lib/documentBranding';
 import { brandingFromConfig, type DocumentBranding } from '../../types/documentBranding';
-import { Edit2, Trash2, Eye, FileText, Printer, Plus, Search } from 'lucide-react';
+import { fetchCompanies, type CompanyRecord } from '../../api/companiesApi';
+import { fetchClients, type ClientRecord } from '../../api/clientsApi';
+import { genericApi } from '../../api/genericApi';
+import { Edit2, Trash2, Eye, FileText, Printer, Plus, Search, HelpCircle } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import Modal from '../Shared/common/Modal';
 
@@ -79,6 +82,34 @@ function emptyForm(): FormState {
     transaction_types: [],
     transport_modes: [],
     created_by: '',
+    seller_company: '',
+    buyer_company: '',
+    client_name: '',
+    source_destination_label: '',
+    closing_date: '',
+    bill_of_loading: '',
+    declaration_s: 0,
+    declaration_e: 0,
+    dossier_fee: 0,
+    truck_load_quantity: 0,
+    transit_fee: 0,
+    service_fee: 0,
+    pass_cancel_fee: 0,
+    transfer_total: 0,
+    doc_sydonia: '',
+    doc_delivery_order: '',
+    doc_commercial: '',
+    doc_packing_list: '',
+    doc_transfer_declaration_s: '',
+    doc_full_scan: '',
+    doc_number_9_file: '',
+    price_number_9: 0,
+    doc_number_4_file: '',
+    price_number_4: 0,
+    doc_ti_cancel_file: '',
+    price_ti_cancel: 0,
+    doc_declaration_se_cancel_file: '',
+    price_declaration_se_cancel: 0,
   };
 }
 
@@ -121,7 +152,66 @@ function recordToForm(d: Document9Record): FormState {
     transaction_types: [...(d.transaction_types || [])],
     transport_modes: [...(d.transport_modes || [])],
     created_by: d.created_by || '',
+    seller_company: d.seller_company || '',
+    buyer_company: d.buyer_company || '',
+    client_name: d.client_name || '',
+    source_destination_label: d.source_destination_label || '',
+    closing_date: d.closing_date || '',
+    bill_of_loading: d.bill_of_loading || '',
+    declaration_s: d.declaration_s ?? 0,
+    declaration_e: d.declaration_e ?? 0,
+    dossier_fee: d.dossier_fee ?? 0,
+    truck_load_quantity: d.truck_load_quantity ?? 0,
+    transit_fee: d.transit_fee ?? 0,
+    service_fee: d.service_fee ?? 0,
+    pass_cancel_fee: d.pass_cancel_fee ?? 0,
+    transfer_total: d.transfer_total ?? 0,
+    doc_sydonia: d.doc_sydonia || '',
+    doc_delivery_order: d.doc_delivery_order || '',
+    doc_commercial: d.doc_commercial || '',
+    doc_packing_list: d.doc_packing_list || '',
+    doc_transfer_declaration_s: d.doc_transfer_declaration_s || '',
+    doc_full_scan: d.doc_full_scan || '',
+    doc_number_9_file: d.doc_number_9_file || '',
+    price_number_9: d.price_number_9 ?? 0,
+    doc_number_4_file: d.doc_number_4_file || '',
+    price_number_4: d.price_number_4 ?? 0,
+    doc_ti_cancel_file: d.doc_ti_cancel_file || '',
+    price_ti_cancel: d.price_ti_cancel ?? 0,
+    doc_declaration_se_cancel_file: d.doc_declaration_se_cancel_file || '',
+    price_declaration_se_cancel: d.price_declaration_se_cancel ?? 0,
   };
+}
+
+function TransferFileField({
+  label,
+  fileName,
+  onPick,
+  chooseLabel,
+  noFileLabel,
+}: {
+  label: string;
+  fileName: string;
+  onPick: (name: string) => void;
+  chooseLabel: string;
+  noFileLabel: string;
+}) {
+  return (
+    <div>
+      <label className={transferLabelClass}>{label}</label>
+      <div className="flex items-center gap-2 rounded-md border border-gray-300 bg-[#4a5568] p-1">
+        <label className="cursor-pointer rounded bg-white px-3 py-1.5 text-xs font-medium text-gray-700">
+          {chooseLabel}
+          <input
+            type="file"
+            className="sr-only"
+            onChange={(e) => onPick(e.target.files?.[0]?.name || '')}
+          />
+        </label>
+        <span className="truncate text-xs text-white">{fileName || noFileLabel}</span>
+      </div>
+    </div>
+  );
 }
 
 function toggleId(arr: string[], id: string): string[] {
@@ -132,7 +222,34 @@ export type Document9PageProps = {
   pageTitle?: string;
   addButtonLabel?: string;
   transferWizardModal?: boolean;
+  rowActionsAsDropdown?: boolean;
 };
+
+function formatDeclaredValue(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  return value.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+}
+
+function validateTransferStep1(form: FormState, requireAll: boolean): boolean {
+  if (!requireAll) return true;
+  const required: (keyof FormState)[] = [
+    'declarant',
+    'license_code',
+    'entry_doc_ref',
+    'do_number',
+    'boat',
+    'declarant_nif',
+    'actual_recipient_nif',
+    'operator_name',
+    'sommier_ref',
+    'quantity_entered',
+    'arrival_date',
+    'actual_recipient',
+  ];
+  return required.every((key) => String(form[key] ?? '').trim() !== '');
+}
 
 const transferFieldClass =
   'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all';
@@ -142,6 +259,7 @@ export function Document9({
   pageTitle,
   addButtonLabel,
   transferWizardModal,
+  rowActionsAsDropdown,
 }: Document9PageProps = {}) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -163,6 +281,12 @@ export function Document9({
   const [formData, setFormData] = useState<FormState>(() => emptyForm());
   const [modalStep, setModalStep] = useState(1);
   const [requireAllSteps, setRequireAllSteps] = useState(false);
+  const [companiesList, setCompaniesList] = useState<CompanyRecord[]>([]);
+  const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
+  const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+
+  const transferMaxStep = editingDocument && transferWizardModal ? 4 : 2;
 
   const fetchDocuments = useCallback(async () => {
     setLoadError(null);
@@ -189,16 +313,45 @@ export function Document9({
   }, []);
 
   useEffect(() => {
+    if (!transferWizardModal) return;
+    (async () => {
+      try {
+        const [companies, clients, categories, locations] = await Promise.all([
+          fetchCompanies(),
+          fetchClients(),
+          genericApi.list('product_categories'),
+          genericApi.list('locations'),
+        ]);
+        setCompaniesList(companies);
+        setClientsList(clients);
+        setGoodsCategories(categories || []);
+        setLocationsList(locations || []);
+      } catch (e) {
+        console.error('Error loading transfer form lists:', e);
+      }
+    })();
+  }, [transferWizardModal]);
+
+  useEffect(() => {
     let filtered = [...documents];
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (doc) =>
-          doc.actual_recipient?.toLowerCase().includes(q) ||
-          doc.container_number?.toLowerCase().includes(q) ||
-          doc.destination?.toLowerCase().includes(q) ||
-          String(doc.sqn).includes(q)
-      );
+      filtered = filtered.filter((doc) => {
+        const haystack = [
+          doc.actual_recipient,
+          doc.declarant,
+          doc.container_number,
+          doc.destination,
+          doc.entry_doc_ref,
+          doc.description,
+          String(doc.sqn),
+          String(doc.value),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(q);
+      });
     }
     setFilteredDocuments(filtered);
   }, [documents, searchTerm]);
@@ -207,14 +360,12 @@ export function Document9({
     e.preventDefault();
     setSaveError(null);
 
-    if (transferWizardModal && modalStep === 1) {
-      if (requireAllSteps) {
-        if (!formData.declarant?.trim() || !formData.actual_recipient?.trim()) {
-          setSaveError(t('transfer9.step1RequiredError'));
-          return;
-        }
+    if (transferWizardModal && modalStep < transferMaxStep) {
+      if (modalStep === 1 && !validateTransferStep1(formData, requireAllSteps)) {
+        setSaveError(t('transfer9.step1RequiredError'));
+        return;
       }
-      setModalStep(2);
+      setModalStep(modalStep + 1);
       return;
     }
 
@@ -332,60 +483,118 @@ export function Document9({
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-[#0F3C66] text-white">
               <tr>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colSqn')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colRecipient')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colContainer')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colQuantity')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colExitPoint')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colDestination')}</th>
-                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24 text-center">{t('common.action')}</th>
+                {transferWizardModal ? (
+                  <>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">#</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.tableRecipient')}</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.destination')}</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.declarationEntry')}</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.goodsDescription')}</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.tableDeclarant')}</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('transfer9.declaredValue')}</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider w-20">{t('common.action')}</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colSqn')}</th>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colRecipient')}</th>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colContainer')}</th>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colQuantity')}</th>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colExitPoint')}</th>
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('document9.colDestination')}</th>
+                    <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24 text-center">{t('common.action')}</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {currentDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                  <td colSpan={transferWizardModal ? 8 : 7} className="py-12 text-center text-gray-400">
                     {t('common.noData')}
                   </td>
                 </tr>
               ) : (
-                currentDocuments.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-[#0F3C66]/5 transition group">
-                    <td className="px-5 py-4 font-bold text-[#0F3C66]">{doc.sqn || '-'}</td>
-                    <td className="px-5 py-4 font-bold text-gray-800 uppercase">{doc.actual_recipient || '-'}</td>
-                    <td className="px-5 py-4 text-gray-600 uppercase">{doc.container_number || '-'}</td>
-                    <td className="px-5 py-4 text-gray-600 font-mono">{doc.quantity || '-'}</td>
-                    <td className="px-5 py-4 text-gray-600 uppercase">{doc.exit_point || '-'}</td>
-                    <td className="px-5 py-4 text-gray-600 uppercase">{doc.destination || '-'}</td>
-                    <td className="px-5 py-4 text-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ActionMenu
-                        actions={[
-                          {
-                            label: t('common.view'),
-                            icon: <Eye size={16} />,
-                            onClick: () => setPreviewDoc(doc),
-                          },
-                          {
-                            label: t('common.edit'),
-                            icon: <Edit2 size={16} />,
-                            onClick: () => handleEdit(doc),
-                          },
-                          {
-                            label: t('common.delete'),
-                            icon: <Trash2 size={16} />,
-                            variant: 'danger',
-                            onClick: () => handleDelete(doc.id),
-                          },
-                          {
-                            label: t('document9.print'),
-                            icon: <Printer size={16} />,
-                            onClick: () => void openDocument9PrintWindow(doc),
-                          },
-                        ]}
-                      />
-                      </div>
-                    </td>
+                currentDocuments.map((doc, rowIndex) => (
+                  <tr key={doc.id} className="hover:bg-[#0F3C66]/5 transition group border-b border-gray-100">
+                    {transferWizardModal ? (
+                      <>
+                        <td className="px-4 py-3 text-gray-600">{startIndex + rowIndex + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-800 uppercase">{doc.actual_recipient || '—'}</td>
+                        <td className="px-4 py-3 text-gray-700 uppercase">{doc.destination || '—'}</td>
+                        <td className="px-4 py-3 text-gray-700">{doc.entry_doc_ref || '—'}</td>
+                        <td className="px-4 py-3 text-gray-700 max-w-xs truncate" title={doc.description}>{doc.description || '—'}</td>
+                        <td className="px-4 py-3 text-gray-700 uppercase">{doc.declarant || '—'}</td>
+                        <td className="px-4 py-3 font-medium text-gray-800">{formatDeclaredValue(doc.value ?? 0)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className={rowActionsAsDropdown ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}>
+                            <ActionMenu
+                              actions={[
+                                {
+                                  label: t('transfer9.actionView'),
+                                  icon: <Eye size={16} />,
+                                  onClick: () => setPreviewDoc(doc),
+                                },
+                                {
+                                  label: t('transfer9.actionEdit'),
+                                  icon: <Edit2 size={16} />,
+                                  onClick: () => handleEdit(doc),
+                                },
+                                {
+                                  label: t('transfer9.actionDelete'),
+                                  icon: <Trash2 size={16} />,
+                                  variant: 'danger',
+                                  onClick: () => handleDelete(doc.id),
+                                },
+                                {
+                                  label: t('transfer9.actionDownloadPdf'),
+                                  icon: <Printer size={16} />,
+                                  onClick: () => void openDocument9PrintWindow(doc),
+                                },
+                              ]}
+                            />
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-5 py-4 font-bold text-[#0F3C66]">{doc.sqn || '-'}</td>
+                        <td className="px-5 py-4 font-bold text-gray-800 uppercase">{doc.actual_recipient || '-'}</td>
+                        <td className="px-5 py-4 text-gray-600 uppercase">{doc.container_number || '-'}</td>
+                        <td className="px-5 py-4 text-gray-600 font-mono">{doc.quantity || '-'}</td>
+                        <td className="px-5 py-4 text-gray-600 uppercase">{doc.exit_point || '-'}</td>
+                        <td className="px-5 py-4 text-gray-600 uppercase">{doc.destination || '-'}</td>
+                        <td className="px-5 py-4 text-center">
+                          <div className={rowActionsAsDropdown ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}>
+                            <ActionMenu
+                              actions={[
+                                {
+                                  label: t('common.view'),
+                                  icon: <Eye size={16} />,
+                                  onClick: () => setPreviewDoc(doc),
+                                },
+                                {
+                                  label: t('common.edit'),
+                                  icon: <Edit2 size={16} />,
+                                  onClick: () => handleEdit(doc),
+                                },
+                                {
+                                  label: t('common.delete'),
+                                  icon: <Trash2 size={16} />,
+                                  variant: 'danger',
+                                  onClick: () => handleDelete(doc.id),
+                                },
+                                {
+                                  label: t('document9.print'),
+                                  icon: <Printer size={16} />,
+                                  onClick: () => void openDocument9PrintWindow(doc),
+                                },
+                              ]}
+                            />
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
@@ -441,8 +650,16 @@ export function Document9({
           setSaveError(null);
           setModalStep(1);
         }}
-        title={editingDocument ? t('common.edit') + ' ' + headingTitle : t('common.add') + ' ' + headingTitle}
-        size="xl"
+        title={
+          transferWizardModal
+            ? editingDocument
+              ? `${t('common.edit')} — ${t('transfer9.addUpdate')}`
+              : t('transfer9.addUpdate')
+            : editingDocument
+              ? `${t('common.edit')} ${headingTitle}`
+              : `${t('common.add')} ${headingTitle}`
+        }
+        size={transferWizardModal ? 'xxl' : 'xl'}
       >
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden p-2">
           <div className="flex-1 overflow-y-auto uppercase space-y-4">
@@ -453,45 +670,420 @@ export function Document9({
             )}
 
             {transferWizardModal ? (
-              <div className="space-y-6">
-                <div className="mb-6 flex border-b pb-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-white font-bold ${modalStep === 1 ? 'bg-[#0F3C66]' : 'bg-gray-200 text-gray-500'}`}>1</div>
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-white font-bold ${modalStep === 2 ? 'bg-[#0F3C66]' : 'bg-gray-200 text-gray-500'}`}>2</div>
-                  </div>
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                  <span>⌛ {t('transfer9.processOngoing')} ⌛</span>
+                  <label className="flex items-center gap-2 font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={requireAllSteps}
+                      onChange={(e) => setRequireAllSteps(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#0F3C66] focus:ring-[#0F3C66]"
+                    />
+                    {t('transfer9.requireAllSteps')}
+                    <HelpCircle size={14} className="text-[#0F3C66]" aria-hidden />
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 py-2">
+                  {Array.from({ length: transferMaxStep }, (_, i) => i + 1).map((n, idx) => (
+                    <div key={n} className="flex items-center gap-2">
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-bold ${
+                          modalStep === n ? 'bg-[#0F3C66] text-white' : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {n}
+                      </div>
+                      {idx < transferMaxStep - 1 ? <div className="h-0.5 w-10 bg-gray-300" /> : null}
+                    </div>
+                  ))}
                 </div>
 
                 {modalStep === 1 ? (
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('transfer9.recipientName')}</label>
-                      <input type="text" value={formData.declarant} onChange={(e) => setFormData({ ...formData, declarant: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white" />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {(
+                      [
+                        ['declarant', 'transfer9.recipientName'],
+                        ['license_code', 'transfer9.licenseCode'],
+                        ['entry_doc_ref', 'transfer9.declarationEntry'],
+                        ['do_number', 'transfer9.doNumber'],
+                        ['boat', 'transfer9.vesselName'],
+                        ['declarant_nif', 'transfer9.nifCode'],
+                        ['actual_recipient_nif', 'transfer9.codeNo'],
+                        ['operator_name', 'transfer9.fzOperatorName'],
+                        ['sommier_ref', 'transfer9.summitNumber'],
+                        ['quantity_entered', 'transfer9.entryQuantity'],
+                        ['arrival_date', 'transfer9.arrivalDate', 'date'],
+                        ['actual_recipient', 'transfer9.tableRecipient'],
+                      ] as const
+                    ).map(([key, labelKey, type]) => (
+                      <div key={key}>
+                        <label className={transferLabelClass}>{t(labelKey)}</label>
+                        <input
+                          type={type === 'date' ? 'date' : 'text'}
+                          value={formData[key] as string}
+                          onChange={(e) =>
+                            setFormData({ ...formData, [key]: e.target.value })
+                          }
+                          className={transferFieldClass}
+                          placeholder={t('transfer9.placeholderEnter')}
+                        />
+                      </div>
+                    ))}
+                    <div className="md:col-span-2 flex justify-start pt-2">
+                      <button
+                        type="submit"
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('transfer9.next')}
+                      </button>
+                    </div>
+                  </div>
+                ) : modalStep === 2 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {(
+                        [
+                          ['bl_number', 'transfer9.shippingNumber'],
+                          ['country_origin', 'transfer9.originCountry'],
+                          ['trip_number', 'transfer9.voyageNumber'],
+                          ['fiscal_reg', 'transfer9.fiscalReg'],
+                          ['nomenclature', 'transfer9.hsCode'],
+                          ['quantity', 'transfer9.exitQuantity'],
+                        ] as const
+                      ).map(([key, labelKey]) => (
+                        <div key={key}>
+                          <label className={transferLabelClass}>{t(labelKey)}</label>
+                          <input
+                            type="text"
+                            value={formData[key] as string}
+                            onChange={(e) =>
+                              setFormData({ ...formData, [key]: e.target.value })
+                            }
+                            className={transferFieldClass}
+                            placeholder={t('transfer9.placeholderEnter')}
+                          />
+                        </div>
+                      ))}
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('transfer9.destination')}</label>
-                      <input type="text" value={formData.actual_recipient} onChange={(e) => setFormData({ ...formData, actual_recipient: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white" />
+                      <label className={transferLabelClass}>{t('transfer9.goodsDescription')}</label>
+                      <textarea
+                        rows={3}
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        className={transferFieldClass}
+                        placeholder={t('transfer9.placeholderEnter')}
+                      />
                     </div>
-                    <div className="md:col-span-2 pt-4 flex justify-end">
-                      <button type="button" onClick={() => setModalStep(2)} className="rounded-xl px-6 py-2.5 bg-[#0F3C66] text-white font-bold shadow-lg shadow-[#0F3C66]/20">{t('common.next')}</button>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {(
+                        [
+                          ['gross_weight', 'transfer9.grossWeight'],
+                          ['value', 'transfer9.declaredValue', 'number'],
+                          ['exit_point', 'transfer9.exitPoint'],
+                          ['destination', 'transfer9.destination'],
+                        ] as const
+                      ).map(([key, labelKey, type]) => (
+                        <div key={key}>
+                          <label className={transferLabelClass}>{t(labelKey)}</label>
+                          <input
+                            type={type === 'number' ? 'number' : 'text'}
+                            value={formData[key] as string | number}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                [key]: type === 'number' ? Number(e.target.value) : e.target.value,
+                              })
+                            }
+                            className={transferFieldClass}
+                            placeholder={t('transfer9.placeholderEnter')}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalStep(1)}
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('common.previous')}
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {transferMaxStep > 2 ? t('transfer9.next') : t('transfer9.finish')}
+                      </button>
+                    </div>
+                  </div>
+                ) : modalStep === 3 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.sellerCompany')}</label>
+                        <select
+                          value={formData.seller_company}
+                          onChange={(e) => setFormData({ ...formData, seller_company: e.target.value })}
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectSellerCompany')}</option>
+                          {companiesList.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.buyerCompany')}</label>
+                        <input
+                          type="text"
+                          value={formData.buyer_company}
+                          onChange={(e) => setFormData({ ...formData, buyer_company: e.target.value })}
+                          className={transferFieldClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.goodsDescription')}</label>
+                        <select
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectGoodsDescription')}</option>
+                          {goodsCategories.map((c) => (
+                            <option key={c.id || c._id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.clientName')}</label>
+                        <select
+                          value={formData.client_name}
+                          onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectCustomer')}</option>
+                          {clientsList.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.sourceDestination')}</label>
+                        <select
+                          value={formData.source_destination_label}
+                          onChange={(e) =>
+                            setFormData({ ...formData, source_destination_label: e.target.value })
+                          }
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectSourceDestination')}</option>
+                          {locationsList.map((l) => (
+                            <option key={l.id || l._id} value={l.name}>
+                              {l.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.closingDate')}</label>
+                        <input
+                          type="date"
+                          value={formData.closing_date}
+                          onChange={(e) => setFormData({ ...formData, closing_date: e.target.value })}
+                          className={transferFieldClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.billOfLoading')}</label>
+                        <input
+                          type="text"
+                          value={formData.bill_of_loading}
+                          onChange={(e) => setFormData({ ...formData, bill_of_loading: e.target.value })}
+                          className={transferFieldClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.quantity')}</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={formData.quantity === '' ? 0 : Number(formData.quantity) || 0}
+                          onChange={(e) =>
+                            setFormData({ ...formData, quantity: String(Number(e.target.value) || 0) })
+                          }
+                          className={transferFieldClass}
+                        />
+                      </div>
+                      {(
+                        [
+                          ['declaration_s', 'transfer9.declarationS'],
+                          ['declaration_e', 'transfer9.declarationE'],
+                          ['dossier_fee', 'transfer9.dossierFee'],
+                          ['truck_load_quantity', 'transfer9.truckLoadQty'],
+                          ['transit_fee', 'transfer9.transitFee'],
+                          ['service_fee', 'transfer9.serviceFee'],
+                          ['pass_cancel_fee', 'transfer9.passCancelFee'],
+                          ['transfer_total', 'transfer9.transferTotal'],
+                        ] as const
+                      ).map(([key, labelKey]) => (
+                        <div key={key}>
+                          <label className={transferLabelClass}>{t(labelKey)}</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={formData[key] as number}
+                            onChange={(e) =>
+                              setFormData({ ...formData, [key]: Number(e.target.value) || 0 })
+                            }
+                            className={transferFieldClass}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalStep(2)}
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('common.previous')}
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('transfer9.next')}
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('document9.colContainer')}</label>
-                      <input type="text" value={formData.container_number} onChange={(e) => setFormData({ ...formData, container_number: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white" />
+                  <div className="space-y-4">
+                    <div className="rounded-md bg-[#1E2F4A] px-4 py-3 text-sm font-medium text-yellow-300">
+                      ⚠️ {t('transfer9.documentsRequiredNote')}
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <TransferFileField
+                        label={t('transfer9.docSydonia')}
+                        fileName={formData.doc_sydonia}
+                        onPick={(name) => setFormData({ ...formData, doc_sydonia: name })}
+                        chooseLabel={t('transfer9.chooseFile')}
+                        noFileLabel={t('transfer9.noFileChosen')}
+                      />
+                      <TransferFileField
+                        label={t('transfer9.docDeliveryOrder')}
+                        fileName={formData.doc_delivery_order}
+                        onPick={(name) => setFormData({ ...formData, doc_delivery_order: name })}
+                        chooseLabel={t('transfer9.chooseFile')}
+                        noFileLabel={t('transfer9.noFileChosen')}
+                      />
+                      <TransferFileField
+                        label={t('transfer9.docCommercial')}
+                        fileName={formData.doc_commercial}
+                        onPick={(name) => setFormData({ ...formData, doc_commercial: name })}
+                        chooseLabel={t('transfer9.chooseFile')}
+                        noFileLabel={t('transfer9.noFileChosen')}
+                      />
+                      <div className="md:col-span-2">
+                        <TransferFileField
+                          label={t('transfer9.docPackingList')}
+                          fileName={formData.doc_packing_list}
+                          onPick={(name) => setFormData({ ...formData, doc_packing_list: name })}
+                          chooseLabel={t('transfer9.chooseFile')}
+                          noFileLabel={t('transfer9.noFileChosen')}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <TransferFileField
+                          label={t('transfer9.docTransferDeclarationS')}
+                          fileName={formData.doc_transfer_declaration_s}
+                          onPick={(name) =>
+                            setFormData({ ...formData, doc_transfer_declaration_s: name })
+                          }
+                          chooseLabel={t('transfer9.chooseFile')}
+                          noFileLabel={t('transfer9.noFileChosen')}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {(
+                        [
+                          ['doc_number_9_file', 'transfer9.docNumber9', 'price_number_9', 'transfer9.priceNumber9'],
+                          ['doc_number_4_file', 'transfer9.docNumber4', 'price_number_4', 'transfer9.priceNumber4'],
+                          [
+                            'doc_ti_cancel_file',
+                            'transfer9.docTiCancel',
+                            'price_ti_cancel',
+                            'transfer9.priceTiCancel',
+                          ],
+                          [
+                            'doc_declaration_se_cancel_file',
+                            'transfer9.docDeclarationSeCancel',
+                            'price_declaration_se_cancel',
+                            'transfer9.priceDeclarationSeCancel',
+                          ],
+                        ] as const
+                      ).map(([fileKey, fileLabel, priceKey, priceLabel]) => (
+                        <div
+                          key={fileKey}
+                          className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                        >
+                          <TransferFileField
+                            label={t(fileLabel)}
+                            fileName={formData[fileKey] as string}
+                            onPick={(name) => setFormData({ ...formData, [fileKey]: name })}
+                            chooseLabel={t('transfer9.chooseFile')}
+                            noFileLabel={t('transfer9.noFileChosen')}
+                          />
+                          <div>
+                            <label className={transferLabelClass}>{t(priceLabel)}</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={formData[priceKey] as number}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  [priceKey]: Number(e.target.value) || 0,
+                                })
+                              }
+                              className={transferFieldClass}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('transfer9.quantity')}</label>
-                      <input type="text" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white" />
+                      <TransferFileField
+                        label={t('transfer9.docFullScan')}
+                        fileName={formData.doc_full_scan}
+                        onPick={(name) => setFormData({ ...formData, doc_full_scan: name })}
+                        chooseLabel={t('transfer9.chooseFile')}
+                        noFileLabel={t('transfer9.noFileChosen')}
+                      />
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('transfer9.goodsDescription')}</label>
-                      <textarea rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white" />
-                    </div>
-                    <div className="md:col-span-2 pt-4 flex justify-between">
-                      <button type="button" onClick={() => setModalStep(1)} className="rounded-xl px-6 py-2.5 border border-gray-200 font-bold hover:bg-gray-50 transition">{t('common.previous')}</button>
-                      <button type="submit" className="rounded-xl px-6 py-2.5 bg-[#0F3C66] text-white font-bold shadow-lg shadow-[#0F3C66]/20 transition">{t('common.save')}</button>
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalStep(3)}
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('common.previous')}
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-[#0F3C66] px-6 py-2 text-sm font-semibold text-white hover:bg-[#154b8a]"
+                      >
+                        {t('transfer9.finish')}
+                      </button>
                     </div>
                   </div>
                 )}

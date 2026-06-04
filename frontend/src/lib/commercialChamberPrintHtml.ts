@@ -1,6 +1,7 @@
 import type { CommercialChamberRecord } from '../api/commercialChamberApi';
 import type { DocumentBranding } from '../types/documentBranding';
 import { buildLetterheadHtml, cssUrlForBackground, documentImageSrc } from './documentPrintImages';
+import { letterheadBannerPrintCss } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 function esc(s: string | number | undefined | null): string {
@@ -101,9 +102,9 @@ export function buildCommercialDetailPrintHtml(
   <title>Commercial Detail — ${esc(record.commercial_no)}</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
     .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
-    .letterhead { text-align: center; margin-bottom: 14px; }
     .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
     .watermark {
       position: fixed; left: 50%; top: 48%; transform: translate(-50%, -50%);
@@ -111,7 +112,7 @@ export function buildCommercialDetailPrintHtml(
       background-size: contain; background-repeat: no-repeat; background-position: center;
       filter: grayscale(30%);
     }
-    .doc-head { position: relative; z-index: 1; text-align: center; margin-bottom: 18px; }
+    .doc-head { position: relative; z-index: 1; margin-bottom: 18px; }
     .doc-title { font-size: 20pt; font-weight: 700; margin: 0 0 6px; letter-spacing: 0.02em; color: #111; }
     .doc-place-date { font-size: 10.5pt; color: #444; margin-bottom: 14px; }
     .doc-client { font-size: 11pt; font-weight: 700; margin: 6px 0; line-height: 1.35; }

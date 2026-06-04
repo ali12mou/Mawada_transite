@@ -3,6 +3,7 @@ import type { ClientRecord } from '../api/clientsApi';
 import type { DocumentBranding } from '../types/documentBranding';
 import { formatClientLabel } from './clientLabel';
 import { buildLetterheadHtml, documentImageSrc } from './documentPrintImages';
+import { letterheadBannerPrintCss } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 /** Thème facture « Transit » — vert professionnel (aligné maquette Facture de service). */
@@ -197,11 +198,11 @@ export function buildLocalCompanyServiceInvoiceHtml(
   <title>Facture de Service — ${esc(clientDisplay)}</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
     .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
-    .letterhead { text-align: center; margin-bottom: 12px; }
     .letterhead img { max-height: 88px; width: 100%; object-fit: contain; }
-    .doc-head { position: relative; z-index: 1; text-align: center; margin-bottom: 14px; }
+    .doc-head { position: relative; z-index: 1; margin-bottom: 14px; }
     .doc-title { font-size: 18pt; font-weight: 700; margin: 0 0 8px; color: #111; }
     .doc-place-date { font-size: 10.5pt; font-weight: 700; margin-bottom: 10px; }
     .doc-client { font-size: 11pt; font-weight: 700; margin: 8px 0; }
