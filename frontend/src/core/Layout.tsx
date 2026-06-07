@@ -1,7 +1,6 @@
 import { ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LayoutDashboard,
-  Package,
   Import,
   Warehouse,
   Truck,
@@ -14,33 +13,8 @@ import {
   LogOut,
   User,
   Bell,
-  ChevronRight,
-  Languages,
-  FileText,
-  Building2,
-  MapPin,
-  ClipboardList,
-  Folder,
-  Shield,
-  Box,
-  Tag,
-  Bookmark,
-  CreditCard,
-  Wallet,
-  Ship,
   Briefcase,
-  Calculator,
-  BadgePercent,
-  CalendarClock,
-  UserCheck,
-  Landmark,
-  PieChart,
   ShieldCheck,
-  UserCog,
-  CheckSquare,
-  Scale,
-  HandCoins,
-  ArrowRightLeft,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -51,6 +25,8 @@ import {
   DEFAULT_TRANSPORT_PAGE,
 } from '../constants/transportMenu';
 import { BrandingLogoMark } from '../modules/Shared/BrandingLogoMark';
+import { fetchAppConfig } from '../api/appConfigApi';
+import { splitBrandLines } from '../lib/documentPrintImages';
 
 interface LayoutProps {
   children: ReactNode;
@@ -77,7 +53,7 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   {
     id: 'services',
     label: t('menu.services'),
-    icon: Package,
+    icon: Briefcase,
     children: [
       'commercial-chamber',
       'chamber-transfer',
@@ -134,10 +110,26 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [expandedSubMenus, setExpandedSubMenus] = useState<string[]>([]);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [brandLines, setBrandLines] = useState({ line1: 'GEOSOM', line2: 'TRANSIT' });
   const { user, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const menuItems = useMemo(() => getMenuItems(t), [t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAppConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setBrandLines(splitBrandLines(cfg.company_name || 'GEOSOM TRANSIT'));
+      })
+      .catch(() => {
+        /* valeurs par défaut */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const findMenuContext = useCallback(
     (pageId: string): { parentId?: string; subMenuId?: string } => {
@@ -213,64 +205,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     setExpandedSubMenus(prev => (prev.includes(id) ? [] : [id]));
   };
 
-  const getChildIcon = (id: string) => {
-    const transportMatch = TRANSPORT_MENU_ITEMS.find((x) => x.id === id);
-    if (transportMatch && transportMatch.icon) return transportMatch.icon;
-
-    switch (id) {
-      case 'commercial-chamber': return Building2;
-      case 'chamber-transfer': return ArrowRightLeft;
-      case 'local-company': return MapPin;
-      case 'transfer-document-9':
-      case 'document-9':
-      case 'document-4': return FileText;
-      case 'chamber-invoice':
-      case 'invoice-report': return FileText;
-      case 'performa': return ClipboardList;
-      case 'customer-file': return Folder;
-      case 'certificate-origin': return Shield;
-      case 'other-profit': return HandCoins;
-      case 'suppliers': return Users;
-      case 'orders': return Package;
-      case 'order-verification': return CheckSquare;
-      case 'order-reception': return Box;
-      case 'delivered-orders': return Truck;
-      case 'clearance': return Scale;
-      case 'products': return Tag;
-      case 'inventories': return ClipboardList;
-      case 'warehouse': return Warehouse;
-      case 'expense-categories': return Bookmark;
-      case 'expense':
-      case 'other-expenses': return CreditCard;
-      case 'expense-allocation': return Wallet;
-      case 'maritime-lines': return Ship;
-      case 'employees': return Users;
-      case 'contract-types': return FileText;
-      case 'employee-professions': return Briefcase;
-      case 'employee-documents': return Folder;
-      case 'generate-payroll': return Calculator;
-      case 'payroll-approval': return CheckSquare;
-      case 'tax-rates': return BadgePercent;
-      case 'leave-request':
-      case 'leave-return-request': return CalendarClock;
-      case 'leave-types': return Bookmark;
-      case 'attendance': return UserCheck;
-      case 'clients': return Users;
-      case 'bank': return Landmark;
-      case 'item-prices': return Tag;
-      case 'goods-categories': return Package;
-      case 'companies': return Building2;
-      case 'import-reports':
-      case 'hr-reports':
-      case 'financial-reports':
-      case 'services-reports': return PieChart;
-      case 'roles': return ShieldCheck;
-      case 'users': return UserCog;
-      case 'configurations': return Settings;
-      default: return ChevronRight;
-    }
-  };
-
   const getLanguageLabel = () => {
     switch (language) {
       case 'en': return 'English';
@@ -289,19 +223,24 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <aside className="w-64 bg-[#0F3C66] text-white flex flex-col shadow-xl">
+      <aside className="flex w-[260px] shrink-0 flex-col bg-[#0F3C66] text-white shadow-xl">
         <button
           type="button"
           onClick={() => onNavigate && onNavigate('dashboard')}
-          className="p-6 border-b border-[#154b8a] text-left hover:bg-[#154b8a]/40 transition"
+          className="border-b border-white/10 px-5 py-5 text-left transition hover:bg-white/5"
         >
           <div className="flex items-center gap-3">
-            <BrandingLogoMark />
-            <h1 className="text-xl font-bold leading-tight">GEOSOM TRANSIT</h1>
+            <BrandingLogoMark className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white" />
+            <div className="min-w-0 leading-tight">
+              <div className="text-[13px] font-bold uppercase tracking-wide">{brandLines.line1}</div>
+              {brandLines.line2 ? (
+                <div className="text-[13px] font-bold uppercase tracking-wide">{brandLines.line2}</div>
+              ) : null}
+            </div>
           </div>
         </button>
 
-        <nav className="flex-1 overflow-y-auto py-4">
+        <nav className="scrollbar-hide flex-1 overflow-y-auto py-2">
           {menuItems?.map((item) => {
             const Icon = item.icon;
             const isExpanded = expandedItems.includes(item.id);
@@ -317,84 +256,81 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             return (
               <div key={item.id}>
                 <button
-                  className={`w-full flex items-center justify-between px-6 py-3 text-left transition ${isActive
-                    ? 'bg-[#154b8a] border-l-4 border-[#EE964C]'
-                    : 'hover:bg-[#154b8a]/50'
-                    }`}
+                  type="button"
+                  className={`flex w-full items-center justify-between px-5 py-3 text-left text-sm transition ${
+                    isActive ? 'text-white' : 'text-white/90 hover:bg-white/5'
+                  }`}
                   onClick={() => handleMenuItemClick(item)}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={20} />
-                    <span className="text-sm font-medium">{item.label}</span>
+                    <Icon size={18} strokeWidth={1.75} />
+                    <span className="font-medium">{item.label}</span>
                   </div>
                   {(item.children || item.subMenus) && (
                     <ChevronDown
                       size={16}
-                      className={`transition-transform ${isExpanded ? 'rotate-180' : ''
-                        }`}
+                      className={`shrink-0 opacity-80 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                     />
                   )}
                 </button>
                 {item.children && isExpanded && (
-                  <div className="bg-[#152a44]/30">
-                    {item.children?.map((child) => {
-                      const ChildIcon = getChildIcon(child);
-                      return (
-                        <button
-                          key={child}
-                          onClick={() => navigateToPage(child)}
-                          className={`w-full flex items-center gap-3 px-12 py-2 text-left text-sm transition ${currentPage === child
-                            ? 'bg-[#154b8a]/50 text-[#EE964C]'
-                            : 'hover:bg-[#154b8a]/30'
-                            }`}
-                        >
-                          <ChildIcon size={14} />
-                          {t(`menu.${child}`)}
-                        </button>
-                      );
-                    })}
+                  <div className="pb-1">
+                    {item.children?.map((child) => (
+                      <button
+                        key={child}
+                        type="button"
+                        onClick={() => navigateToPage(child)}
+                        className={`block w-full py-2 pl-12 pr-5 text-left text-[13px] transition ${
+                          currentPage === child
+                            ? 'font-semibold text-[#EE964C]'
+                            : 'text-white/85 hover:text-white'
+                        }`}
+                      >
+                        {t(`menu.${child}`)}
+                      </button>
+                    ))}
                   </div>
                 )}
                 {item.subMenus && isExpanded && (
-                  <div className="bg-[#152a44]/30">
+                  <div className="pb-1">
                     {item.subMenus?.map((subMenu) => {
                       const isSubMenuExpanded = expandedSubMenus.includes(subMenu.id);
+                      const isSubActive =
+                        currentPage === subMenu.id ||
+                        (subMenu.children?.includes(currentPage) ?? false);
                       return (
                         <div key={subMenu.id}>
                           <button
+                            type="button"
                             onClick={() => toggleSubMenuExpand(subMenu.id)}
-                            className="w-full flex items-center justify-between px-12 py-2 text-left text-sm hover:bg-[#154b8a]/30 transition"
+                            className={`flex w-full items-center justify-between py-2 pl-10 pr-5 text-left text-[13px] transition ${
+                              isSubActive ? 'text-[#EE964C]' : 'text-white/85 hover:text-white'
+                            }`}
                           >
-                            <div className="flex items-center gap-2">
-                              <ChevronRight size={14} />
-                              {subMenu.label}
-                            </div>
+                            <span>{subMenu.label}</span>
                             {subMenu.children && (
                               <ChevronDown
                                 size={14}
-                                className={`transition-transform ${isSubMenuExpanded ? 'rotate-180' : ''
-                                  }`}
+                                className={`shrink-0 opacity-80 transition-transform ${isSubMenuExpanded ? 'rotate-180' : ''}`}
                               />
                             )}
                           </button>
                           {subMenu.children && isSubMenuExpanded && (
-                            <div className="bg-[#0d1b2a]/30">
-                              {subMenu.children?.map((child) => {
-                                const ChildIcon = getChildIcon(child);
-                                return (
-                                  <button
-                                    key={child}
-                                    onClick={() => navigateToPage(child)}
-                                    className={`w-full flex items-center gap-3 pl-16 pr-4 py-2 text-left text-xs transition ${currentPage === child
-                                      ? 'bg-[#154b8a]/50 text-[#EE964C]'
-                                      : 'hover:bg-[#154b8a]/30'
-                                      }`}
-                                  >
-                                    <ChildIcon size={12} />
-                                    {t(`menu.${child}`)}
-                                  </button>
-                                );
-                              })}
+                            <div>
+                              {subMenu.children?.map((child) => (
+                                <button
+                                  key={child}
+                                  type="button"
+                                  onClick={() => navigateToPage(child)}
+                                  className={`block w-full py-2 pl-14 pr-5 text-left text-xs transition ${
+                                    currentPage === child
+                                      ? 'font-semibold text-[#EE964C]'
+                                      : 'text-white/80 hover:text-white'
+                                  }`}
+                                >
+                                  {t(`menu.${child}`)}
+                                </button>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -407,63 +343,69 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#154b8a]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-[#EE964C] rounded-full flex items-center justify-center">
-              <User size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{user?.nom || t('profile.superAdmin')}</div>
-              <div className="text-xs text-gray-300 truncate">{user?.email || '—'}</div>
-            </div>
+        <div className="relative mt-auto border-t border-white/10 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              title={user?.nom || t('profile.superAdmin')}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
+            >
+              <User size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={signOut}
+              title={t('profile.logout')}
+              className="flex h-9 w-9 items-center justify-center rounded-md bg-white/15 transition hover:bg-white/25"
+            >
+              <LogOut size={18} />
+            </button>
+            <button
+              type="button"
+              title={t('menu.settings')}
+              onClick={() => onNavigate && onNavigate('configurations')}
+              className="flex h-9 w-9 items-center justify-center rounded-md bg-white/15 transition hover:bg-white/25"
+            >
+              <ShieldCheck size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+              className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-xs font-medium transition hover:opacity-90"
+            >
+              <img
+                src={getLanguageFlag()}
+                alt={getLanguageLabel()}
+                className="h-3 w-5 shrink-0 rounded-sm object-cover"
+              />
+              <span className="truncate">{getLanguageLabel()}</span>
+            </button>
           </div>
-          <button
-            onClick={signOut}
-            className="w-full flex items-center gap-2 px-4 py-2 bg-[#EE964C] hover:bg-[#d35400] rounded-lg transition text-sm"
-          >
-            <LogOut size={16} />
-            <span>{t('profile.logout')}</span>
-          </button>
-        </div>
-
-        <div className="relative">
-          <button
-            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="w-full p-4 border-t border-[#154b8a] flex items-center gap-2 text-xs hover:bg-[#154b8a]/30 transition"
-          >
-            <Languages size={16} />
-            <img
-              src={getLanguageFlag()}
-              alt={getLanguageLabel()}
-              className="w-5 h-3 object-cover rounded"
-            />
-            <span>{getLanguageLabel()}</span>
-          </button>
 
           {showLanguageMenu && (
-            <div className="absolute bottom-full left-0 w-full bg-[#0F3C66] border border-[#154b8a] shadow-lg">
+            <div className="absolute bottom-full left-0 z-20 mb-1 w-full border border-white/10 bg-[#0F3C66] shadow-lg">
               <button
+                type="button"
                 onClick={() => { setLanguage('en'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'en' ? 'bg-[#154b8a]' : ''
-                  }`}
+                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'en' ? 'bg-white/10' : ''}`}
               >
-                <img src="https://flagcdn.com/w40/us.png" alt="English" className="w-5 h-3 object-cover rounded" />
+                <img src="https://flagcdn.com/w40/us.png" alt="English" className="h-3 w-5 rounded-sm object-cover" />
                 <span>{t('profile.english')}</span>
               </button>
               <button
+                type="button"
                 onClick={() => { setLanguage('fr'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'fr' ? 'bg-[#154b8a]' : ''
-                  }`}
+                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'fr' ? 'bg-white/10' : ''}`}
               >
-                <img src="https://flagcdn.com/w40/fr.png" alt="Français" className="w-5 h-3 object-cover rounded" />
+                <img src="https://flagcdn.com/w40/fr.png" alt="Français" className="h-3 w-5 rounded-sm object-cover" />
                 <span>{t('profile.french')}</span>
               </button>
               <button
+                type="button"
                 onClick={() => { setLanguage('ar'); setShowLanguageMenu(false); }}
-                className={`w-full px-4 py-2 flex items-center gap-2 text-xs hover:bg-[#154b8a] transition ${language === 'ar' ? 'bg-[#154b8a]' : ''
-                  }`}
+                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'ar' ? 'bg-white/10' : ''}`}
               >
-                <img src="https://flagcdn.com/w40/dj.png" alt="العربية" className="w-5 h-3 object-cover rounded" />
+                <img src="https://flagcdn.com/w40/dj.png" alt="العربية" className="h-3 w-5 rounded-sm object-cover" />
                 <span>{t('profile.arabic')}</span>
               </button>
             </div>
