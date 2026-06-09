@@ -29,6 +29,7 @@ export const ALL_MENU_PERMISSIONS = [
   'inventories',
   'warehouse',
   'transports',
+  'transports-management',
   'logistics-files-operations',
   'transportation-management',
   'bulk-transportation-management',
