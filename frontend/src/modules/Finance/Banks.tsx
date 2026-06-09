@@ -1,12 +1,42 @@
-import { useState, useEffect } from 'react';
-import { Pencil, Trash2, ChevronLeft, ChevronRight, X, Building2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Pencil, Trash2, Building2, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface Bank {
   id: string;
+  _id?: string;
   name: string;
-  created_at: string;
+  created_at?: string;
+}
+
+function rowId(row: { _id?: string; id?: string }): string {
+  return row._id || row.id || '';
+}
+
+function SortIcon() {
+  return (
+    <span className="ml-1 inline-flex flex-col text-[8px] leading-none text-gray-400">
+      <span>▲</span>
+      <span>▼</span>
+    </span>
+  );
+}
+
+function buildPageItems(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const items: (number | 'ellipsis')[] = [1];
+  if (current > 3) items.push('ellipsis');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let p = start; p <= end; p += 1) {
+    items.push(p);
+  }
+  if (current < total - 2) items.push('ellipsis');
+  items.push(total);
+  return items;
 }
 
 export function Banks() {
@@ -18,19 +48,15 @@ export function Banks() {
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [formData, setFormData] = useState({
-    name: '',
-  });
+  const [formData, setFormData] = useState({ name: '' });
 
   useEffect(() => {
-    fetchBanks();
+    void fetchBanks();
   }, []);
 
   const fetchBanks = async () => {
     try {
-      const data = await genericApi.list('banks');
-
-      
+      const data = await genericApi.list<Bank>('banks');
       setBanks(data || []);
     } catch (error) {
       console.error('Error fetching banks:', error);
@@ -39,93 +65,101 @@ export function Banks() {
     }
   };
 
+  const filteredBanks = useMemo(() => {
+    if (!searchTerm.trim()) return banks;
+    const q = searchTerm.toLowerCase();
+    return banks.filter((bank) => bank.name?.toLowerCase().includes(q));
+  }, [banks, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBanks.length / entriesPerPage));
+  const page = Math.min(currentPage, totalPages);
+  const startIndex = filteredBanks.length === 0 ? 0 : (page - 1) * entriesPerPage;
+  const endIndex = Math.min(startIndex + entriesPerPage, filteredBanks.length);
+  const currentBanks = filteredBanks.slice(startIndex, endIndex);
+  const pageItems = buildPageItems(page, totalPages);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, entriesPerPage]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = { name: formData.name.trim() };
+
     try {
       if (editingId) {
-        await genericApi.update('banks', editingId, formData);
-
-        
+        await genericApi.update('banks', editingId, payload);
       } else {
-        await genericApi.create('banks', formData);
-
-        
+        await genericApi.create('banks', payload);
       }
-
-      resetForm();
-      fetchBanks();
+      closeModal();
+      void fetchBanks();
     } catch (error) {
       console.error('Error saving bank:', error);
     }
   };
 
   const handleEdit = (bank: Bank) => {
-    setFormData({
-      name: bank.name,
-    });
-    setEditingId(bank.id);
+    setFormData({ name: bank.name || '' });
+    setEditingId(rowId(bank));
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm(t('banks.deleteConfirm'))) {
-      try {
-        await genericApi.delete('banks', id);
-
-        
-        fetchBanks();
-      } catch (error) {
-        console.error('Error deleting bank:', error);
-      }
+  const handleDelete = async (bank: Bank) => {
+    if (!confirm(t('banks.deleteConfirm'))) return;
+    try {
+      await genericApi.delete('banks', rowId(bank));
+      void fetchBanks();
+    } catch (error) {
+      console.error('Error deleting bank:', error);
     }
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-    });
+    setFormData({ name: '' });
     setEditingId(null);
-    setShowForm(false);
   };
 
-  const filteredBanks = banks.filter(bank =>
-    bank.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const closeModal = () => {
+    setShowForm(false);
+    resetForm();
+  };
 
-  const totalPages = Math.ceil(filteredBanks.length / entriesPerPage);
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const currentBanks = filteredBanks.slice(startIndex, endIndex);
+  const openAddModal = () => {
+    resetForm();
+    setShowForm(true);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
+  const thClass =
+    'px-4 py-3 text-left text-sm font-medium text-gray-700 whitespace-nowrap';
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <h2 className="text-2xl font-bold text-gray-800">{t('banks.manageTitle')}</h2>
           <Building2 size={24} className="text-gray-600" />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-[#EE964C] font-medium">{t('common.version')}</div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition"
-          >
-            {t('common.add')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openAddModal}
+          className="rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
+        >
+          {t('banks.addButton')}
+        </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
             <span>{t('common.show')}</span>
             <select
               value={entriesPerPage}
@@ -133,17 +167,17 @@ export function Banks() {
                 setEntriesPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
+              className="rounded border border-gray-300 px-2 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             >
-              <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
+              <option value={100}>100</option>
             </select>
             <span>{t('common.entries')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">{t('common.search')}:</span>
+            <span>{t('banks.searchLabel')}</span>
             <input
               type="text"
               value={searchTerm}
@@ -151,132 +185,144 @@ export function Banks() {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
+              className="rounded border border-gray-300 px-3 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+          <table className="w-full border-collapse text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                <th className={thClass}>
                   {t('banks.colName')}
+                  <SortIcon />
                 </th>
                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
                   {t('common.action')}
+                  <SortIcon />
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 text-sm">
-              {currentBanks?.map((bank) => (
-                <tr key={bank.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 text-gray-900 font-medium">{bank.name}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(bank)}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(bank.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {currentBanks.length === 0 && (
+            <tbody className="divide-y divide-gray-200">
+              {currentBanks.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="px-4 py-8 text-center text-gray-500 italic">
+                  <td colSpan={2} className="px-4 py-10 text-center text-gray-500">
                     {t('banks.noData')}
                   </td>
                 </tr>
+              ) : (
+                currentBanks.map((bank) => (
+                  <tr key={rowId(bank)} className="transition hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{bank.name}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(bank)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100"
+                          title={t('common.edit')}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(bank)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        {filteredBanks.length > entriesPerPage && (
-          <div className="flex items-center justify-between mt-6 text-sm text-gray-600">
-            <div>
-              {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(endIndex, filteredBanks.length)} {t('common.of')} {filteredBanks.length} {t('common.entries')}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)?.map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 rounded transition ${currentPage === page
-                      ? 'bg-[#0F3C66] text-white shadow-sm'
-                      : 'border border-gray-300 hover:bg-gray-50'
-                    }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+          <div>
+            {t('common.showing')}{' '}
+            {filteredBanks.length === 0 ? 0 : startIndex + 1} {t('common.to')}{' '}
+            {endIndex} {t('common.of')} {filteredBanks.length} {t('common.entries')}
           </div>
-        )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || filteredBanks.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('common.previous')}
+            </button>
+            {pageItems.map((item, idx) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setCurrentPage(item)}
+                  className={`rounded px-3 py-1 transition ${
+                    page === item
+                      ? 'bg-[#0F3C66] text-white'
+                      : 'border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {item}
+                </button>
+              )
+            )}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || filteredBanks.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('common.next')}
+            </button>
+          </div>
+        </div>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 bg-[#0F3C66] text-white">
-              <h3 className="text-lg font-bold">
-                {editingId ? t('banks.modalTitleUpdate') : t('banks.modalTitleAdd')}
-              </h3>
-              <button onClick={resetForm} className="text-white/80 hover:text-white transition">
-                <X size={20} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('banks.modalTitle')}</h3>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-gray-400 transition hover:text-gray-600"
+              >
+                <X size={22} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+            <form onSubmit={handleSubmit} className="px-6 py-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-bold text-gray-800">
                   {t('banks.fieldBankName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder={t('banks.fieldBankName')}
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none transition"
+                  onChange={(e) => setFormData({ name: e.target.value })}
+                  className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                  required
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition"
-                >
-                  {t('common.cancel')}
-                </button>
+              <div className="mt-6 flex justify-end border-t border-gray-200 pt-5">
                 <button
                   type="submit"
-                  className="px-6 py-2 text-sm font-medium bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm"
+                  className="rounded bg-[#0F3C66] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-[#154b8a]"
                 >
-                  {t('common.save')}
+                  {t('banks.save')}
                 </button>
               </div>
             </form>
@@ -286,6 +332,3 @@ export function Banks() {
     </div>
   );
 }
-
-
-

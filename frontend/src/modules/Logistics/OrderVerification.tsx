@@ -2,19 +2,27 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { CheckCircle, XCircle, Search } from 'lucide-react';
-import { ActionMenu } from '../Shared/common/ActionMenu';
+import { CheckCircle, Ban, FileText } from 'lucide-react';
 
 interface OrderVerification {
   id: string;
+  _id?: string;
   order_id: string;
   order_number: string;
   client_name: string;
   source_destination: string;
-  document_action: string;
+  document_action?: string;
   status: string;
-  verified_at: string;
-  created_at: string;
+  verified_at?: string;
+  created_at?: string;
+}
+
+function rowId(v: OrderVerification): string {
+  return v.id || v._id || '';
+}
+
+function isChecked(status: string): boolean {
+  return status === 'CHECKED' || status === 'APPROVED';
 }
 
 export function OrderVerification() {
@@ -28,22 +36,36 @@ export function OrderVerification() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    fetchOrdersAndSync();
+    void fetchOrdersAndSync();
   }, []);
 
   useEffect(() => {
-    filterVerifications();
+    let filtered = [...verifications];
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (v) =>
+          v.order_number?.toLowerCase().includes(q) ||
+          v.client_name?.toLowerCase().includes(q) ||
+          v.source_destination?.toLowerCase().includes(q)
+      );
+    }
+    setFilteredVerifications(filtered);
   }, [verifications, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, entriesPerPage]);
 
   const fetchOrdersAndSync = async () => {
     try {
       const currentVerifications = await genericApi.list<OrderVerification>('order_verifications');
-      const orders = await genericApi.list('orders');
-      const pendingOrders = orders.filter((o: any) => o.status === 'PENDING');
+      const orders = await genericApi.list<Record<string, unknown>>('orders');
+      const pendingOrders = orders.filter((o) => String(o.status ?? '') === 'PENDING');
 
       for (const order of pendingOrders) {
-        const orderId = order._id || order.id;
-        const existing = currentVerifications.find(v => v.order_id === orderId);
+        const orderId = String(order._id ?? order.id ?? '');
+        const existing = currentVerifications.find((v) => v.order_id === orderId);
         if (!existing) {
           await genericApi.create('order_verifications', {
             order_id: orderId,
@@ -52,13 +74,19 @@ export function OrderVerification() {
             source_destination: order.source_destination,
             status: 'PENDING',
             created_by: user?.id,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
           });
         }
       }
 
       const updatedList = await genericApi.list<OrderVerification>('order_verifications');
-      setVerifications(updatedList || []);
+      const sorted = [...(updatedList || [])].sort((a, b) => {
+        const aPending = !isChecked(a.status);
+        const bPending = !isChecked(b.status);
+        if (aPending !== bPending) return aPending ? 1 : -1;
+        return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
+      });
+      setVerifications(sorted);
     } catch (error) {
       console.error('Error syncing orders for verification:', error);
     } finally {
@@ -66,86 +94,73 @@ export function OrderVerification() {
     }
   };
 
-  const fetchVerifications = async () => {
-    try {
-      const data = await genericApi.list<OrderVerification>('order_verifications');
-      setVerifications(data || []);
-    } catch (error) {
-      console.error('Error fetching verifications:', error);
-    }
-  };
-
-  const filterVerifications = () => {
-    let filtered = [...verifications];
-    if (searchTerm) {
-      filtered = filtered.filter(v =>
-        v.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    setFilteredVerifications(filtered);
-  };
-
-  const handleApprove = async (id: string, orderId: string) => {
+  const handleApprove = async (v: OrderVerification) => {
+    const id = rowId(v);
+    if (!id) return;
     try {
       await genericApi.update('order_verifications', id, {
         status: 'CHECKED',
-        verified_at: new Date().toISOString()
+        verified_at: new Date().toISOString(),
       });
-      await genericApi.update('orders', orderId, { status: 'CHECKED' });
-      fetchVerifications();
+      if (v.order_id) {
+        await genericApi.update('orders', v.order_id, { status: 'CHECKED' });
+      }
+      await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error approving verification:', error);
     }
   };
 
-  const handleReject = async (id: string, orderId: string) => {
+  const handleReject = async (v: OrderVerification) => {
+    const id = rowId(v);
+    if (!id) return;
     try {
       await genericApi.update('order_verifications', id, {
         status: 'PENDING',
-        verified_at: null
+        verified_at: null,
       });
-      await genericApi.update('orders', orderId, { status: 'PENDING' });
-      fetchVerifications();
+      if (v.order_id) {
+        await genericApi.update('orders', v.order_id, { status: 'PENDING' });
+      }
+      await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error rejecting verification:', error);
     }
   };
 
-  const totalPages = Math.ceil(filteredVerifications.length / entriesPerPage);
+  const handleViewDocument = async (v: OrderVerification) => {
+    if (!v.order_id) return;
+    try {
+      const order = await genericApi.get<Record<string, unknown>>('orders', v.order_id);
+      const bl = String(order?.bl_number ?? '').trim();
+      const msg = bl
+        ? `${v.order_number}\nBL: ${bl}`
+        : `${v.order_number}\n${v.client_name}`;
+      alert(msg);
+    } catch {
+      alert(v.order_number || t('common.noData'));
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredVerifications.length / entriesPerPage));
   const startIndex = (currentPage - 1) * entriesPerPage;
   const currentVerifications = filteredVerifications.slice(startIndex, startIndex + entriesPerPage);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 font-medium text-[#0F3C66]">
+      <div className="flex h-64 items-center justify-center text-gray-600">
         {t('common.loading')}
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gray-50/30 min-h-screen">
-      <div className="mb-8 flex justify-between items-center flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20">
-            <CheckCircle size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('orderVerification.title')}</h1>
-            <p className="text-sm text-gray-500 font-medium">Review and approve pending logistics orders</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-bold text-[#EE964C] tracking-widest uppercase bg-[#EE964C]/10 px-2 py-1 rounded">
-            {t('common.version')}
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-gray-900">{t('orderVerification.title')}</h1>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-5 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center flex-wrap gap-4">
-          <div className="flex items-center gap-3 text-sm text-gray-600 font-bold">
+      <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-gray-700">
             <span>{t('common.show')}</span>
             <select
               value={entriesPerPage}
@@ -153,124 +168,149 @@ export function OrderVerification() {
                 setEntriesPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-2 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition bg-white shadow-sm"
+              className="rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0F3C66]"
             >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
             </select>
             <span>{t('common.entries')}</span>
           </div>
-
-          <div className="relative min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <label htmlFor="ov-search">{t('common.search')}:</label>
             <input
+              id="ov-search"
               type="text"
-              placeholder={t('common.search')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-10 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 transition text-sm font-medium shadow-sm"
+              className="rounded border border-gray-300 px-3 py-1 text-sm outline-none focus:border-[#0F3C66]"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
-              <tr className="bg-white border-b border-gray-100">
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-16">#</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('orderVerification.colOrderId')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('orderVerification.colClientName')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('orderVerification.colSourceDest')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('orderVerification.colDocAction')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{t('orders.colStatus')}</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">{t('common.action')}</th>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left">
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colId')}</th>
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colOrderId')}</th>
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colClientName')}</th>
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colSourceDest')}</th>
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colDocAction')}</th>
+                <th className="px-4 py-3 font-semibold text-gray-800">{t('orderVerification.colStatus')}</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-800">{t('common.action')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {currentVerifications?.map((v, index) => (
-                <tr key={v.id || (v as any)._id} className="hover:bg-gray-50/80 transition-colors group">
-                  <td className="px-6 py-4 text-sm font-bold text-gray-400">{startIndex + index + 1}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-[#0F3C66]">{v.order_number}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900">{v.client_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 font-medium">{v.source_destination}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#0F3C66]/5 text-[#0F3C66] border border-[#0F3C66]/10 uppercase tracking-wider">
-                      {v.document_action || t('orders.title')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${
-                      v.status === 'CHECKED' || v.status === 'APPROVED' 
-                        ? 'bg-green-50 text-green-700 border-green-100' 
-                        : v.status === 'REJECTED' 
-                        ? 'bg-red-50 text-red-700 border-red-100' 
-                        : 'bg-amber-50 text-amber-700 border-amber-100'
-                    }`}>
-                      <div className={`w-1 h-1 rounded-full mr-2 ${
-                        v.status === 'CHECKED' || v.status === 'APPROVED' ? 'bg-green-500' : v.status === 'REJECTED' ? 'bg-red-500' : 'bg-amber-500'
-                      }`}></div>
-                      {v.status === 'CHECKED' || v.status === 'APPROVED' ? t('common.approved') : v.status === 'REJECTED' ? t('common.rejected') : t('dashboard.pending')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      <ActionMenu
-                        actions={[
-                          {
-                            label: t('orderVerification.approve'),
-                            icon: <CheckCircle size={16} />,
-                            onClick: () => handleApprove(v.id || (v as any)._id, v.order_id),
-                            disabled: v.status === 'CHECKED' || v.status === 'APPROVED'
-                          },
-                          {
-                            label: t('orderVerification.reject'),
-                            icon: <XCircle size={16} />,
-                            onClick: () => handleReject(v.id || (v as any)._id, v.order_id),
-                            variant: 'danger',
-                            disabled: v.status === 'CHECKED' || v.status === 'APPROVED'
-                          }
-                        ]}
-                      />
-                    </div>
+            <tbody>
+              {currentVerifications.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                    {t('common.noData')}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                currentVerifications.map((v, index) => {
+                  const checked = isChecked(v.status);
+                  return (
+                    <tr
+                      key={rowId(v) || `${v.order_number}-${index}`}
+                      className={index % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'}
+                    >
+                      <td className="border-t border-gray-100 px-4 py-3 text-gray-700">
+                        {startIndex + index + 1}
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3 font-medium text-gray-900">
+                        {v.order_number || '—'}
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3 text-gray-900">
+                        {v.client_name || '—'}
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3 text-gray-800">
+                        {v.source_destination || '—'}
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => void handleViewDocument(v)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded text-[#0F3C66] hover:bg-[#0F3C66]/10"
+                          title={t('orderVerification.colDocAction')}
+                        >
+                          <FileText size={18} />
+                        </button>
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3">
+                        {checked ? (
+                          <span className="font-medium text-gray-900">{t('orderVerification.statusChecked')}</span>
+                        ) : (
+                          <span className="inline-block rounded-full bg-[#C47A2C] px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+                            {t('orderVerification.statusPending')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="border-t border-gray-100 px-4 py-3">
+                        {!checked ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleApprove(v)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-green-200 bg-green-50 text-green-600 hover:bg-green-100"
+                              title={t('orderVerification.approve')}
+                            >
+                              <CheckCircle size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleReject(v)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                              title={t('orderVerification.reject')}
+                            >
+                              <Ban size={18} />
+                            </button>
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
-        <div className="p-5 border-t border-gray-50 bg-gray-50/30 flex justify-between items-center flex-wrap gap-4">
-          <div className="text-sm font-bold text-gray-500">
-            {t('common.showing')} <span className="text-gray-900">{startIndex + 1}</span> {t('common.to')} <span className="text-gray-900">{Math.min(startIndex + entriesPerPage, filteredVerifications.length)}</span> {t('common.of')} <span className="text-gray-900">{filteredVerifications.length}</span> {t('common.entries')}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-sm text-gray-600">
+          <div>
+            {t('common.showing')} {filteredVerifications.length === 0 ? 0 : startIndex + 1} {t('common.to')}{' '}
+            {Math.min(startIndex + entriesPerPage, filteredVerifications.length)} {t('common.of')}{' '}
+            {filteredVerifications.length} {t('common.entries')}
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:opacity-40"
             >
               {t('common.previous')}
             </button>
-            <div className="flex gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-10 h-10 rounded-xl transition-all font-bold text-sm ${
-                    currentPage === page
-                      ? 'bg-[#0F3C66] text-white shadow-lg active:scale-95'
-                      : 'border border-gray-200 hover:bg-white text-gray-600'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`min-w-[2rem] rounded px-2 py-1 ${
+                  currentPage === page
+                    ? 'bg-[#0F3C66] text-white'
+                    : 'border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:opacity-40"
             >
               {t('common.next')}
             </button>

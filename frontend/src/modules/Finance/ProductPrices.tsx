@@ -1,157 +1,183 @@
-import { useState, useEffect } from 'react';
-import { Pencil, Trash2, X, Tag } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Pencil, Plus, Tag, Trash2, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useCurrency } from '../../contexts/CurrencyContext';
 
-interface Product {
+interface ItemPrice {
   id: string;
+  _id?: string;
   name: string;
+  price: number;
+  created_at?: string;
 }
 
-interface ProductPrice {
-  id: string;
-  product_id: string;
-  price: number;
-  effective_date: string;
-  created_at: string;
-  products?: {
-    name: string;
-  };
+function rowId(row: { _id?: string; id?: string }): string {
+  return row._id || row.id || '';
+}
+
+function SortIcon() {
+  return (
+    <span className="ml-1 inline-flex flex-col text-[8px] leading-none text-gray-400">
+      <span>▲</span>
+      <span>▼</span>
+    </span>
+  );
+}
+
+function buildPageItems(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const items: (number | 'ellipsis')[] = [1];
+  if (current > 3) items.push('ellipsis');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let p = start; p <= end; p += 1) {
+    items.push(p);
+  }
+  if (current < total - 2) items.push('ellipsis');
+  items.push(total);
+  return items;
+}
+
+function displayPrice(value: number | string | undefined): string {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  if (!Number.isFinite(n)) return '—';
+  return Number.isInteger(n) ? String(n) : String(n);
 }
 
 export function ProductPrices() {
   const { t } = useLanguage();
-  const { formatAmount } = useCurrency();
-  const [prices, setPrices] = useState<ProductPrice[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [prices, setPrices] = useState<ItemPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
-  const [formData, setFormData] = useState({
-    product_id: '',
-    price: 0,
-    effective_date: new Date().toISOString().split('T')[0],
-  });
+  const [formData, setFormData] = useState({ name: '', price: '' });
 
   useEffect(() => {
-    fetchPrices();
-    fetchProducts();
+    void fetchPrices();
   }, []);
 
   const fetchPrices = async () => {
     try {
-      const data = await genericApi.list('product_prices');
+      const data = await genericApi.list<ItemPrice>('item_prices');
       setPrices(data || []);
     } catch (error) {
-      console.error('Error fetching prices:', error);
+      console.error('Error fetching item prices:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const data = await genericApi.list('products');
-      setProducts(data || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    }
-  };
+  const filteredPrices = useMemo(() => {
+    if (!searchTerm.trim()) return prices;
+    const q = searchTerm.toLowerCase();
+    return prices.filter(
+      (item) =>
+        item.name?.toLowerCase().includes(q) ||
+        displayPrice(item.price).toLowerCase().includes(q)
+    );
+  }, [prices, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPrices.length / entriesPerPage));
+  const page = Math.min(currentPage, totalPages);
+  const startIndex = filteredPrices.length === 0 ? 0 : (page - 1) * entriesPerPage;
+  const endIndex = Math.min(startIndex + entriesPerPage, filteredPrices.length);
+  const pagedPrices = filteredPrices.slice(startIndex, endIndex);
+  const pageItems = buildPageItems(page, totalPages);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, entriesPerPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      name: formData.name.trim(),
+      price: parseFloat(formData.price) || 0,
+    };
+
     try {
       if (editingId) {
-        await genericApi.update('product_prices', editingId, formData);
-
-        
+        await genericApi.update('item_prices', editingId, payload);
       } else {
-        await genericApi.create('product_prices', formData);
-
-        
+        await genericApi.create('item_prices', payload);
       }
-
-      resetForm();
-      fetchPrices();
+      closeModal();
+      void fetchPrices();
     } catch (error) {
-      console.error('Error saving price:', error);
+      console.error('Error saving item price:', error);
     }
   };
 
-  const handleEdit = (price: ProductPrice) => {
-    const id = (price as any)._id || price.id;
+  const handleEdit = (item: ItemPrice) => {
     setFormData({
-      product_id: price.product_id,
-      price: price.price,
-      effective_date: price.effective_date,
+      name: item.name || '',
+      price: item.price != null ? String(item.price) : '',
     });
-    setEditingId(id);
+    setEditingId(rowId(item));
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm(t('common.deleteConfirm'))) {
-      try {
-        await genericApi.delete('product_prices', id);
-        fetchPrices();
-      } catch (error) {
-        console.error('Error deleting price:', error);
-      }
+  const handleDelete = async (item: ItemPrice) => {
+    if (!confirm(t('itemPrices.deleteConfirm'))) return;
+    try {
+      await genericApi.delete('item_prices', rowId(item));
+      void fetchPrices();
+    } catch (error) {
+      console.error('Error deleting item price:', error);
     }
   };
 
   const resetForm = () => {
-    setFormData({
-      product_id: '',
-      price: 0,
-      effective_date: new Date().toISOString().split('T')[0],
-    });
+    setFormData({ name: '', price: '' });
     setEditingId(null);
-    setShowForm(false);
   };
 
-  const filteredPrices = prices.filter(price => {
-    const productName = products.find(p => (p as any)._id === price.product_id || p.id === price.product_id)?.name || '';
-    return productName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const closeModal = () => {
+    setShowForm(false);
+    resetForm();
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filteredPrices.length / entriesPerPage));
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const pagedPrices = filteredPrices.slice(startIndex, startIndex + entriesPerPage);
+  const openAddModal = () => {
+    resetForm();
+    setShowForm(true);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }
 
+  const thClass =
+    'px-4 py-3 text-left text-sm font-medium text-gray-700 whitespace-nowrap';
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold text-gray-800">{t('products.pricesTitle')}</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{t('itemPrices.manageTitle')}</h2>
           <Tag size={24} className="text-gray-600" />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm"
-          >
-            {t('common.add')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openAddModal}
+          className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
+        >
+          <Plus size={16} />
+          {t('itemPrices.addButton')}
+        </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
             <span>{t('common.show')}</span>
             <select
               value={entriesPerPage}
@@ -159,191 +185,183 @@ export function ProductPrices() {
                 setEntriesPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
+              className="rounded border border-gray-300 px-2 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             >
+              <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
-              <option value={100}>100</option>
             </select>
             <span>{t('common.entries')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">{t('common.search')}:</span>
             <input
               type="text"
+              placeholder={t('common.search')}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none"
+              className="rounded border border-gray-300 px-3 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+          <table className="w-full border-collapse text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t('products.colProductName')}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t('products.colPrice')}</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t('products.colEffectiveDate')}</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">{t('common.action')}</th>
+                <th className={thClass}>
+                  {t('itemPrices.colName')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('itemPrices.colPrice')}
+                  <SortIcon />
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
+                  {t('common.action')}
+                  <SortIcon />
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 text-sm">
-              {pagedPrices?.map((price) => {
-                const pId = (price as any)._id || price.id;
-                const productName = products.find(p => (p as any)._id === price.product_id || p.id === price.product_id)?.name || 'Unknown Product';
-                return (
-                  <tr key={pId} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 text-gray-900 font-medium">{productName}</td>
-                    <td className="px-4 py-3 text-gray-900">{formatAmount(price.price)}</td>
-                    <td className="px-4 py-3 text-gray-900">
-                      {new Date(price.effective_date).toLocaleDateString()}
-                    </td>
+            <tbody className="divide-y divide-gray-200">
+              {pagedPrices.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-10 text-center text-gray-500">
+                    {t('itemPrices.empty')}
+                  </td>
+                </tr>
+              ) : (
+                pagedPrices.map((item) => (
+                  <tr key={rowId(item)} className="transition hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
+                    <td className="px-4 py-3 text-gray-700">{displayPrice(item.price)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-center gap-2">
                         <button
-                          onClick={() => handleEdit(price)}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded transition"
+                          type="button"
+                          onClick={() => handleEdit(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-green-200 bg-green-50 text-green-600 transition hover:bg-green-100"
+                          title={t('common.edit')}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(pId)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                          type="button"
+                          onClick={() => handleDelete(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                          title={t('common.delete')}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-              {pagedPrices.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-500 italic">
-                    {t('common.noData')}
-                  </td>
-                </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        <div className="flex items-center justify-between mt-6 text-sm text-gray-600">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
           <div>
-            {t('common.showing')} {startIndex + 1} {t('common.to')} {Math.min(startIndex + entriesPerPage, filteredPrices.length)} {t('common.of')} {filteredPrices.length} {t('common.entries')}
+            {t('common.showing')}{' '}
+            {filteredPrices.length === 0 ? 0 : startIndex + 1} {t('common.to')}{' '}
+            {endIndex} {t('common.of')} {filteredPrices.length} {t('common.entries')}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || filteredPrices.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('common.previous')}
+              ‹
             </button>
-            <div className="flex gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            {pageItems.map((item, idx) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">
+                  …
+                </span>
+              ) : (
                 <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 rounded transition ${currentPage === page
-                      ? 'bg-[#0F3C66] text-white shadow-sm'
+                  key={item}
+                  type="button"
+                  onClick={() => setCurrentPage(item)}
+                  className={`rounded px-3 py-1 transition ${
+                    page === item
+                      ? 'bg-[#0F3C66] text-white'
                       : 'border border-gray-300 hover:bg-gray-50'
-                    }`}
+                  }`}
                 >
-                  {page}
+                  {item}
                 </button>
-              ))}
-            </div>
+              )
+            )}
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || filteredPrices.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('common.next')}
+              ›
             </button>
           </div>
         </div>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 bg-[#0F3C66] text-white">
-              <h3 className="text-lg font-bold">
-                {editingId ? t('products.modalPriceTitleUpdate') : t('products.modalPriceTitleAdd')}
-              </h3>
-              <button onClick={resetForm} className="text-white/80 hover:text-white transition">
-                <X size={20} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('itemPrices.modalTitle')}</h3>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-gray-400 transition hover:text-gray-600"
+              >
+                <X size={22} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {t('products.colProductName')} <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.product_id}
-                  onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none transition"
-                >
-                  <option value="">{t('products.selectProduct')}</option>
-                  {products?.map((product) => {
-                    const pId = (product as any)._id || product.id;
-                    return (
-                      <option key={pId} value={pId}>
-                        {product.name}
-                      </option>
-                    );
-                  })}
-                </select>
+
+            <form onSubmit={handleSubmit} className="px-6 py-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('itemPrices.colName')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('itemPrices.colPrice')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {t('products.colPrice')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {t('products.colEffectiveDate')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formData.effective_date}
-                  onChange={(e) => setFormData({ ...formData, effective_date: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent outline-none transition"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition"
-                >
-                  {t('common.cancel')}
-                </button>
+              <div className="mt-6 flex justify-end border-t border-gray-200 pt-5">
                 <button
                   type="submit"
-                  className="px-6 py-2 text-sm font-medium bg-[#0F3C66] text-white rounded hover:bg-[#154b8a] transition shadow-sm"
+                  className="rounded bg-[#0F3C66] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-[#154b8a]"
                 >
-                  {t('common.save')}
+                  {t('itemPrices.save')}
                 </button>
               </div>
             </form>
@@ -353,6 +371,3 @@ export function ProductPrices() {
     </div>
   );
 }
-
-
-

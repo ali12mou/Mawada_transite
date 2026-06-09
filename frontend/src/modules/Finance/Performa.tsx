@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Edit, Trash2, Plus, Eye, FileText } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
@@ -28,6 +28,17 @@ interface PerformaItem {
   quantity: number;
   unit_price: number;
   total_unit_price: number;
+}
+
+interface RouteRecord {
+  id?: string;
+  _id?: string;
+  source: string;
+  destination: string;
+}
+
+function formatRouteLabel(route: RouteRecord): string {
+  return `${route.source} -To- ${route.destination}`;
 }
 
 const emptyPerformaItem = (): PerformaItem => ({
@@ -84,11 +95,20 @@ export function Performa() {
   const [viewData, setViewData] = useState<PerformaViewData | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
+  const [routesList, setRoutesList] = useState<RouteRecord[]>([]);
   const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [banksList, setBanksList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>([]);
 
   const [performaItems, setPerformaItems] = useState<PerformaItem[]>([emptyPerformaItem()]);
+
+  const sourceDestinationOptions = useMemo(() => {
+    const labels = routesList.map((route) => formatRouteLabel(route));
+    if (formData.source_destination && !labels.includes(formData.source_destination)) {
+      return [formData.source_destination, ...labels];
+    }
+    return labels;
+  }, [routesList, formData.source_destination]);
 
   useEffect(() => {
     loadPerformas();
@@ -98,13 +118,15 @@ export function Performa() {
     if (!showModal) return;
     (async () => {
       try {
-        const [clients, locations, banks, categories] = await Promise.all([
+        const [clients, routes, locations, banks, categories] = await Promise.all([
           fetchClients(),
+          genericApi.list<RouteRecord>('routes'),
           genericApi.list('locations'),
           genericApi.list('banks'),
           genericApi.list('product_categories'),
         ]);
         setClientsList(clients);
+        setRoutesList(routes || []);
         setLocationsList(locations || []);
         setBanksList(banks || []);
         setGoodsCategories(categories || []);
@@ -228,7 +250,8 @@ export function Performa() {
       buyer_tin: s('buyer_tin'),
       buyer_tel: s('buyer_tel'),
       performa_code: s('performa_code'),
-      invoice_date: s('invoice_date'),
+      invoice_date: s('invoice_date') || new Date().toISOString().slice(0, 10),
+      source_destination: s('source_destination'),
       expedition: s('expedition'),
       swift_code: s('swift_code'),
       loading_port: s('loading_port'),
@@ -244,6 +267,7 @@ export function Performa() {
       description_of_goods: String(it.description_of_goods ?? ''),
       origin: String(it.origin ?? ''),
       hs_code: String(it.hs_code ?? ''),
+      unit: String(it.unit ?? ''),
       quantity: Number(it.quantity) || 0,
       unit_price: Number(it.unit_price) || 0,
       total_unit_price: Number(it.total_unit_price) || 0,
@@ -366,7 +390,8 @@ export function Performa() {
       buyer_tin: formData.buyer_tin,
       buyer_tel: formData.buyer_tel,
       performa_code: formData.performa_code,
-      invoice_date: formData.invoice_date,
+      invoice_date: formData.invoice_date || new Date().toISOString().slice(0, 10),
+      source_destination: formData.source_destination,
       expedition: formData.expedition,
       swift_code: formData.swift_code,
       loading_port: formData.loading_port,
@@ -379,6 +404,7 @@ export function Performa() {
       description_of_goods: it.description_of_goods,
       origin: it.origin || formData.origin,
       hs_code: it.hs_code,
+      unit: (it as PerformaItem & { unit?: string }).unit || '',
       quantity: it.quantity,
       unit_price: it.unit_price,
       total_unit_price: it.total_unit_price,
@@ -596,9 +622,9 @@ export function Performa() {
                       className={pfSelectClass}
                     >
                       <option value="">{t('performa.selectSourceDestination')}</option>
-                      {locationsList.map((l) => (
-                        <option key={l.id || l._id} value={l.name}>
-                          {l.name}
+                      {sourceDestinationOptions.map((label) => (
+                        <option key={label} value={label}>
+                          {label}
                         </option>
                       ))}
                     </select>

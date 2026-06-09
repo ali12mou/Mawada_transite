@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Pencil, Trash2, Users, Plus, Search } from 'lucide-react';
+import { Pencil, Trash2, Users, X } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
   fetchClients,
@@ -8,9 +8,31 @@ import {
   deleteClient,
   type ClientRecord,
 } from '../../api/clientsApi';
-import Modal from '../Shared/common/Modal';
-import { FormLabel, FormInput, PrimaryButton, SecondaryButton } from '../Shared/common/FormComponents';
-import { ActionMenu } from '../Shared/common/ActionMenu';
+
+function SortIcon() {
+  return (
+    <span className="ml-1 inline-flex flex-col text-[8px] leading-none text-gray-400">
+      <span>▲</span>
+      <span>▼</span>
+    </span>
+  );
+}
+
+function buildPageItems(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const items: (number | 'ellipsis')[] = [1];
+  if (current > 3) items.push('ellipsis');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let p = start; p <= end; p += 1) {
+    items.push(p);
+  }
+  if (current < total - 2) items.push('ellipsis');
+  items.push(total);
+  return items;
+}
 
 export function Clients() {
   const { t } = useLanguage();
@@ -44,27 +66,28 @@ export function Clients() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
-  const filteredClients = useMemo(
-    () =>
-      clients.filter(
-        client =>
-          client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (client.company_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (client.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (client.phone || '').toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [clients, searchTerm]
-  );
+  const filteredClients = useMemo(() => {
+    if (!searchTerm.trim()) return clients;
+    const q = searchTerm.toLowerCase();
+    return clients.filter(
+      (client) =>
+        client.name.toLowerCase().includes(q) ||
+        (client.company_name || '').toLowerCase().includes(q) ||
+        (client.email || '').toLowerCase().includes(q) ||
+        (client.phone || '').toLowerCase().includes(q) ||
+        (client.address || '').toLowerCase().includes(q)
+    );
+  }, [clients, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / entriesPerPage));
   const page = Math.min(currentPage, totalPages);
-  const pagedClients = useMemo(() => {
-    const start = (page - 1) * entriesPerPage;
-    return filteredClients.slice(start, start + entriesPerPage);
-  }, [filteredClients, page, entriesPerPage]);
+  const startIndex = filteredClients.length === 0 ? 0 : (page - 1) * entriesPerPage;
+  const endIndex = Math.min(startIndex + entriesPerPage, filteredClients.length);
+  const pagedClients = filteredClients.slice(startIndex, endIndex);
+  const pageItems = buildPageItems(page, totalPages);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -79,7 +102,7 @@ export function Clients() {
       } else {
         await createClient(formData);
       }
-      resetForm();
+      closeModal();
       await load();
     } catch (err) {
       console.error(err);
@@ -120,7 +143,16 @@ export function Clients() {
       address: '',
     });
     setEditingId(null);
+  };
+
+  const closeModal = () => {
     setShowForm(false);
+    resetForm();
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowForm(true);
   };
 
   if (loading) {
@@ -131,208 +163,273 @@ export function Clients() {
     );
   }
 
+  const thClass =
+    'px-4 py-3 text-left text-sm font-medium text-gray-700 whitespace-nowrap';
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-[#0F3C66]">{t('clients.pageTitle')}</h1>
-          <Users size={24} className="text-[#0F3C66] opacity-80" />
+          <h2 className="text-2xl font-bold text-gray-800">{t('clients.pageTitle')}</h2>
+          <Users size={24} className="text-gray-600" />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="px-4 py-2 bg-[#0F3C66] text-white rounded-xl shadow-lg shadow-[#0F3C66]/20 font-bold hover:bg-[#154b8a] transition active:scale-95 flex items-center gap-2 text-sm"
-          >
-            <Plus size={16} />
-            {t('clients.addButton')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openAddModal}
+          className="rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
+        >
+          {t('clients.addButton')}
+        </button>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600">{t('clients.show') || t('common.show')}</span>
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <span>{t('common.show')}</span>
             <select
               value={entriesPerPage}
-              onChange={e => setEntriesPerPage(Number(e.target.value))}
-              className="pl-3 pr-8 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0F3C66]/20 outline-none transition text-sm font-medium"
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="rounded border border-gray-300 px-2 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm font-medium text-gray-600">{t('clients.entries') || t('common.entries')}</span>
+            <span>{t('common.entries')}</span>
           </div>
-          <div className="relative w-72">
+          <div className="flex items-center gap-2">
+            <span>{t('clients.searchLabel')}</span>
             <input
               type="text"
-              placeholder={`${t('clients.searchLabel') || t('common.search')}...`}
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/20 focus:border-[#0F3C66] transition shadow-sm text-sm"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="rounded border border-gray-300 px-3 py-1 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
             />
-            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead className="bg-[#0F3C66] text-white">
+          <table className="w-full border-collapse text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('clients.colCompany')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('clients.colName')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('clients.colEmail')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('clients.colPhone')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider border-r border-[#154b8a]/50">{t('clients.colAddress')}</th>
-                <th className="px-5 py-4 text-center text-[11px] font-bold uppercase tracking-wider w-24">{t('clients.colAction')}</th>
+                <th className={thClass}>
+                  {t('clients.colCompany')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('clients.colName')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('clients.colEmail')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('clients.colPhone')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('clients.colAddress')}
+                  <SortIcon />
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
+                  {t('clients.colAction')}
+                  <SortIcon />
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {pagedClients?.map(client => (
-                <tr key={client.id} className="hover:bg-[#0F3C66]/5 transition group">
-                  <td className="px-5 py-4 text-sm font-bold text-[#0F3C66]">{client.company_name || '—'}</td>
-                  <td className="px-5 py-4 text-sm text-gray-900 font-medium">{client.name}</td>
-                  <td className="px-5 py-4 text-sm text-gray-600">{client.email || '—'}</td>
-                  <td className="px-5 py-4 text-sm text-gray-600">{client.phone || '—'}</td>
-                  <td className="px-5 py-4 text-sm text-gray-500">{client.address || '—'}</td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ActionMenu
-                        actions={[
-                          {
-                            label: t('common.edit'),
-                            icon: <Pencil size={16} />,
-                            onClick: () => handleEdit(client),
-                          },
-                          {
-                            label: t('common.delete'),
-                            icon: <Trash2 size={16} />,
-                            onClick: () => handleDelete(client.id),
-                            variant: 'danger',
-                          },
-                        ]}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredClients.length === 0 && (
+            <tbody className="divide-y divide-gray-200">
+              {pagedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500 italic">
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
                     {t('clients.empty')}
                   </td>
                 </tr>
+              ) : (
+                pagedClients.map((client) => (
+                  <tr key={client.id} className="transition hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-700">{client.company_name || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
+                    <td className="px-4 py-3 text-gray-700">{client.email || '—'}</td>
+                    <td className="px-4 py-3 text-gray-700">{client.phone || '—'}</td>
+                    <td className="px-4 py-3 text-gray-700">{client.address || '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(client)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100"
+                          title={t('common.edit')}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(client.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        {filteredClients.length > entriesPerPage && (
-          <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl flex justify-between items-center text-sm">
-            <div className="text-gray-500 font-medium">
-              {t('common.showing')} <span className="font-bold text-gray-900">{(page - 1) * entriesPerPage + 1}</span> {t('common.to')} <span className="font-bold text-gray-900">{Math.min(page * entriesPerPage, filteredClients.length)}</span> {t('common.of')} <span className="font-bold text-gray-900">{filteredClients.length}</span> {t('common.entries')}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
-              >
-                {t('common.previous')}
-              </button>
-              <div className="px-4 py-2 font-bold text-sm text-gray-700">{page} / {totalPages}</div>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm font-bold text-sm text-[#0F3C66]"
-              >
-                {t('common.next')}
-              </button>
-            </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+          <div>
+            {t('common.showing')}{' '}
+            {filteredClients.length === 0 ? 0 : startIndex + 1} {t('common.to')}{' '}
+            {endIndex} {t('common.of')} {filteredClients.length} {t('common.entries')}
           </div>
-        )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || filteredClients.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('common.previous')}
+            </button>
+            {pageItems.map((item, idx) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setCurrentPage(item)}
+                  className={`rounded px-3 py-1 transition ${
+                    page === item
+                      ? 'bg-[#0F3C66] text-white'
+                      : 'border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {item}
+                </button>
+              )
+            )}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || filteredClients.length === 0}
+              className="rounded border border-gray-300 px-3 py-1 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('common.next')}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <Modal
-        isOpen={showForm}
-        onClose={resetForm}
-        title={t('clients.modalTitle')}
-        size="md"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <FormLabel>
-              {t('clients.fieldName')} *
-            </FormLabel>
-            <FormInput
-              type="text"
-              required
-              value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
-              placeholder={t('clients.fieldName')}
-            />
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('clients.modalTitle')}</h3>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-gray-400 transition hover:text-gray-600"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="px-6 py-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('clients.fieldName')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('clients.fieldCompany')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('clients.fieldEmail')}
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('clients.fieldPhone')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-800">
+                    {t('clients.fieldAddress')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-gray-50 px-3 py-2 outline-none focus:border-[#0F3C66] focus:bg-white focus:ring-1 focus:ring-[#0F3C66]"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end border-t border-gray-200 pt-5">
+                <button
+                  type="submit"
+                  className="rounded bg-[#0F3C66] px-6 py-2.5 text-sm font-medium text-white transition hover:bg-[#154b8a]"
+                >
+                  {t('clients.save')}
+                </button>
+              </div>
+            </form>
           </div>
-          <div>
-            <FormLabel>{t('clients.fieldCompany')}</FormLabel>
-            <FormInput
-              type="text"
-              value={formData.company_name}
-              onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-              placeholder={t('clients.fieldCompany')}
-            />
-          </div>
-          <div>
-            <FormLabel>{t('clients.fieldEmail')}</FormLabel>
-            <FormInput
-              type="email"
-              value={formData.email}
-              onChange={e => setFormData({ ...formData, email: e.target.value })}
-              placeholder={t('clients.fieldEmail')}
-            />
-          </div>
-          <div>
-            <FormLabel>{t('clients.fieldPhone')}</FormLabel>
-            <FormInput
-              type="number"
-              value={formData.phone}
-              onChange={e => setFormData({ ...formData, phone: e.target.value })}
-              placeholder={t('clients.fieldPhone')}
-            />
-          </div>
-          <div>
-            <FormLabel>{t('clients.fieldAddress')}</FormLabel>
-            <FormInput
-              type="text"
-              value={formData.address}
-              onChange={e => setFormData({ ...formData, address: e.target.value })}
-              placeholder={t('clients.fieldAddress')}
-            />
-          </div>
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-slate-50/90 -mx-6 px-6 py-4 mt-6">
-            <SecondaryButton type="button" onClick={resetForm}>
-              {t('common.cancel')}
-            </SecondaryButton>
-            <PrimaryButton type="submit">
-              {t('clients.save')}
-            </PrimaryButton>
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }
-
-

@@ -1,9 +1,11 @@
-import { ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
+import { ReactNode, useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   LayoutDashboard,
   Import,
   Warehouse,
   Truck,
+  Route,
   DollarSign,
   Users,
   UserPlus,
@@ -14,15 +16,19 @@ import {
   User,
   Bell,
   Briefcase,
-  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Footer } from '../modules/Shared/Footer';
 import {
   TRANSPORT_MENU_ITEMS,
+  TRANSPORT_SIDEBAR_CHILDREN,
+  TRANSPORT_MANAGEMENT_MENU_ID,
+  TRANSPORTS_MENU_ID,
   isTransportModulePage,
-  DEFAULT_TRANSPORT_PAGE,
+  isTransportSidebarPage,
+  DEFAULT_TRANSPORT_MANAGEMENT_PAGE,
+  DEFAULT_TRANSPORTS_PAGE,
 } from '../constants/transportMenu';
 import { BrandingLogoMark } from '../modules/Shared/BrandingLogoMark';
 import { fetchAppConfig } from '../api/appConfigApi';
@@ -68,12 +74,18 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   { id: 'imports', label: t('menu.imports'), icon: Import, children: ['suppliers', 'orders', 'order-verification', 'order-reception', 'delivered-orders', 'document-9', 'document-4', 'clearance', 'invoice-report'] },
   { id: 'warehouses', label: t('menu.warehouses'), icon: Warehouse, children: ['products', 'inventories', 'warehouse'] },
   {
-    id: 'transports',
-    label: t('menu.transports'),
+    id: TRANSPORT_MANAGEMENT_MENU_ID,
+    label: t('menu.transports-management'),
     icon: Truck,
-    children: TRANSPORT_MENU_ITEMS?.map(entry => entry.id),
+    children: TRANSPORT_MENU_ITEMS.map((entry) => entry.id),
   },
-  { id: 'expenses', label: t('menu.expenses'), icon: DollarSign, children: ['expense-categories', 'expense', 'expense-allocation', 'other-expenses', 'maritime-lines'] },
+  {
+    id: TRANSPORTS_MENU_ID,
+    label: t('menu.transports'),
+    icon: Route,
+    children: [...TRANSPORT_SIDEBAR_CHILDREN],
+  },
+  { id: 'expenses', label: t('menu.expenses'), icon: DollarSign, children: ['expense-categories', 'expense', 'expense-allocation', 'other-expenses'] },
   {
     id: 'hr',
     label: t('menu.hr'),
@@ -110,11 +122,62 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [expandedSubMenus, setExpandedSubMenus] = useState<string[]>([]);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const languageMenuPanelRef = useRef<HTMLDivElement>(null);
+  const userMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [languageMenuPos, setLanguageMenuPos] = useState({ top: 0, left: 0 });
+  const [userMenuPos, setUserMenuPos] = useState({ top: 0, left: 0 });
   const [brandLines, setBrandLines] = useState({ line1: 'GEOSOM', line2: 'TRANSIT' });
   const { user, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const menuItems = useMemo(() => getMenuItems(t), [t]);
+
+  const closeHeaderMenus = useCallback(() => {
+    setShowLanguageMenu(false);
+    setShowUserMenu(false);
+  }, []);
+
+  const syncHeaderMenuPositions = useCallback(() => {
+    if (userMenuRef.current && showUserMenu) {
+      const rect = userMenuRef.current.getBoundingClientRect();
+      setUserMenuPos({ top: rect.bottom + 8, left: rect.right - 256 });
+    }
+    if (languageMenuRef.current && showLanguageMenu) {
+      const rect = languageMenuRef.current.getBoundingClientRect();
+      setLanguageMenuPos({ top: rect.bottom + 8, left: rect.right - 176 });
+    }
+  }, [showLanguageMenu, showUserMenu]);
+
+  useLayoutEffect(() => {
+    syncHeaderMenuPositions();
+  }, [syncHeaderMenuPositions]);
+
+  useEffect(() => {
+    if (!showLanguageMenu && !showUserMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (languageMenuRef.current?.contains(target)) return;
+      if (userMenuRef.current?.contains(target)) return;
+      if (languageMenuPanelRef.current?.contains(target)) return;
+      if (userMenuPanelRef.current?.contains(target)) return;
+      closeHeaderMenus();
+    };
+
+    const handleReposition = () => syncHeaderMenuPositions();
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
+    };
+  }, [showLanguageMenu, showUserMenu, closeHeaderMenus, syncHeaderMenuPositions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,7 +213,12 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   useEffect(() => {
     if (isTransportModulePage(currentPage)) {
-      setExpandedItems(['transports']);
+      setExpandedItems([TRANSPORT_MANAGEMENT_MENU_ID]);
+      setExpandedSubMenus([]);
+      return;
+    }
+    if (isTransportSidebarPage(currentPage)) {
+      setExpandedItems([TRANSPORTS_MENU_ID]);
       setExpandedSubMenus([]);
       return;
     }
@@ -166,7 +234,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       if (!onNavigate) return;
       const ctx = findMenuContext(pageId);
       if (isTransportModulePage(pageId)) {
-        setExpandedItems(['transports']);
+        setExpandedItems([TRANSPORT_MANAGEMENT_MENU_ID]);
+        setExpandedSubMenus([]);
+      } else if (isTransportSidebarPage(pageId)) {
+        setExpandedItems([TRANSPORTS_MENU_ID]);
         setExpandedSubMenus([]);
       } else if (ctx.parentId) {
         setExpandedItems([ctx.parentId]);
@@ -178,10 +249,19 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   );
 
   const handleMenuItemClick = (item: MenuItem) => {
-    if (item.id === 'transports' && item.children) {
-      if (!expandedItems.includes('transports')) {
-        setExpandedItems(['transports']);
-        if (onNavigate) onNavigate(DEFAULT_TRANSPORT_PAGE);
+    if (item.id === TRANSPORT_MANAGEMENT_MENU_ID && item.children) {
+      if (!expandedItems.includes(TRANSPORT_MANAGEMENT_MENU_ID)) {
+        setExpandedItems([TRANSPORT_MANAGEMENT_MENU_ID]);
+        if (onNavigate) onNavigate(DEFAULT_TRANSPORT_MANAGEMENT_PAGE);
+      } else {
+        setExpandedItems([]);
+      }
+      return;
+    }
+    if (item.id === TRANSPORTS_MENU_ID && item.children) {
+      if (!expandedItems.includes(TRANSPORTS_MENU_ID)) {
+        setExpandedItems([TRANSPORTS_MENU_ID]);
+        if (onNavigate) onNavigate(DEFAULT_TRANSPORTS_PAGE);
       } else {
         setExpandedItems([]);
       }
@@ -251,7 +331,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 sm => sm.id === currentPage || (sm.children?.includes(currentPage) ?? false)
               ) ??
                 false) ||
-              (item.id === 'transports' && isTransportModulePage(currentPage));
+              (item.id === TRANSPORT_MANAGEMENT_MENU_ID && isTransportModulePage(currentPage)) ||
+              (item.id === TRANSPORTS_MENU_ID && isTransportSidebarPage(currentPage));
 
             return (
               <div key={item.id}>
@@ -343,87 +424,53 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           })}
         </nav>
 
-        <div className="relative mt-auto border-t border-white/10 px-4 py-3">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              title={user?.nom || t('profile.superAdmin')}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
-            >
-              <User size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={signOut}
-              title={t('profile.logout')}
-              className="flex h-9 w-9 items-center justify-center rounded-md bg-white/15 transition hover:bg-white/25"
-            >
-              <LogOut size={18} />
-            </button>
-            <button
-              type="button"
-              title={t('menu.settings')}
-              onClick={() => onNavigate && onNavigate('configurations')}
-              className="flex h-9 w-9 items-center justify-center rounded-md bg-white/15 transition hover:bg-white/25"
-            >
-              <ShieldCheck size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-              className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-xs font-medium transition hover:opacity-90"
-            >
-              <img
-                src={getLanguageFlag()}
-                alt={getLanguageLabel()}
-                className="h-3 w-5 shrink-0 rounded-sm object-cover"
-              />
-              <span className="truncate">{getLanguageLabel()}</span>
-            </button>
-          </div>
-
-          {showLanguageMenu && (
-            <div className="absolute bottom-full left-0 z-20 mb-1 w-full border border-white/10 bg-[#0F3C66] shadow-lg">
-              <button
-                type="button"
-                onClick={() => { setLanguage('en'); setShowLanguageMenu(false); }}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'en' ? 'bg-white/10' : ''}`}
-              >
-                <img src="https://flagcdn.com/w40/us.png" alt="English" className="h-3 w-5 rounded-sm object-cover" />
-                <span>{t('profile.english')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setLanguage('fr'); setShowLanguageMenu(false); }}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'fr' ? 'bg-white/10' : ''}`}
-              >
-                <img src="https://flagcdn.com/w40/fr.png" alt="Français" className="h-3 w-5 rounded-sm object-cover" />
-                <span>{t('profile.french')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setLanguage('ar'); setShowLanguageMenu(false); }}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-xs transition hover:bg-white/10 ${language === 'ar' ? 'bg-white/10' : ''}`}
-              >
-                <img src="https://flagcdn.com/w40/dj.png" alt="العربية" className="h-3 w-5 rounded-sm object-cover" />
-                <span>{t('profile.arabic')}</span>
-              </button>
-            </div>
-          )}
-        </div>
       </aside>
 
       <main className="flex-1 overflow-auto flex flex-col">
         <div className="sticky top-0 z-10 bg-white shadow-sm">
-          <header className="border-b border-gray-200 px-8 py-4">
-            <div className="flex items-center justify-end gap-4">
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition relative">
+          <header className="border-b border-gray-200 bg-white px-8 py-4">
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                className="relative rounded-lg p-2 transition hover:bg-gray-100"
+              >
                 <span className="sr-only">Notifications</span>
                 <Bell size={20} className="text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
               </button>
-              <div className="text-sm text-gray-500">
-                {t('common.version')}
+              <div className="text-sm text-gray-500">{t('common.version')}</div>
+
+              <div ref={languageMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLanguageMenu((v) => !v);
+                    setShowUserMenu(false);
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                >
+                  <img
+                    src={getLanguageFlag()}
+                    alt={getLanguageLabel()}
+                    className="h-3.5 w-5 shrink-0 rounded-sm object-cover"
+                  />
+                  <span>{getLanguageLabel()}</span>
+                  <ChevronDown size={14} className="text-gray-500" />
+                </button>
+              </div>
+
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu((v) => !v);
+                    setShowLanguageMenu(false);
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3C66] text-white transition hover:bg-[#154b8a]"
+                  title={user?.nom || t('profile.superAdmin')}
+                >
+                  <User size={20} />
+                </button>
               </div>
             </div>
           </header>
@@ -437,6 +484,103 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
         <Footer />
       </main>
+
+      {showLanguageMenu &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[200]"
+              aria-hidden
+              onClick={closeHeaderMenus}
+            />
+            <div
+              ref={languageMenuPanelRef}
+              className="fixed z-[210] w-44 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl"
+              style={{
+                top: languageMenuPos.top,
+                left: Math.max(8, languageMenuPos.left),
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage('en');
+                  closeHeaderMenus();
+                }}
+                className={`flex w-full items-center gap-2 bg-white px-4 py-2.5 text-sm transition hover:bg-gray-50 ${language === 'en' ? 'bg-gray-50 font-medium' : ''}`}
+              >
+                <img src="https://flagcdn.com/w40/us.png" alt="English" className="h-3.5 w-5 rounded-sm object-cover" />
+                <span>{t('profile.english')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage('fr');
+                  closeHeaderMenus();
+                }}
+                className={`flex w-full items-center gap-2 bg-white px-4 py-2.5 text-sm transition hover:bg-gray-50 ${language === 'fr' ? 'bg-gray-50 font-medium' : ''}`}
+              >
+                <img src="https://flagcdn.com/w40/fr.png" alt="Français" className="h-3.5 w-5 rounded-sm object-cover" />
+                <span>{t('profile.french')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage('ar');
+                  closeHeaderMenus();
+                }}
+                className={`flex w-full items-center gap-2 bg-white px-4 py-2.5 text-sm transition hover:bg-gray-50 ${language === 'ar' ? 'bg-gray-50 font-medium' : ''}`}
+              >
+                <img src="https://flagcdn.com/w40/dj.png" alt="العربية" className="h-3.5 w-5 rounded-sm object-cover" />
+                <span>{t('profile.arabic')}</span>
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
+
+      {showUserMenu &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[200]"
+              aria-hidden
+              onClick={closeHeaderMenus}
+            />
+            <div
+              ref={userMenuPanelRef}
+              className="fixed z-[210] w-64 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl"
+              style={{
+                top: userMenuPos.top,
+                left: Math.max(8, userMenuPos.left),
+              }}
+            >
+              <div className="border-b border-gray-200 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  {user?.nom || t('profile.superAdmin')}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-gray-500">{user?.email || '—'}</p>
+                {user?.role ? (
+                  <p className="mt-1 inline-block rounded bg-[#0F3C66]/10 px-2 py-0.5 text-xs font-medium text-[#0F3C66]">
+                    {user.role}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  closeHeaderMenus();
+                  void signOut();
+                }}
+                className="flex w-full items-center gap-2 bg-white px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+              >
+                <LogOut size={16} />
+                {t('profile.logout')}
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }
