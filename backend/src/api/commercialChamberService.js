@@ -1,4 +1,7 @@
 import { CommercialChamber } from '../models/CommercialChamber.model.js';
+import {
+  applyCommercialCalculations,
+} from '../lib/commercialChamberCalculations.js';
 
 function generateCommercialNo() {
   const d = new Date();
@@ -73,6 +76,9 @@ function sanitizeUpdate(body) {
 
 export async function updateCommercialChamber(id, body) {
   const payload = sanitizeUpdate(body);
+  const computed = applyCommercialCalculations({ ...payload });
+  Object.assign(payload, computed);
+
   const doc = await CommercialChamber.findByIdAndUpdate(id, { $set: payload }, { new: true, runValidators: true });
   if (!doc) {
     const err = new Error('Enregistrement introuvable');
@@ -90,6 +96,8 @@ export async function createCommercialChamber(body) {
     throw err;
   }
 
+  const computed = applyCommercialCalculations(body);
+
   const doc = await CommercialChamber.create({
     ...body,
     commercial_no: String(body?.commercial_no || '').trim() || generateCommercialNo(),
@@ -98,11 +106,11 @@ export async function createCommercialChamber(body) {
     chamber_service_amount: toNumber(body?.chamber_service_amount),
     quantity: toNumber(body?.quantity),
     unit_price: toNumber(body?.unit_price),
-    percentage: toNumber(body?.percentage),
-    service_charge: toNumber(body?.service_charge),
+    percentage: computed.percentage,
+    service_charge: computed.service_charge,
     bank_commission_fee: toNumber(body?.bank_commission_fee),
     transport_dhl: toNumber(body?.transport_dhl),
-    total: toNumber(body?.total),
+    total: computed.total,
     certificate_fee: toNumber(body?.certificate_fee),
   });
   return doc.toJSON();
