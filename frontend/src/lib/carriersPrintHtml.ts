@@ -1,4 +1,4 @@
-import type { DocumentBranding } from '../types/documentBranding';
+import { DEFAULT_COMPANY_NAME, type DocumentBranding } from '../types/documentBranding';
 import { documentImageSrc } from './documentPrintImages';
 import { fetchDocumentBranding } from './documentBranding';
 import { docGreen, esc } from './chamberDocumentPrintShared';
@@ -305,7 +305,7 @@ function buildWatermark(branding: DocumentBranding): string {
 
 function buildLetterhead(branding: DocumentBranding): string {
   const logoSrc = documentImageSrc(branding.footerLogoUrl || branding.letterHeadUrl);
-  const companyName = (branding.companyName || 'Hamilton International FZCO').trim();
+  const companyName = (branding.companyName || DEFAULT_COMPANY_NAME).trim();
 
   return `
     <header>

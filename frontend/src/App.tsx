@@ -199,7 +199,7 @@ function AppContent() {
         return <ModulePlaceholder menuKey={currentPage} />;
       case 'dashboard':
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={setCurrentPage} />;
     }
     })();
 

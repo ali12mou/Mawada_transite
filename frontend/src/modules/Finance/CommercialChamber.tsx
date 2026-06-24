@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Edit2, Trash2, Plus, Eye, FileText, Printer, Search, Upload, Briefcase } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -12,6 +12,13 @@ import {
   type CommercialChamberRecord,
 } from '../../api/commercialChamberApi';
 import { openCommercialDetailPrint, openCommercialListPrint } from '../../lib/commercialChamberPrintHtml';
+import {
+  buildCommercialAmounts,
+  computeServiceChargeUsd,
+  DEFAULT_COMMERCIAL_PERCENTAGE,
+  getCommercialChamberDjfRate,
+  parseLocalizedNumber,
+} from '../../lib/commercialChamberCalculations';
 import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from '../Shared/common/FormComponents';
 import Modal from '../Shared/common/Modal';
 import { ActionMenu } from '../Shared/common/ActionMenu';
@@ -50,7 +57,7 @@ function recordToFormData(r: CommercialChamberRecord) {
     chamber_service_amount: String(r.chamber_service_amount ?? ''),
     quantity: String(r.quantity ?? ''),
     unit_price: String(r.unit_price ?? ''),
-    percentage: String(r.percentage ?? ''),
+    percentage: String(r.percentage ?? DEFAULT_COMMERCIAL_PERCENTAGE),
     goods_description: r.goods_description || '',
     service_charge: String(r.service_charge ?? ''),
     tell: r.tell || '',
@@ -142,6 +149,7 @@ export function CommercialChamber() {
   const [selectedClient, setSelectedClient] = useState('');
   const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
   const [formClientId, setFormClientId] = useState('');
+  const [djfRate] = useState(getCommercialChamberDjfRate());
   const { t } = useLanguage();
   const { formatAmount } = useCurrency();
 
@@ -163,7 +171,7 @@ export function CommercialChamber() {
     chamber_service_amount: '',
     quantity: '',
     unit_price: '',
-    percentage: '',
+    percentage: String(DEFAULT_COMMERCIAL_PERCENTAGE),
     goods_description: '',
     service_charge: '',
     tell: '',
@@ -185,6 +193,62 @@ export function CommercialChamber() {
     })();
   }, []);
 
+  useEffect(() => {
+    const chamber = parseLocalizedNumber(formData.chamber_service_amount);
+    const bank = parseLocalizedNumber(formData.bank_commission_fee);
+    const transport = parseLocalizedNumber(formData.transport_dhl);
+    const certificate = parseLocalizedNumber(formData.certificate_fee);
+    const unitPrice = parseLocalizedNumber(formData.unit_price);
+    const percentage =
+      parseLocalizedNumber(formData.percentage) || DEFAULT_COMMERCIAL_PERCENTAGE;
+    const amounts = buildCommercialAmounts(
+      {
+        unit_price: unitPrice,
+        percentage,
+        chamber_service_amount: chamber,
+        bank_commission_fee: bank,
+        transport_dhl: transport,
+        certificate_fee: certificate,
+      },
+      djfRate
+    );
+
+    setFormData(prev => {
+      const nextService = String(amounts.service_charge);
+      const nextTotal = String(amounts.total);
+      const nextPct = String(amounts.percentage);
+      if (
+        prev.service_charge === nextService &&
+        prev.total === nextTotal &&
+        prev.percentage === nextPct
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        percentage: nextPct,
+        service_charge: nextService,
+        total: nextTotal,
+      };
+    });
+  }, [
+    formData.unit_price,
+    formData.percentage,
+    formData.chamber_service_amount,
+    formData.bank_commission_fee,
+    formData.transport_dhl,
+    formData.certificate_fee,
+    djfRate,
+  ]);
+
+  const serviceChargePreview = useMemo(() => {
+    const unitPrice = parseLocalizedNumber(formData.unit_price);
+    const percentage = parseLocalizedNumber(formData.percentage) || DEFAULT_COMMERCIAL_PERCENTAGE;
+    const usd = computeServiceChargeUsd(unitPrice, percentage);
+    const fdj = parseLocalizedNumber(formData.service_charge);
+    return { unitPrice, usd, fdj };
+  }, [formData.unit_price, formData.percentage, formData.service_charge]);
+
   const loadCommercials = async () => {
     try {
       const data = await fetchCommercialChambers();
@@ -198,15 +262,15 @@ export function CommercialChamber() {
 
   const buildPayload = () => ({
     ...formData,
-    chamber_service_amount: parseFloat(formData.chamber_service_amount) || 0,
-    quantity: parseFloat(formData.quantity) || 0,
-    unit_price: parseFloat(formData.unit_price) || 0,
-    percentage: parseFloat(formData.percentage) || 0,
-    service_charge: parseFloat(formData.service_charge) || 0,
-    bank_commission_fee: parseFloat(formData.bank_commission_fee) || 0,
-    transport_dhl: parseFloat(formData.transport_dhl) || 0,
-    total: parseFloat(formData.total) || 0,
-    certificate_fee: parseFloat(formData.certificate_fee) || 0,
+    chamber_service_amount: parseLocalizedNumber(formData.chamber_service_amount),
+    quantity: parseLocalizedNumber(formData.quantity),
+    unit_price: parseLocalizedNumber(formData.unit_price),
+    percentage: parseLocalizedNumber(formData.percentage) || DEFAULT_COMMERCIAL_PERCENTAGE,
+    service_charge: parseLocalizedNumber(formData.service_charge),
+    bank_commission_fee: parseLocalizedNumber(formData.bank_commission_fee),
+    transport_dhl: parseLocalizedNumber(formData.transport_dhl),
+    total: parseLocalizedNumber(formData.total),
+    certificate_fee: parseLocalizedNumber(formData.certificate_fee),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -286,7 +350,7 @@ export function CommercialChamber() {
       chamber_service_amount: '',
       quantity: '',
       unit_price: '',
-      percentage: '',
+      percentage: String(DEFAULT_COMMERCIAL_PERCENTAGE),
       goods_description: '',
       service_charge: '',
       tell: '',
@@ -596,6 +660,7 @@ export function CommercialChamber() {
                         setFormData({
                           ...formData,
                           client_name: c ? formatClientLabel(c) : '',
+                          tell: c?.phone || '',
                         });
                       }}
                       className="tabular-nums"
@@ -672,7 +737,7 @@ export function CommercialChamber() {
 
                   <div>
                     <FormLabel>
-                      {t('commercial.chamberServiceAmount')} *
+                      {t('commercial.chamberServiceAmount')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"
@@ -700,16 +765,21 @@ export function CommercialChamber() {
 
                   <div>
                     <FormLabel>
-                      {t('commercial.unitPrice')}
+                      {t('commercial.unitPrice')} <span className="normal-case text-gray-400">(USD)</span>
                     </FormLabel>
-                    <FormInput
-                      type="number"
-                      step="0.01"
-                      value={formData.unit_price}
-                      onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-                      className="tabular-nums"
-                      placeholder="0.00"
-                    />
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                        $
+                      </span>
+                      <FormInput
+                        type="number"
+                        step="0.01"
+                        value={formData.unit_price}
+                        onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
+                        className="tabular-nums pl-7"
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
                   <div>
                     <FormLabel>
@@ -721,7 +791,7 @@ export function CommercialChamber() {
                       value={formData.percentage}
                       onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
                       className="tabular-nums"
-                      placeholder="0"
+                      placeholder={String(DEFAULT_COMMERCIAL_PERCENTAGE)}
                     />
                   </div>
 
@@ -738,17 +808,25 @@ export function CommercialChamber() {
                   </div>
                   <div>
                     <FormLabel>
-                      {t('commercial.serviceCharge')} *
+                      {t('commercial.serviceCharge')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"
                       step="0.01"
                       value={formData.service_charge}
-                      onChange={(e) => setFormData({ ...formData, service_charge: e.target.value })}
-                      className="tabular-nums"
+                      readOnly
+                      className="tabular-nums bg-slate-50"
                       placeholder="0.00"
                       required
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t('commercial.serviceChargeHint')}{' '}
+                      {serviceChargePreview.unitPrice > 0 && (
+                        <span className="font-medium text-[#0F3C66]">
+                          ({serviceChargePreview.usd.toFixed(2)} USD × {djfRate} = {serviceChargePreview.fdj.toFixed(2)} FDJ)
+                        </span>
+                      )}
+                    </p>
                   </div>
 
                   <div>
@@ -779,7 +857,7 @@ export function CommercialChamber() {
                   </div>
                   <div>
                     <FormLabel>
-                      {t('commercial.bankFee')} *
+                      {t('commercial.bankFee')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"
@@ -794,7 +872,7 @@ export function CommercialChamber() {
 
                   <div>
                     <FormLabel>
-                      {t('commercial.transport')} *
+                      {t('commercial.transport')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"
@@ -808,14 +886,14 @@ export function CommercialChamber() {
                   </div>
                   <div>
                     <FormLabel>
-                      {t('commercial.total')}
+                      {t('commercial.total')} <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"
                       step="0.01"
                       value={formData.total}
-                      onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                      className="tabular-nums"
+                      readOnly
+                      className="tabular-nums bg-slate-50 font-semibold text-[#0F3C66]"
                       placeholder="0.00"
                     />
                   </div>
@@ -893,7 +971,7 @@ export function CommercialChamber() {
 
                   <div className="max-w-md">
                     <FormLabel>
-                      {t('commercial.certificateFee')}
+                      {t('commercial.certificateFee')} <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
                       type="number"

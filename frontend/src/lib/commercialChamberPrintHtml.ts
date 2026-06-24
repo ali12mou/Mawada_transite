@@ -3,6 +3,11 @@ import type { DocumentBranding } from '../types/documentBranding';
 import { buildLetterheadHtml, cssUrlForBackground, documentImageSrc } from './documentPrintImages';
 import { letterheadBannerPrintCss } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import {
+  computeServiceChargeUsd,
+  DEFAULT_COMMERCIAL_PERCENTAGE,
+  getCommercialChamberDjfRate,
+} from './commercialChamberCalculations';
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? '')
@@ -32,8 +37,8 @@ function fmtDateFr(iso: string): string {
   return esc(iso);
 }
 
-const ORANGE = '#EE964C';
-const ORANGE_DARK = '#d35400';
+const GREEN = '#3d9140';
+const GREEN_DARK = '#2f7332';
 
 /** Deux lignes Mob / TEL depuis le champ téléphone (séparateurs | / ; saut de ligne). */
 function splitPhones(phone: string): { mob: string; tel: string } {
@@ -53,15 +58,19 @@ export function buildCommercialDetailPrintHtml(
   branding: DocumentBranding,
   djfPerOneUsd: number
 ): string {
-  const rate = djfPerOneUsd > 0 ? djfPerOneUsd : 177;
+  const rate = getCommercialChamberDjfRate();
   const toUsd = (fdj: number) => (Number.isFinite(fdj) && rate > 0 ? fdj / rate : 0);
 
   const chamber = record.chamber_service_amount ?? 0;
-  const service = record.service_charge ?? 0;
+  const percentage = record.percentage > 0 ? record.percentage : DEFAULT_COMMERCIAL_PERCENTAGE;
+  const unitPriceUsd = record.unit_price ?? 0;
+  const serviceUsd = computeServiceChargeUsd(unitPriceUsd, percentage);
+  const service = record.service_charge ?? serviceUsd * rate;
   const bank = record.bank_commission_fee ?? 0;
   const transport = record.transport_dhl ?? 0;
   const cert = record.certificate_fee ?? 0;
-  const totalFdj = record.total ?? chamber + service + bank + transport + cert;
+  const totalFdj = chamber + service + bank + transport + cert;
+  const totalUsd = toUsd(chamber) + serviceUsd + toUsd(bank) + toUsd(transport) + toUsd(cert);
 
   const letter = buildLetterheadHtml(branding);
 
@@ -127,7 +136,7 @@ export function buildCommercialDetailPrintHtml(
     .pct-box .pct-line .num { font-size: 26pt; }
     .fin-table { width: 100%; border-collapse: collapse; font-size: 10pt; margin: 8px 0 20px; position: relative; z-index: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .fin-table thead th {
-      background: linear-gradient(180deg, ${ORANGE} 0%, ${ORANGE_DARK} 100%);
+      background: linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%);
       color: #fff; font-weight: 700; padding: 10px 12px; text-align: left;
       border: none;
     }
@@ -138,11 +147,11 @@ export function buildCommercialDetailPrintHtml(
     .fin-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .fin-table tbody tr:nth-child(even) { background: #fafafa; }
     .fin-table tbody tr.total-row td {
-      background: linear-gradient(180deg, ${ORANGE} 0%, ${ORANGE_DARK} 100%) !important;
+      background: linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%) !important;
       color: #fff !important; font-weight: 700; border: none; padding: 11px 12px;
     }
     .doc-footer { margin-top: auto; }
-    .footer-bar { height: 4px; background: ${ORANGE}; margin-top: 8px; margin-bottom: 12px; border-radius: 1px; }
+    .footer-bar { height: 4px; background: ${GREEN}; margin-top: 8px; margin-bottom: 12px; border-radius: 1px; }
     .footer-grid { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; font-size: 9.5pt; color: #222; line-height: 1.5; position: relative; z-index: 1; }
     .footer-left, .footer-right { flex: 1; min-width: 200px; }
     .footer-line { margin: 3px 0; }
@@ -169,7 +178,7 @@ export function buildCommercialDetailPrintHtml(
         <div class="info-row"><span class="lbl">Description of goods:</span> ${esc(record.goods_description || '—')}</div>
         <div class="info-row"><span class="lbl">Quantity:</span> ${esc(fmtMoney(record.quantity ?? 0, 2))}</div>
         <div class="info-row"><span class="lbl">Tell (Phone):</span> ${esc(record.tell || '—')}</div>
-        <div class="info-row"><span class="lbl">Unit Price Commercial Invoice:</span> ${fmtMoney(record.unit_price ?? 0, 2)} Fdj</div>
+        <div class="info-row"><span class="lbl">Unit Price Commercial Invoice:</span> $ ${fmtMoney(unitPriceUsd, 2)}</div>
         <div class="info-row"><span class="lbl">Tim NO:</span> ${esc(record.timno || '—')}</div>
         <div class="info-row"><span class="lbl">Commercial Invoice No:</span> ${esc(record.commercial_invoice_no || 'N/A')}</div>
         <div class="info-row"><span class="lbl">Commercial Invoice Date:</span> ${esc(record.commercial_invoice_date ? fmtDateFr(record.commercial_invoice_date) : 'N/A')}</div>
@@ -177,7 +186,7 @@ export function buildCommercialDetailPrintHtml(
         <div class="info-row"><span class="lbl">Purchase Order Date:</span> ${esc(record.purchase_order_date ? fmtDateFr(record.purchase_order_date) : 'N/A')}</div>
       </div>
       <div class="pct-box">
-        <div class="pct-line">Percentage <span class="num">${esc(fmtMoney(record.percentage ?? 0, 0))}%</span></div>
+        <div class="pct-line">Percentage <span class="num">${esc(String(percentage))}%</span></div>
       </div>
     </div>
 
@@ -198,7 +207,7 @@ export function buildCommercialDetailPrintHtml(
         <tr>
           <td>Service fee or charge</td>
           <td class="num">${fmtMoney(service, 2)} Fdj</td>
-          <td class="num">$${fmtMoney(toUsd(service), 2)}</td>
+          <td class="num">$${fmtMoney(serviceUsd, 2)}</td>
         </tr>
         <tr>
           <td>Bank commission fee</td>
@@ -218,7 +227,7 @@ export function buildCommercialDetailPrintHtml(
         <tr class="total-row">
           <td>Total amount DJF/USD</td>
           <td class="num">${fmtMoney(totalFdj, 2)} Fdj</td>
-          <td class="num">$${fmtMoney(toUsd(totalFdj), 2)}</td>
+          <td class="num">$${fmtMoney(totalUsd, 2)}</td>
         </tr>
       </tbody>
     </table>
@@ -235,16 +244,8 @@ export function buildCommercialDetailPrintHtml(
 
 export async function openCommercialDetailPrint(record: CommercialChamberRecord): Promise<void> {
   const { fetchDocumentBranding } = await import('./documentBranding');
-  const { fetchAppConfig } = await import('../api/appConfigApi');
   const branding = await fetchDocumentBranding();
-  let rate = 177;
-  try {
-    const cfg = await fetchAppConfig();
-    const r = parseFloat(String(cfg.djf_exchange_rate || '').replace(',', '.'));
-    if (Number.isFinite(r) && r > 0) rate = r;
-  } catch {
-    /* défaut */
-  }
+  const rate = getCommercialChamberDjfRate();
   const html = buildCommercialDetailPrintHtml(record, branding, rate);
   const w = window.open('', '_blank', 'width=900,height=1200');
   if (!w) {
@@ -280,7 +281,7 @@ export function buildCommercialListPrintHtml(
     body{font-family:Arial,sans-serif;font-size:11pt}
     table{width:100%;border-collapse:collapse}
     th,td{border:1px solid #ccc;padding:6px 8px}
-    th{background:linear-gradient(180deg, ${ORANGE} 0%, ${ORANGE_DARK} 100%);color:#fff;text-align:left;font-weight:700}
+    th{background:linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%);color:#fff;text-align:left;font-weight:700}
     .letterhead{text-align:center;margin-bottom:12px}
     .letterhead img{max-height:80px;width:100%;object-fit:contain}
     .sub{font-size:10pt;color:#444;margin:8px 0 16px}

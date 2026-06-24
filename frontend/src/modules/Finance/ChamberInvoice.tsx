@@ -16,6 +16,8 @@ import {
   WaybillFormFields,
   emptyWaybillForm,
   emptyWaybillLineItem,
+  applyWaybillLineUpdate,
+  parseWaybillNumeric,
   type WaybillLineItem,
 } from './chamberInvoiceWaybillFields';
 import {
@@ -28,6 +30,29 @@ import {
   type ChamberInvoicePrintRecord,
 } from '../../lib/chamberInvoicePrintHtml';
 import { DocumentBrandBanner } from '../Shared/DocumentBrandBanner';
+
+interface RouteRecord {
+  id?: string;
+  _id?: string;
+  source: string;
+  destination: string;
+}
+
+function formatRouteLabel(route: RouteRecord): string {
+  return `${route.source} -To- ${route.destination}`;
+}
+
+function waybillLineFromRecord(it: Record<string, unknown>): WaybillLineItem {
+  return {
+    description_of_goods: String(it.description_of_goods ?? ''),
+    origin: String(it.origin ?? ''),
+    unit: String(it.unit ?? ''),
+    quantity: String(it.quantity ?? ''),
+    net_weight: String(it.net_weight ?? ''),
+    gross_weight: String(it.gross_weight ?? ''),
+    total: String(it.total ?? ''),
+  };
+}
 
 interface ChamberInvoiceData {
   id: string;
@@ -43,9 +68,9 @@ interface InvoiceItem {
   origin: string;
   hs_code: string;
   unit: string;
-  quantity: number;
-  unit_price: number;
-  total_amount: number;
+  quantity: string;
+  unit_price: string;
+  total_amount: string;
 }
 
 const invoiceLabelClass = 'mb-1 block text-xs font-bold uppercase tracking-wide text-gray-700';
@@ -134,6 +159,7 @@ export function ChamberInvoice() {
   const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>(
     []
   );
+  const [routesList, setRoutesList] = useState<RouteRecord[]>([]);
   const [banksList, setBanksList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>(
     []
@@ -145,17 +171,17 @@ export function ChamberInvoice() {
       origin: '',
       hs_code: '',
       unit: '',
-      quantity: 0,
-      unit_price: 0,
-      total_amount: 0,
+      quantity: '',
+      unit_price: '',
+      total_amount: '',
     },
   ]);
 
-  const [packingList, setPackingList] = useState(emptyWaybillForm);
+  const [packingList, setPackingList] = useState(emptyWaybillForm());
 
   const [packingItems, setPackingItems] = useState<WaybillLineItem[]>([emptyWaybillLineItem()]);
 
-  const [originalLetter, setOriginalLetter] = useState(emptyWaybillForm);
+  const [originalLetter, setOriginalLetter] = useState(emptyWaybillForm());
 
   const [originalLetterItems, setOriginalLetterItems] = useState<WaybillLineItem[]>([
     emptyWaybillLineItem(),
@@ -173,14 +199,16 @@ export function ChamberInvoice() {
     if (!showModal) return;
     (async () => {
       try {
-        const [clients, locations, banks, categories] = await Promise.all([
+        const [clients, locations, routes, banks, categories] = await Promise.all([
           fetchClients(),
           genericApi.list('locations'),
+          genericApi.list<RouteRecord>('routes'),
           genericApi.list('banks'),
           genericApi.list('product_categories'),
         ]);
         setClientsList(clients);
         setLocationsList(locations || []);
+        setRoutesList(routes || []);
         setBanksList(banks || []);
         setGoodsCategories(categories || []);
       } catch (e) {
@@ -188,6 +216,20 @@ export function ChamberInvoice() {
       }
     })();
   }, [showModal]);
+
+  const sourceDestinationOptions = useMemo(() => {
+    const labels = routesList.map((route) => formatRouteLabel(route));
+    const saved = [
+      formData.source_destination,
+      packingList.consignee_source_destination,
+      packingList.shipper_source_destination,
+      packingList.notify_party_source_destination,
+      originalLetter.consignee_source_destination,
+      originalLetter.shipper_source_destination,
+      originalLetter.notify_party_source_destination,
+    ].filter(Boolean) as string[];
+    return [...new Set([...labels, ...saved])];
+  }, [routesList, formData.source_destination, packingList, originalLetter]);
 
   const loadInvoices = async () => {
     try {
@@ -273,9 +315,9 @@ export function ChamberInvoice() {
         origin: '',
         hs_code: '',
         unit: '',
-        quantity: 0,
-        unit_price: 0,
-        total_amount: 0,
+        quantity: '',
+        unit_price: '',
+        total_amount: '',
       },
     ]);
     setPackingList(emptyWaybillForm());
@@ -294,7 +336,7 @@ export function ChamberInvoice() {
 
   const updatePackingItem = (index: number, field: keyof WaybillLineItem, value: unknown) => {
     const next = [...packingItems];
-    next[index] = { ...next[index], [field]: value } as WaybillLineItem;
+    next[index] = applyWaybillLineUpdate(next[index], field, value);
     setPackingItems(next);
   };
 
@@ -308,7 +350,7 @@ export function ChamberInvoice() {
 
   const updateOriginalLetterItem = (index: number, field: keyof WaybillLineItem, value: unknown) => {
     const next = [...originalLetterItems];
-    next[index] = { ...next[index], [field]: value } as WaybillLineItem;
+    next[index] = applyWaybillLineUpdate(next[index], field, value);
     setOriginalLetterItems(next);
   };
 
@@ -320,9 +362,9 @@ export function ChamberInvoice() {
         origin: '',
         hs_code: '',
         unit: '',
-        quantity: 0,
-        unit_price: 0,
-        total_amount: 0,
+        quantity: '',
+        unit_price: '',
+        total_amount: '',
       },
     ]);
   };
@@ -333,11 +375,12 @@ export function ChamberInvoice() {
 
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: unknown) => {
     const newItems = [...invoiceItems];
-    const row = { ...newItems[index], [field]: value } as InvoiceItem;
+    const row = { ...newItems[index], [field]: String(value ?? '') } as InvoiceItem;
     if (field === 'quantity' || field === 'unit_price') {
-      const q = field === 'quantity' ? Number(value) : row.quantity;
-      const p = field === 'unit_price' ? Number(value) : row.unit_price;
-      row.total_amount = Math.round(q * p * 100) / 100;
+      const q = parseWaybillNumeric(field === 'quantity' ? value : row.quantity);
+      const p = parseWaybillNumeric(field === 'unit_price' ? value : row.unit_price);
+      const amount = Math.round(q * p * 100) / 100;
+      row.total_amount = q && p ? String(amount) : '';
     }
     newItems[index] = row;
     setInvoiceItems(newItems);
@@ -436,22 +479,14 @@ export function ChamberInvoice() {
         origin: str(it.origin),
         hs_code: str(it.hs_code),
         unit: str(it.unit),
-        quantity: Number(it.quantity) || 0,
-        unit_price: Number(it.unit_price) || 0,
-        total_amount: Number(it.total_amount) || 0,
+        quantity: parseWaybillNumeric(it.quantity),
+        unit_price: parseWaybillNumeric(it.unit_price),
+        total_amount: parseWaybillNumeric(it.total_amount),
       }));
 
       const mapPackItems = (raw: unknown): WaybillLineItem[] => {
         if (!Array.isArray(raw)) return [];
-        return raw.map((it: Record<string, unknown>) => ({
-          description_of_goods: str(it.description_of_goods),
-          origin: str(it.origin),
-          unit: str(it.unit),
-          quantity: Number(it.quantity) || 0,
-          net_weight: Number(it.net_weight) || 0,
-          gross_weight: Number(it.gross_weight) || 0,
-          total: Number(it.total) || 0,
-        }));
+        return raw.map((it: Record<string, unknown>) => waybillLineFromRecord(it));
       };
 
       const pack = full.packing as Record<string, unknown> | null;
@@ -539,9 +574,9 @@ export function ChamberInvoice() {
             origin: String(it.origin ?? ''),
             hs_code: String(it.hs_code ?? ''),
             unit: String(it.unit ?? ''),
-            quantity: Number(it.quantity) || 0,
-            unit_price: Number(it.unit_price) || 0,
-            total_amount: Number(it.total_amount) || 0,
+            quantity: String(it.quantity ?? ''),
+            unit_price: String(it.unit_price ?? ''),
+            total_amount: String(it.total_amount ?? ''),
           }))
           : [
             {
@@ -549,9 +584,9 @@ export function ChamberInvoice() {
               origin: '',
               hs_code: '',
               unit: '',
-              quantity: 0,
-              unit_price: 0,
-              total_amount: 0,
+              quantity: '',
+              unit_price: '',
+              total_amount: '',
             },
           ]
       );
@@ -583,15 +618,7 @@ export function ChamberInvoice() {
         const rows = Array.isArray(packItems) ? packItems : [];
         setPackingItems(
           rows.length > 0
-            ? rows.map((it: Record<string, unknown>) => ({
-                description_of_goods: String(it.description_of_goods ?? ''),
-                origin: String(it.origin ?? ''),
-                unit: String(it.unit ?? ''),
-                quantity: Number(it.quantity) || 0,
-                net_weight: Number(it.net_weight) || 0,
-                gross_weight: Number(it.gross_weight) || 0,
-                total: Number(it.total) || 0,
-              }))
+            ? rows.map((it: Record<string, unknown>) => waybillLineFromRecord(it))
             : [emptyWaybillLineItem()]
         );
       } else {
@@ -627,15 +654,7 @@ export function ChamberInvoice() {
         const letterRows = Array.isArray(letterItems) ? letterItems : [];
         setOriginalLetterItems(
           letterRows.length > 0
-            ? letterRows.map((it: Record<string, unknown>) => ({
-                description_of_goods: String(it.description_of_goods ?? ''),
-                origin: String(it.origin ?? ''),
-                unit: String(it.unit ?? ''),
-                quantity: Number(it.quantity) || 0,
-                net_weight: Number(it.net_weight) || 0,
-                gross_weight: Number(it.gross_weight) || 0,
-                total: Number(it.total) || 0,
-              }))
+            ? letterRows.map((it: Record<string, unknown>) => waybillLineFromRecord(it))
             : [emptyWaybillLineItem()]
         );
       } else {
@@ -929,10 +948,10 @@ export function ChamberInvoice() {
                         }
                         className={invoiceSelectClass}
                       >
-                        <option value="">{t('chamberInvoice.select')}</option>
-                        {locationsList.map((l) => (
-                          <option key={l.id || l._id} value={l.name}>
-                            {l.name}
+                        <option value="">{t('orders.selectSourceDestination')}</option>
+                        {sourceDestinationOptions.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
                           </option>
                         ))}
                       </select>
@@ -1086,6 +1105,7 @@ export function ChamberInvoice() {
                     purchaseOrderMode="packing"
                     clientsList={clientsList}
                     locationsList={locationsList}
+                    sourceDestinationOptions={sourceDestinationOptions}
                     goodsCategories={goodsCategories}
                     t={t}
                   />
@@ -1103,6 +1123,7 @@ export function ChamberInvoice() {
                     purchaseOrderMode="otb"
                     clientsList={clientsList}
                     locationsList={locationsList}
+                    sourceDestinationOptions={sourceDestinationOptions}
                     goodsCategories={goodsCategories}
                     t={t}
                   />
@@ -1285,40 +1306,29 @@ export function ChamberInvoice() {
                             </td>
                             <td className="border border-gray-200 px-1 py-1">
                               <input
-                                type="number"
-                                step="0.01"
-                                value={item.quantity || ''}
+                                type="text"
+                                value={item.quantity}
                                 onChange={(e) =>
-                                  updateInvoiceItem(
-                                    index,
-                                    'quantity',
-                                    parseFloat(e.target.value) || 0
-                                  )
+                                  updateInvoiceItem(index, 'quantity', e.target.value)
                                 }
                                 className={invoiceInputClass}
                               />
                             </td>
                             <td className="border border-gray-200 px-1 py-1">
                               <input
-                                type="number"
-                                step="0.01"
-                                value={item.unit_price || ''}
+                                type="text"
+                                value={item.unit_price}
                                 onChange={(e) =>
-                                  updateInvoiceItem(
-                                    index,
-                                    'unit_price',
-                                    parseFloat(e.target.value) || 0
-                                  )
+                                  updateInvoiceItem(index, 'unit_price', e.target.value)
                                 }
                                 className={invoiceInputClass}
                               />
                             </td>
                             <td className="border border-gray-200 px-1 py-1">
                               <input
-                                type="number"
-                                step="0.01"
+                                type="text"
                                 readOnly
-                                value={item.total_amount || ''}
+                                value={item.total_amount}
                                 className={`${invoiceInputClass} bg-gray-50`}
                               />
                             </td>

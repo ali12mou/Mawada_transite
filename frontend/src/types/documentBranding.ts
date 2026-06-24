@@ -1,5 +1,8 @@
 import type { AppConfigMap } from '../api/appConfigApi';
 
+/** Nom affiché sur les documents si `company_name` n'est pas configuré en base. */
+export const DEFAULT_COMPANY_NAME = 'Geosom technologie';
+
 export interface DocumentBranding {
   letterHeadUrl: string;
   footerLogoUrl: string;
@@ -19,7 +22,7 @@ export function brandingFromConfig(cfg: AppConfigMap): DocumentBranding {
     footerLogoUrl: cfg.footer_logo_image || '',
     signatureUrl: cfg.signature_logo_image || '',
     signatureStampUrl: cfg.signature_stamp_image || cfg.signature_logo_image || '',
-    companyName: cfg.company_name || '',
+    companyName: (cfg.company_name || '').trim() || DEFAULT_COMPANY_NAME,
     companyAddress: cfg.company_address || '',
     companyPhone: cfg.company_phone || '',
     companyEmail: cfg.company_email || '',

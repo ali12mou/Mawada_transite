@@ -1,4 +1,4 @@
-import type { DocumentBranding } from '../types/documentBranding';
+import { DEFAULT_COMPANY_NAME, type DocumentBranding } from '../types/documentBranding';
 import { documentImageSrc } from './documentPrintImages';
 import { fetchDocumentBranding } from './documentBranding';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
@@ -192,7 +192,7 @@ export function buildDemurragePrintHtml(
     
     <div class="header">
         ${logoSrc ? `<img src="${esc(logoSrc)}" class="logo" alt="" />` : ''}
-        <div class="company-name">${esc(branding.companyName || 'Hamilton International FZCO')}</div>
+        <div class="company-name">${esc(branding.companyName || DEFAULT_COMPANY_NAME)}</div>
     </div>
 
     <div class="title-section">

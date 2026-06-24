@@ -6,10 +6,47 @@ export interface WaybillLineItem {
   description_of_goods: string;
   origin: string;
   unit: string;
-  quantity: number;
-  net_weight: number;
-  gross_weight: number;
-  total: number;
+  quantity: string;
+  net_weight: string;
+  gross_weight: string;
+  total: string;
+}
+
+/** Extrait le premier nombre d'une saisie libre (ex. « 22 », « 3 un »). */
+export function parseWaybillNumeric(value: unknown): number {
+  const s = String(value ?? '')
+    .trim()
+    .replace(/\s/g, '')
+    .replace(',', '.');
+  const m = s.match(/-?\d+(\.\d+)?/);
+  if (!m) return 0;
+  const n = parseFloat(m[0]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Total USD = Qté × N/Weight (sinon Qté × G/Weight). */
+export function computeWaybillLineTotal(
+  item: Pick<WaybillLineItem, 'quantity' | 'net_weight' | 'gross_weight'>
+): string {
+  const qty = parseWaybillNumeric(item.quantity);
+  const net = parseWaybillNumeric(item.net_weight);
+  const gross = parseWaybillNumeric(item.gross_weight);
+  const unitRate = net > 0 ? net : gross;
+  if (!qty || !unitRate) return '';
+  const amount = Math.round(qty * unitRate * 100) / 100;
+  return Number.isFinite(amount) ? String(amount) : '';
+}
+
+export function applyWaybillLineUpdate(
+  row: WaybillLineItem,
+  field: keyof WaybillLineItem,
+  value: unknown
+): WaybillLineItem {
+  const next = { ...row, [field]: String(value ?? '') } as WaybillLineItem;
+  if (field === 'quantity' || field === 'net_weight' || field === 'gross_weight') {
+    next.total = computeWaybillLineTotal(next);
+  }
+  return next;
 }
 
 export function emptyWaybillForm() {
@@ -44,10 +81,10 @@ export function emptyWaybillLineItem(): WaybillLineItem {
     description_of_goods: '',
     origin: '',
     unit: '',
-    quantity: 0,
-    net_weight: 0,
-    gross_weight: 0,
-    total: 0,
+    quantity: '',
+    net_weight: '',
+    gross_weight: '',
+    total: '',
   };
 }
 
@@ -86,6 +123,7 @@ export function WaybillFormFields({
   purchaseOrderMode,
   clientsList,
   locationsList,
+  sourceDestinationOptions,
   goodsCategories,
   t,
 }: {
@@ -99,6 +137,7 @@ export function WaybillFormFields({
   purchaseOrderMode: 'packing' | 'otb';
   clientsList: ClientRecord[];
   locationsList: { id?: string; _id?: string; name: string }[];
+  sourceDestinationOptions: string[];
   goodsCategories: { id?: string; _id?: string; name: string }[];
   t: (key: string) => string;
 }) {
@@ -172,10 +211,10 @@ export function WaybillFormFields({
               onChange={(e) => onChange({ ...data, consignee_source_destination: e.target.value })}
               className={selectClass}
             >
-              <option value="">{t('chamberInvoice.select')}</option>
-              {locationsList.map((l) => (
-                <option key={`${idPrefix}-csd-${l.id || l._id}`} value={l.name}>
-                  {l.name}
+              <option value="">{t('orders.selectSourceDestination')}</option>
+              {sourceDestinationOptions.map((label) => (
+                <option key={`${idPrefix}-csd-${label}`} value={label}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -213,10 +252,10 @@ export function WaybillFormFields({
               onChange={(e) => onChange({ ...data, shipper_source_destination: e.target.value })}
               className={selectClass}
             >
-              <option value="">{t('chamberInvoice.select')}</option>
-              {locationsList.map((l) => (
-                <option key={`${idPrefix}-ssd-${l.id || l._id}`} value={l.name}>
-                  {l.name}
+              <option value="">{t('orders.selectSourceDestination')}</option>
+              {sourceDestinationOptions.map((label) => (
+                <option key={`${idPrefix}-ssd-${label}`} value={label}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -289,10 +328,10 @@ export function WaybillFormFields({
               onChange={(e) => onChange({ ...data, consignee_source_destination: e.target.value })}
               className={selectClass}
             >
-              <option value="">{t('chamberInvoice.select')}</option>
-              {locationsList.map((l) => (
-                <option key={`${idPrefix}-to-sd-${l.id || l._id}`} value={l.name}>
-                  {l.name}
+              <option value="">{t('orders.selectSourceDestination')}</option>
+              {sourceDestinationOptions.map((label) => (
+                <option key={`${idPrefix}-to-sd-${label}`} value={label}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -339,10 +378,10 @@ export function WaybillFormFields({
                 }
                 className={selectClass}
               >
-                <option value="">{t('chamberInvoice.select')}</option>
-                {locationsList.map((l) => (
-                  <option key={`${idPrefix}-np-sd-${l.id || l._id}`} value={l.name}>
-                    {l.name}
+                <option value="">{t('orders.selectSourceDestination')}</option>
+                {sourceDestinationOptions.map((label) => (
+                  <option key={`${idPrefix}-np-sd-${label}`} value={label}>
+                    {label}
                   </option>
                 ))}
               </select>
@@ -446,38 +485,34 @@ export function WaybillFormFields({
                 </td>
                 <td className="border border-gray-200 px-1 py-1">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={item.quantity || ''}
-                    onChange={(e) => onUpdateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    value={item.quantity}
+                    onChange={(e) => onUpdateItem(index, 'quantity', e.target.value)}
                     className={inputClass}
                   />
                 </td>
                 <td className="border border-gray-200 px-1 py-1">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={item.net_weight || ''}
-                    onChange={(e) => onUpdateItem(index, 'net_weight', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    value={item.net_weight}
+                    onChange={(e) => onUpdateItem(index, 'net_weight', e.target.value)}
                     className={inputClass}
                   />
                 </td>
                 <td className="border border-gray-200 px-1 py-1">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={item.gross_weight || ''}
-                    onChange={(e) => onUpdateItem(index, 'gross_weight', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    value={item.gross_weight}
+                    onChange={(e) => onUpdateItem(index, 'gross_weight', e.target.value)}
                     className={inputClass}
                   />
                 </td>
                 <td className="border border-gray-200 px-1 py-1">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={item.total || ''}
-                    onChange={(e) => onUpdateItem(index, 'total', parseFloat(e.target.value) || 0)}
-                    className={inputClass}
+                    type="text"
+                    readOnly
+                    value={item.total}
+                    className={`${inputClass} bg-gray-50`}
                   />
                 </td>
                 <td className="border border-gray-200 px-2 py-2 text-center">

@@ -129,6 +129,10 @@ function collectStep4Rows(doc: Document9Record): DocPriceRow[] {
   );
 }
 
+function suppCell(label: string, value: string): string {
+  return `<td class="supp-lbl">${esc(label)}</td><td class="supp-val">${value || '—'}</td>`;
+}
+
 function buildTransferSupplementHtml(doc: Document9Record): string {
   const step3 = collectStep3Rows(doc);
   const step4 = collectStep4Rows(doc);
@@ -184,10 +188,6 @@ function buildTransferSupplementHtml(doc: Document9Record): string {
     </div>`;
 }
 
-function suppCell(label: string, value: string): string {
-  return `<td class="supp-lbl">${esc(label)}</td><td class="supp-val">${value || '—'}</td>`;
-}
-
 /**
  * Gabarit « AVIS DE LIVRAISON » (document n° 9) — feuille type douanes
  * (sans en-tête République / logo : bloc titre + 9 + licence dès le haut).
@@ -212,6 +212,8 @@ export function buildDocument9PrintHtml(
   const b = branding || null;
   const sigSrc = b ? documentImageSrc(b.signatureUrl) : '';
   const sig = sigSrc ? `<img class="sig-img" src="${esc(sigSrc)}" alt="" />` : '';
+
+  const supplementHtml = buildTransferSupplementHtml(doc);
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -241,8 +243,7 @@ export function buildDocument9PrintHtml(
       width: 100%;
       max-width: 100%;
       margin: 0 auto;
-      padding: 2mm 3mm 4mm 11mm;
-      min-height: 283mm;
+      padding: 2mm 3mm 3mm 11mm;
       box-sizing: border-box;
     }
     .side-note {
@@ -260,7 +261,7 @@ export function buildDocument9PrintHtml(
     }
     .bd { border: 2px solid #000; }
     .bd-thin { border: 1px solid #000; }
-    .hdr-main { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    .hdr-main { width: 100%; border-collapse: collapse; margin-bottom: 0; margin-top: 12mm; }
     .hdr-main td { border: 2px solid #000; padding: 6px 8px; vertical-align: middle; }
     .hdr-left { width: 38%; font-weight: bold; font-size: 11pt; text-align: center; line-height: 1.15; }
     .hdr-left small { font-weight: normal; font-size: 8.5pt; display: block; margin-top: 4px; }
@@ -280,6 +281,9 @@ export function buildDocument9PrintHtml(
     }
     .hdr-right { width: 38%; font-size: 8.5pt; line-height: 1.35; }
     .hdr-right strong { display: inline-block; min-width: 7em; }
+    .document-body {
+      margin-top: 0;
+    }
     .banner {
       border: 2px solid #000;
       border-top: 0;
@@ -328,36 +332,41 @@ export function buildDocument9PrintHtml(
     .march-table td { text-align: center; }
     .march-table td.desc-cell { text-align: left; }
     .footer-grid { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 8pt; border: 2px solid #000; border-top: 1px solid #000; }
-    .footer-grid > tbody > tr > td { border-right: 1px solid #000; padding: 6px; vertical-align: top; }
+    .footer-grid > tbody > tr > td { border-right: 1px solid #000; padding: 4px 6px; vertical-align: top; }
     .footer-grid > tbody > tr > td:last-child { border-right: none; }
     .chk-title { font-weight: bold; margin-bottom: 4px; font-size: 8pt; }
     .chk-item { display: inline-block; margin: 2px 10px 2px 0; white-space: nowrap; }
     .visa-bel {
-      min-height: 72px;
+      min-height: 58px;
       text-align: center;
       font-weight: bold;
       font-size: 9pt;
-      padding-top: 8px;
+      padding-top: 6px;
       border: 1px solid #000;
     }
     .route-line { margin-top: 6px; font-size: 8.5pt; }
     .route-line strong { display: inline-block; min-width: 8em; }
     .decl {
       font-size: 8pt;
-      margin: 8px 0 0;
+      margin: 6px 0 0;
       text-align: center;
       border: 2px solid #000;
       border-top: 1px solid #000;
-      padding: 6px;
+      padding: 5px 6px;
     }
     .sign { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 7.5pt; }
-    .sign td { border: 2px solid #000; border-top: 1px solid #000; padding: 10px 6px; min-height: 56px; vertical-align: bottom; text-align: center; width: 33.33%; }
+    .sign td { border: 2px solid #000; border-top: 1px solid #000; padding: 6px 5px; min-height: 42px; vertical-align: bottom; text-align: center; width: 33.33%; }
     .sig-img { max-height: 44px; max-width: 100%; object-fit: contain; display: block; margin: 4px auto 0; }
     .banner u { text-decoration: underline; }
     .supplement-wrap {
-      margin-top: 10px;
+      margin-top: 0;
+      width: 100%;
       border: 2px solid #000;
+      border-top: 1px solid #000;
       page-break-inside: avoid;
+    }
+    .supplement-wrap .section-bar.supplement-bar:first-child {
+      border-top: none;
     }
     .supplement-bar {
       border: none;
@@ -379,7 +388,6 @@ export function buildDocument9PrintHtml(
       }
       body.document9-a4 {
         width: 210mm !important;
-        min-height: 297mm !important;
         max-width: 210mm;
         margin: 14px auto !important;
         padding: 0 !important;
@@ -387,7 +395,7 @@ export function buildDocument9PrintHtml(
         background: #fff !important;
       }
       .sheet-wrap {
-        min-height: 297mm;
+        min-height: auto;
       }
     }
     @media print {
@@ -401,9 +409,8 @@ export function buildDocument9PrintHtml(
         print-color-adjust: exact;
       }
       .sheet-wrap {
-        min-height: calc(297mm - 14mm);
         width: 100%;
-        padding: 1mm 2mm 3mm 10mm;
+        padding: 1mm 2mm 2mm 10mm;
       }
     }
   </style>
@@ -426,6 +433,7 @@ export function buildDocument9PrintHtml(
       </tr>
     </table>
 
+    <div class="document-body">
     <div class="banner"><u>Veuillez autoriser la livraison des marchandises mentionnées ci-dessous</u></div>
 
     <table class="transfert-wrap" cellspacing="0" cellpadding="0">
@@ -559,7 +567,8 @@ export function buildDocument9PrintHtml(
       </tr>
     </table>
 
-    ${buildTransferSupplementHtml(doc)}
+    ${supplementHtml}
+    </div>
   </div>
 </body>
 </html>`;

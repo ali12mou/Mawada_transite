@@ -1,7 +1,8 @@
 import type { DocumentBranding } from '../types/documentBranding';
-import { documentImageSrc } from './documentPrintImages';
-import { fetchDocumentBranding } from './documentBranding';
-import { buildDocWatermark, docGreen, esc, fmtNum } from './chamberDocumentPrintShared';
+import { buildLetterheadHtml } from './documentPrintImages';
+import { fetchAppConfig } from '../api/appConfigApi';
+import { brandingFromConfig, DEFAULT_COMPANY_NAME } from '../types/documentBranding';
+import { buildDocWatermark, docGreen, esc, fmtNum, letterheadBannerPrintCss } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 function fmtDateDisplay(iso: string): string {
@@ -92,9 +93,9 @@ export type PerformaPrintItem = {
 };
 
 function sellerBlock(p: PerformaPrintRecord, branding: DocumentBranding): string {
-  const name = (p.vendor || branding.companyName || 'HAMILTON INTERNATIONAL FZCO').trim().toUpperCase();
-  const addr = (p.vendor_address || branding.companyAddress || '').trim().toUpperCase();
-  const tel = (p.vendor_tel || branding.companyPhone || '').trim();
+  const name = (branding.companyName || p.vendor || DEFAULT_COMPANY_NAME).trim().toUpperCase();
+  const addr = (branding.companyAddress || p.vendor_address || '').trim().toUpperCase();
+  const tel = (branding.companyPhone || p.vendor_tel || '').trim();
   return `
     <div class="block-line"><span class="lbl">SELLER:</span> ${esc(name)}</div>
     ${addr ? `<div class="block-line">${esc(addr)}</div>` : ''}
@@ -117,8 +118,7 @@ export function buildPerformaPrintHtml(
   branding: DocumentBranding
 ): string {
   const green = docGreen(branding);
-  const logoSrc = documentImageSrc(branding.footerLogoUrl || branding.letterHeadUrl);
-  const companyName = (branding.companyName || p.vendor || 'Hamilton International FZCO').trim();
+  const letterhead = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
 
   const totalUsd = items.reduce((s, it) => s + (Number(it.total_unit_price) || 0), 0);
@@ -155,6 +155,7 @@ export function buildPerformaPrintHtml(
   <title>PERFORMA INVOICE — ${esc(p.performa_code || '')}</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
@@ -185,27 +186,7 @@ export function buildPerformaPrintHtml(
       background-position: center;
     }
     .content { position: relative; z-index: 1; }
-    .head-brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid ${green};
-      margin-bottom: 14px;
-    }
-    .head-logo {
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .head-name {
-      font-family: Georgia, 'Times New Roman', Times, serif;
-      font-size: 22pt;
-      font-weight: 400;
-      color: ${green};
-      line-height: 1.15;
-    }
+    .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
     .title-row {
       position: relative;
       display: flex;
@@ -286,12 +267,7 @@ export function buildPerformaPrintHtml(
   <div class="page">
     ${wm}
     <div class="content">
-      <header>
-        <div class="head-brand">
-          ${logoSrc ? `<img class="head-logo" src="${esc(logoSrc)}" alt="" />` : ''}
-          <div class="head-name">${esc(companyName)}</div>
-        </div>
-      </header>
+      ${letterhead}
 
       <div class="title-row">
         <div class="title-main">PERFORMA INVOICE</div>
@@ -350,7 +326,13 @@ export function buildPerformaPrintHtml(
 }
 
 export async function openPerformaPrintWindow(p: PerformaPrintRecord, items: PerformaPrintItem[]): Promise<void> {
-  const branding = await fetchDocumentBranding();
+  let branding: DocumentBranding;
+  try {
+    const cfg = await fetchAppConfig({ force: true });
+    branding = brandingFromConfig(cfg);
+  } catch {
+    branding = brandingFromConfig({});
+  }
   const html = buildPerformaPrintHtml(p, items, branding);
   const w = window.open('', '_blank', 'width=900,height=1200');
   if (!w) {

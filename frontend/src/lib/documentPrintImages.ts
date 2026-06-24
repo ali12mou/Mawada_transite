@@ -1,4 +1,4 @@
-import type { DocumentBranding } from '../types/documentBranding';
+import { DEFAULT_COMPANY_NAME, type DocumentBranding } from '../types/documentBranding';
 import { getApiBaseUrl } from './apiBase';
 
 function escAttr(s: string): string {
@@ -61,7 +61,7 @@ export function buildLetterheadHtml(branding: DocumentBranding, options?: Letter
   }
 
   const logoSrc = footerLogoSrc || letterSrc;
-  const { line1, line2 } = splitBrandLines(branding.companyName || 'GEOSOM TRANSIT');
+  const { line1, line2 } = splitBrandLines(branding.companyName || DEFAULT_COMPANY_NAME);
   const logoBoxHtml = logoSrc
     ? `<div class="lh-logo-box"><img src="${escAttr(logoSrc)}" alt="${escAttr(branding.companyName || 'Logo')}" class="lh-logo-img" /></div>`
     : `<div class="lh-logo-box lh-logo-ph" aria-hidden="true"></div>`;
