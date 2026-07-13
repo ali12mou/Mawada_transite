@@ -4,9 +4,9 @@ const itemSchema = new mongoose.Schema({
   description_of_goods: { type: String, default: '' },
   origin: { type: String, default: '' },
   hs_code: { type: String, default: '' },
-  quantity: { type: Number, default: 0 },
-  unit_price: { type: Number, default: 0 },
-  total_unit_price: { type: Number, default: 0 },
+  quantity: { type: String, default: '' },
+  unit_price: { type: String, default: '' },
+  total_unit_price: { type: String, default: '' },
 });
 
 const performaSchema = new mongoose.Schema(

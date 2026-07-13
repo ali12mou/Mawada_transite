@@ -53,7 +53,9 @@ function sanitizeUpdate(body) {
   if (!body || typeof body !== 'object') return out;
   for (const key of UPDATABLE) {
     if (body[key] === undefined) continue;
-    if (
+    if (key === 'quantity') {
+      out[key] = body[key] == null ? '' : String(body[key]).trim();
+    } else if (
       [
         'chamber_service_amount',
         'service_charge',
@@ -61,7 +63,6 @@ function sanitizeUpdate(body) {
         'transport_dhl',
         'total',
         'certificate_fee',
-        'quantity',
         'unit_price',
         'percentage',
       ].includes(key)
@@ -104,7 +105,7 @@ export async function createCommercialChamber(body) {
     client_name: clientName,
     responsible: String(body?.responsible || '').trim(),
     chamber_service_amount: toNumber(body?.chamber_service_amount),
-    quantity: toNumber(body?.quantity),
+    quantity: String(body?.quantity ?? '').trim(),
     unit_price: toNumber(body?.unit_price),
     percentage: computed.percentage,
     service_charge: computed.service_charge,

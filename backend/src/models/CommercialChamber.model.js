@@ -15,7 +15,7 @@ const commercialChamberSchema = new mongoose.Schema(
     commercial_invoice_date: { type: String, default: '', trim: true },
     purchase_order_no: { type: String, default: '', trim: true },
     purchase_order_date: { type: String, default: '', trim: true },
-    quantity: { type: Number, default: 0 },
+    quantity: { type: String, default: '' },
     unit_price: { type: Number, default: 0 },
     percentage: { type: Number, default: 0 },
     tell: { type: String, default: '', trim: true },

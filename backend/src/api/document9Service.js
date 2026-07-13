@@ -68,32 +68,12 @@ const ALLOWED = new Set([
   'price_declaration_se_cancel',
 ]);
 
-const NUMERIC_KEYS = new Set([
-  'invoice_count',
-  'value',
-  'declaration_s',
-  'declaration_e',
-  'dossier_fee',
-  'truck_load_quantity',
-  'transit_fee',
-  'service_fee',
-  'pass_cancel_fee',
-  'transfer_total',
-  'price_number_9',
-  'price_number_4',
-  'price_ti_cancel',
-  'price_declaration_se_cancel',
-]);
-
 function pickPayload(body) {
   const out = {};
   if (!body || typeof body !== 'object') return out;
   for (const key of ALLOWED) {
     if (body[key] === undefined) continue;
-    if (NUMERIC_KEYS.has(key)) {
-      const n = Number(body[key]);
-      out[key] = Number.isFinite(n) ? n : 0;
-    } else if (key === 'transaction_types' || key === 'transport_modes') {
+    if (key === 'transaction_types' || key === 'transport_modes') {
       out[key] = Array.isArray(body[key]) ? body[key]?.map(String) : [];
     } else {
       out[key] = body[key] == null ? '' : String(body[key]);

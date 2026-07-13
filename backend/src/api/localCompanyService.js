@@ -1,7 +1,9 @@
 import { LocalCompany } from '../models/LocalCompany.model.js';
 
 function num(v, def = 0) {
-  const n = parseFloat(v);
+  if (v == null || v === '') return def;
+  const normalized = String(v).trim().replace(/\s/g, '').replace(/,/g, '.');
+  const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : def;
 }
 
@@ -22,8 +24,8 @@ function payloadFromBody(body) {
     declaration_s: str(body?.declaration_s),
     declaration_e: str(body?.declaration_e),
     file_fee: num(body?.file_fee),
-    quantity: num(body?.quantity),
-    truck_loading_quantity: num(body?.truck_loading_quantity),
+    quantity: str(body?.quantity),
+    truck_loading_quantity: str(body?.truck_loading_quantity),
     transit_fee: num(body?.transit_fee),
     service_fee: num(body?.service_fee),
     escort_fee: num(body?.escort_fee),
