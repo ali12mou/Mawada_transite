@@ -13,8 +13,8 @@ export interface LocalCompanyRecord {
   declaration_s?: string;
   declaration_e?: string;
   file_fee?: number;
-  quantity?: number;
-  truck_loading_quantity?: number;
+  quantity?: string;
+  truck_loading_quantity?: string;
   transit_fee?: number;
   service_fee?: number;
   escort_fee?: number;

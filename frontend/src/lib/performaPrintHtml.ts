@@ -2,7 +2,8 @@ import type { DocumentBranding } from '../types/documentBranding';
 import { buildLetterheadHtml } from './documentPrintImages';
 import { fetchAppConfig } from '../api/appConfigApi';
 import { brandingFromConfig, DEFAULT_COMPANY_NAME } from '../types/documentBranding';
-import { buildDocWatermark, docGreen, esc, fmtNum, letterheadBannerPrintCss } from './chamberDocumentPrintShared';
+import { buildDocWatermark, buildMawadaContactFooterHtml, docGreen, esc, fmtNum, letterheadBannerPrintCss, mawadaContactFooterPrintCss, watermarkPrintCss } from './chamberDocumentPrintShared';
+import { parseLocalizedNumber } from './commercialChamberCalculations';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 function fmtDateDisplay(iso: string): string {
@@ -55,12 +56,30 @@ function v(val: string | undefined | null): string {
   return s ? esc(s) : 'N/A';
 }
 
-function fmtQty(qty: number, unit?: string): string {
-  const n = Number(qty);
-  if (!Number.isFinite(n)) return '0';
-  const base = Number.isInteger(n) ? String(n) : String(n);
-  const u = String(unit ?? '').trim().toUpperCase();
-  return u ? `${base}${u}` : base;
+function fmtQty(qty: string | number, unit?: string): string {
+  const raw = String(qty ?? '').trim();
+  if (!raw) return '0';
+  const n = parseLocalizedNumber(raw);
+  const numericLike = /^-?\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ''));
+  if (numericLike && Number.isFinite(n)) {
+    const base = Number.isInteger(n) ? String(n) : String(n);
+    const u = String(unit ?? '').trim().toUpperCase();
+    return u ? `${base}${u}` : base;
+  }
+  return raw;
+}
+
+function fmtMoneyCell(v: string | number): string {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '$0';
+  const n = parseLocalizedNumber(raw);
+  const numericLike = /^-?\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ''));
+  if (numericLike && Number.isFinite(n)) return `$${fmtNum(n)}`;
+  return esc(raw);
+}
+
+function parsePerformaAmount(v: string | number): number {
+  return parseLocalizedNumber(v);
 }
 
 export type PerformaPrintRecord = {
@@ -87,9 +106,9 @@ export type PerformaPrintItem = {
   origin: string;
   hs_code: string;
   unit?: string;
-  quantity: number;
-  unit_price: number;
-  total_unit_price: number;
+  quantity: string;
+  unit_price: string;
+  total_unit_price: string;
 };
 
 function sellerBlock(p: PerformaPrintRecord, branding: DocumentBranding): string {
@@ -120,8 +139,9 @@ export function buildPerformaPrintHtml(
   const green = docGreen(branding);
   const letterhead = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
+  const footer = buildMawadaContactFooterHtml(branding);
 
-  const totalUsd = items.reduce((s, it) => s + (Number(it.total_unit_price) || 0), 0);
+  const totalUsd = items.reduce((s, it) => s + parsePerformaAmount(it.total_unit_price), 0);
   const words = totalUsd <= 0 ? 'N/A' : amountInWordsUsd(totalUsd);
 
   const rows = items.length
@@ -134,8 +154,8 @@ export function buildPerformaPrintHtml(
         <td class="td-c">${esc(it.origin || 'N/A')}</td>
         <td class="td-c">${esc(it.hs_code || 'N/A')}</td>
         <td class="td-c">${esc(fmtQty(it.quantity, it.unit))}</td>
-        <td class="td-num">$${fmtNum(Number(it.unit_price) || 0)}</td>
-        <td class="td-num">$${fmtNum(Number(it.total_unit_price) || 0)}</td>
+        <td class="td-num">${fmtMoneyCell(it.unit_price)}</td>
+        <td class="td-num">${fmtMoneyCell(it.total_unit_price)}</td>
       </tr>`
         )
         .join('')
@@ -156,6 +176,8 @@ export function buildPerformaPrintHtml(
   <style>
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
@@ -171,22 +193,6 @@ export function buildPerformaPrintHtml(
       width: 100%;
       min-height: 270mm;
     }
-    .wm {
-      position: absolute;
-      left: 50%;
-      top: 58%;
-      transform: translate(-50%, -50%);
-      width: 420px;
-      height: 420px;
-      opacity: 0.07;
-      pointer-events: none;
-      z-index: 0;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
-    .content { position: relative; z-index: 1; }
-    .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
     .title-row {
       position: relative;
       display: flex;
@@ -251,6 +257,8 @@ export function buildPerformaPrintHtml(
     .words-row td { font-weight: 700; font-size: 9pt; text-transform: uppercase; }
     .terms { margin-top: 10px; font-size: 9.5pt; line-height: 1.6; }
     .terms-line { margin: 1px 0; font-weight: 700; text-transform: uppercase; }
+    .content { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 270mm; }
+    .doc-footer { margin-top: auto; padding-top: 20px; }
     @media screen {
       body { background: #b8b8b8; padding: 16px 0; }
       .page {
@@ -319,6 +327,8 @@ export function buildPerformaPrintHtml(
         <div class="terms-line">BANK DETAILS: ${v(p.bank)}</div>
         ${bankLine2}
       </div>
+
+      <footer class="doc-footer">${footer}</footer>
     </div>
   </div>
 </body>

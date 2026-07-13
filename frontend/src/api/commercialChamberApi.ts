@@ -16,7 +16,7 @@ export interface CommercialChamberRecord {
   commercial_invoice_date: string;
   purchase_order_no: string;
   purchase_order_date: string;
-  quantity: number;
+  quantity: string;
   unit_price: number;
   percentage: number;
   tell: string;

@@ -11,8 +11,8 @@ import {
 import {
   buildDocument9PrintHtml,
   openDocument9PrintWindow,
-  openDocument9ViewDocumentWindow,
 } from '../../lib/document9PrintHtml';
+import { Transfer9DetailsView } from './Transfer9DetailsView';
 import { fetchDocumentBranding } from '../../lib/documentBranding';
 import { brandingFromConfig, type DocumentBranding } from '../../types/documentBranding';
 import { fetchCompanies, type CompanyRecord } from '../../api/companiesApi';
@@ -43,6 +43,11 @@ const TRANSPORT_OPTIONS: { id: string; label: string }[] = [
 
 type FormState = Omit<Document9Record, 'id' | 'sqn' | 'createdAt' | 'updatedAt'>;
 
+function valStr(v: unknown): string {
+  if (v == null || v === '') return '';
+  return String(v);
+}
+
 function emptyForm(): FormState {
   return {
     date: new Date().toISOString().split('T')[0],
@@ -55,11 +60,11 @@ function emptyForm(): FormState {
     boat: '',
     trip_number: '',
     bl_number: '',
-    invoice_count: 0,
+    invoice_count: '',
     nomenclature: '',
     quantity: '',
     weight: '',
-    value: 0,
+    value: '',
     exit_point: '',
     destination: '',
     description: '',
@@ -88,14 +93,14 @@ function emptyForm(): FormState {
     source_destination_label: '',
     closing_date: '',
     bill_of_loading: '',
-    declaration_s: 0,
-    declaration_e: 0,
-    dossier_fee: 0,
-    truck_load_quantity: 0,
-    transit_fee: 0,
-    service_fee: 0,
-    pass_cancel_fee: 0,
-    transfer_total: 0,
+    declaration_s: '',
+    declaration_e: '',
+    dossier_fee: '',
+    truck_load_quantity: '',
+    transit_fee: '',
+    service_fee: '',
+    pass_cancel_fee: '',
+    transfer_total: '',
     doc_sydonia: '',
     doc_delivery_order: '',
     doc_commercial: '',
@@ -103,13 +108,13 @@ function emptyForm(): FormState {
     doc_transfer_declaration_s: '',
     doc_full_scan: '',
     doc_number_9_file: '',
-    price_number_9: 0,
+    price_number_9: '',
     doc_number_4_file: '',
-    price_number_4: 0,
+    price_number_4: '',
     doc_ti_cancel_file: '',
-    price_ti_cancel: 0,
+    price_ti_cancel: '',
     doc_declaration_se_cancel_file: '',
-    price_declaration_se_cancel: 0,
+    price_declaration_se_cancel: '',
   };
 }
 
@@ -125,11 +130,11 @@ function recordToForm(d: Document9Record): FormState {
     boat: d.boat || '',
     trip_number: d.trip_number || '',
     bl_number: d.bl_number || '',
-    invoice_count: d.invoice_count ?? 0,
+    invoice_count: valStr(d.invoice_count),
     nomenclature: d.nomenclature || '',
     quantity: d.quantity || '',
     weight: d.weight || '',
-    value: d.value ?? 0,
+    value: valStr(d.value),
     exit_point: d.exit_point || '',
     destination: d.destination || '',
     description: d.description || '',
@@ -158,14 +163,14 @@ function recordToForm(d: Document9Record): FormState {
     source_destination_label: d.source_destination_label || '',
     closing_date: d.closing_date || '',
     bill_of_loading: d.bill_of_loading || '',
-    declaration_s: d.declaration_s ?? 0,
-    declaration_e: d.declaration_e ?? 0,
-    dossier_fee: d.dossier_fee ?? 0,
-    truck_load_quantity: d.truck_load_quantity ?? 0,
-    transit_fee: d.transit_fee ?? 0,
-    service_fee: d.service_fee ?? 0,
-    pass_cancel_fee: d.pass_cancel_fee ?? 0,
-    transfer_total: d.transfer_total ?? 0,
+    declaration_s: valStr(d.declaration_s),
+    declaration_e: valStr(d.declaration_e),
+    dossier_fee: valStr(d.dossier_fee),
+    truck_load_quantity: valStr(d.truck_load_quantity),
+    transit_fee: valStr(d.transit_fee),
+    service_fee: valStr(d.service_fee),
+    pass_cancel_fee: valStr(d.pass_cancel_fee),
+    transfer_total: valStr(d.transfer_total),
     doc_sydonia: d.doc_sydonia || '',
     doc_delivery_order: d.doc_delivery_order || '',
     doc_commercial: d.doc_commercial || '',
@@ -173,13 +178,13 @@ function recordToForm(d: Document9Record): FormState {
     doc_transfer_declaration_s: d.doc_transfer_declaration_s || '',
     doc_full_scan: d.doc_full_scan || '',
     doc_number_9_file: d.doc_number_9_file || '',
-    price_number_9: d.price_number_9 ?? 0,
+    price_number_9: valStr(d.price_number_9),
     doc_number_4_file: d.doc_number_4_file || '',
-    price_number_4: d.price_number_4 ?? 0,
+    price_number_4: valStr(d.price_number_4),
     doc_ti_cancel_file: d.doc_ti_cancel_file || '',
-    price_ti_cancel: d.price_ti_cancel ?? 0,
+    price_ti_cancel: valStr(d.price_ti_cancel),
     doc_declaration_se_cancel_file: d.doc_declaration_se_cancel_file || '',
-    price_declaration_se_cancel: d.price_declaration_se_cancel ?? 0,
+    price_declaration_se_cancel: valStr(d.price_declaration_se_cancel),
   };
 }
 
@@ -225,11 +230,18 @@ export type Document9PageProps = {
   rowActionsAsDropdown?: boolean;
 };
 
-function formatDeclaredValue(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return '—';
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
-  return value.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+function formatDeclaredValue(value: string | number | undefined | null): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '—';
+  const n = Number(raw.replace(/\s/g, '').replace(',', '.'));
+  if (Number.isFinite(n) && raw !== '') {
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+    if (/^-?\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ''))) {
+      return n.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    }
+  }
+  return raw;
 }
 
 function validateTransferStep1(form: FormState, requireAll: boolean): boolean {
@@ -525,7 +537,7 @@ export function Document9({
                         <td className="px-4 py-3 text-gray-700">{doc.entry_doc_ref || '—'}</td>
                         <td className="px-4 py-3 text-gray-700 max-w-xs truncate" title={doc.description}>{doc.description || '—'}</td>
                         <td className="px-4 py-3 text-gray-700 uppercase">{doc.declarant || '—'}</td>
-                        <td className="px-4 py-3 font-medium text-gray-800">{formatDeclaredValue(doc.value ?? 0)}</td>
+                        <td className="px-4 py-3 font-medium text-gray-800">{formatDeclaredValue(doc.value)}</td>
                         <td className="px-4 py-3 text-center">
                           <div className={rowActionsAsDropdown ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}>
                             <ActionMenu
@@ -534,6 +546,11 @@ export function Document9({
                                   label: t('transfer9.actionView'),
                                   icon: <Eye size={16} />,
                                   onClick: () => setPreviewDoc(doc),
+                                },
+                                {
+                                  label: t('transfer9.actionPrint'),
+                                  icon: <Printer size={16} />,
+                                  onClick: () => void openDocument9PrintWindow(doc),
                                 },
                                 {
                                   label: t('transfer9.actionEdit'),
@@ -545,11 +562,6 @@ export function Document9({
                                   icon: <Trash2 size={16} />,
                                   variant: 'danger',
                                   onClick: () => handleDelete(doc.id),
-                                },
-                                {
-                                  label: t('transfer9.actionDownloadPdf'),
-                                  icon: <Printer size={16} />,
-                                  onClick: () => void openDocument9PrintWindow(doc),
                                 },
                               ]}
                             />
@@ -781,20 +793,20 @@ export function Document9({
                       {(
                         [
                           ['gross_weight', 'transfer9.grossWeight'],
-                          ['value', 'transfer9.declaredValue', 'number'],
+                          ['value', 'transfer9.declaredValue'],
                           ['exit_point', 'transfer9.exitPoint'],
                           ['destination', 'transfer9.destination'],
                         ] as const
-                      ).map(([key, labelKey, type]) => (
+                      ).map(([key, labelKey]) => (
                         <div key={key}>
                           <label className={transferLabelClass}>{t(labelKey)}</label>
                           <input
-                            type={type === 'number' ? 'number' : 'text'}
-                            value={formData[key] as string | number}
+                            type="text"
+                            value={formData[key] as string}
                             onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                [key]: type === 'number' ? Number(e.target.value) : e.target.value,
+                                [key]: e.target.value,
                               })
                             }
                             className={transferFieldClass}
@@ -914,11 +926,10 @@ export function Document9({
                       <div>
                         <label className={transferLabelClass}>{t('transfer9.quantity')}</label>
                         <input
-                          type="number"
-                          min={0}
-                          value={formData.quantity === '' ? 0 : Number(formData.quantity) || 0}
+                          type="text"
+                          value={formData.quantity}
                           onChange={(e) =>
-                            setFormData({ ...formData, quantity: String(Number(e.target.value) || 0) })
+                            setFormData({ ...formData, quantity: e.target.value })
                           }
                           className={transferFieldClass}
                         />
@@ -938,11 +949,10 @@ export function Document9({
                         <div key={key}>
                           <label className={transferLabelClass}>{t(labelKey)}</label>
                           <input
-                            type="number"
-                            min={0}
-                            value={formData[key] as number}
+                            type="text"
+                            value={formData[key] as string}
                             onChange={(e) =>
-                              setFormData({ ...formData, [key]: Number(e.target.value) || 0 })
+                              setFormData({ ...formData, [key]: e.target.value })
                             }
                             className={transferFieldClass}
                           />
@@ -1046,13 +1056,12 @@ export function Document9({
                           <div>
                             <label className={transferLabelClass}>{t(priceLabel)}</label>
                             <input
-                              type="number"
-                              min={0}
-                              value={formData[priceKey] as number}
+                              type="text"
+                              value={formData[priceKey] as string}
                               onChange={(e) =>
                                 setFormData({
                                   ...formData,
-                                  [priceKey]: Number(e.target.value) || 0,
+                                  [priceKey]: e.target.value,
                                 })
                               }
                               className={transferFieldClass}
@@ -1102,11 +1111,11 @@ export function Document9({
                     { key: 'boat', label: t('transfer9.boat') },
                     { key: 'trip_number', label: t('transfer9.tripNumber') },
                     { key: 'bl_number', label: t('transfer9.blNumber') },
-                    { key: 'invoice_count', label: t('transfer9.invoiceCount'), type: 'number' },
+                    { key: 'invoice_count', label: t('transfer9.invoiceCount') },
                     { key: 'nomenclature', label: t('transfer9.nomenclature') },
                     { key: 'quantity', label: t('transfer9.quantity') },
                     { key: 'weight', label: t('transfer9.weight') },
-                    { key: 'value', label: t('transfer9.value'), type: 'number' },
+                    { key: 'value', label: t('transfer9.value') },
                     { key: 'exit_point', label: t('transfer9.exitPoint') },
                     { key: 'destination', label: t('transfer9.destination') },
                   ].map((field) => (
@@ -1114,8 +1123,8 @@ export function Document9({
                       <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{field.label}</label>
                       <input
                         type={field.type || 'text'}
-                        value={formData[field.key as keyof typeof formData] as string | number}
-                        onChange={(e) => setFormData({ ...formData, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
+                        value={formData[field.key as keyof typeof formData] as string}
+                        onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
                         placeholder={t('transfer9.placeholderEnter')}
                       />
@@ -1197,28 +1206,46 @@ export function Document9({
       <Modal
         isOpen={!!previewDoc}
         onClose={() => setPreviewDoc(null)}
-        title={`${t('common.view')} — SQN ${previewDoc?.sqn}`}
+        title={
+          transferWizardModal
+            ? t('transfer9.transferDetails')
+            : `${t('common.view')} — SQN ${previewDoc?.sqn}`
+        }
         size="xl"
       >
-        <div className="flex flex-col h-[70vh]">
-          <div className="flex justify-end gap-2 p-3 bg-gray-50/50 border-b border-gray-100">
-            <button
-              type="button"
-              onClick={() => previewDoc && void openDocument9PrintWindow(previewDoc)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2 text-sm font-bold text-white hover:bg-[#154b8a] transition shadow-md"
-            >
-              <Printer className="h-4 w-4" />
-              {t('document9.print')}
-            </button>
+        {transferWizardModal ? (
+          <div className="space-y-4">
+            <Transfer9DetailsView doc={previewDoc} t={t} />
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => void openDocument9PrintWindow(previewDoc)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-[#154b8a]"
+              >
+                <Printer className="h-4 w-4" />
+                {t('transfer9.actionPrint')}
+              </button>
+            </div>
           </div>
-          {previewDoc && (
+        ) : (
+          <div className="flex h-[70vh] flex-col">
+            <div className="flex justify-end gap-2 border-b border-gray-100 bg-gray-50/50 p-3">
+              <button
+                type="button"
+                onClick={() => previewDoc && void openDocument9PrintWindow(previewDoc)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-[#154b8a]"
+              >
+                <Printer className="h-4 w-4" />
+                {t('document9.print')}
+              </button>
+            </div>
             <iframe
               title="Aperçu document 9"
-              className="flex-1 border-0 bg-gray-100 w-full"
+              className="w-full flex-1 border-0 bg-gray-100"
               srcDoc={buildDocument9PrintHtml(previewDoc, branding ?? brandingFromConfig({}))}
             />
-          )}
-        </div>
+          </div>
+        )}
       </Modal>
       )}
     </div>

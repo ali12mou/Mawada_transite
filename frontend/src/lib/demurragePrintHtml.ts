@@ -1,5 +1,12 @@
-import { DEFAULT_COMPANY_NAME, type DocumentBranding } from '../types/documentBranding';
-import { documentImageSrc } from './documentPrintImages';
+import type { DocumentBranding } from '../types/documentBranding';
+import { buildLetterheadHtml, documentImageSrc } from './documentPrintImages';
+import {
+  buildDocWatermark,
+  buildMawadaContactFooterHtml,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  watermarkPrintCss,
+} from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
@@ -32,11 +39,11 @@ export function buildDemurragePrintHtml(
   p: DemurragePrintRecord,
   branding: DocumentBranding
 ): string {
-  const primaryColor = branding.primaryColor || '#0F3C66';
-  
-  const logoSrc = documentImageSrc(branding.letterHeadUrl);
-  const stampSrc = documentImageSrc(branding.signatureStampUrl);
-  const watermarkImg = documentImageSrc(branding.letterHeadUrl);
+  const green = branding.primaryColor || '#00AA48';
+  const letter = buildLetterheadHtml(branding);
+  const footer = buildMawadaContactFooterHtml(branding);
+  const wm = buildDocWatermark(branding);
+  const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
 
   const displayDate = p.date || new Date().toLocaleDateString('fr-FR');
   const displayLocation = p.location || 'Djibouti';
@@ -48,10 +55,13 @@ export function buildDemurragePrintHtml(
   <title>Facture de Service — ${esc(p.client_name)}</title>
   <style>
     ${STYLE_A4_SHEET}
-    @page { size: A4 portrait; margin: 0; }
+    ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
+    @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: 11pt;
       color: #000;
       margin: 0;
@@ -60,75 +70,41 @@ export function buildDemurragePrintHtml(
     }
     .page-container {
       width: 210mm;
-      min-height: 297mm;
+      min-height: 277mm;
       margin: auto;
       position: relative;
       background: white;
-      padding: 10mm 15mm 20mm 15mm;
       display: flex;
       flex-direction: column;
     }
-    .top-double-lines {
-      border-top: 1px solid #333;
-      border-bottom: 3.5px solid #333;
-      height: 6px;
-      width: 100%;
-      margin-bottom: 25px;
-    }
-    .watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 70%;
-      opacity: 0.08;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 40px;
-      position: relative;
-      z-index: 1;
-    }
-    .logo { height: 70px; object-fit: contain; margin-right: 15px; }
-    .company-name {
-      font-size: 32pt;
-      font-weight: 500;
-      color: ${primaryColor};
-      font-family: 'Times New Roman', serif;
-    }
+    .content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
     .title-section {
       text-align: center;
-      margin-bottom: 40px;
-      position: relative;
-      z-index: 1;
+      margin: 18px 0 28px;
     }
     .invoice-title {
-      font-size: 18pt;
+      font-size: 16pt;
       font-weight: 700;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .invoice-subtitle {
-      font-size: 16pt;
+      font-size: 11pt;
       font-weight: 500;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
     .client-line {
-      font-size: 16pt;
+      font-size: 12pt;
       font-weight: 700;
     }
-
     .tbl {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 40px;
-      position: relative;
-      z-index: 1;
+      margin-bottom: 28px;
     }
     .tbl th {
-      background-color: ${primaryColor};
+      background-color: ${esc(green)};
       color: white;
       text-align: left;
       padding: 10px 12px;
@@ -142,124 +118,89 @@ export function buildDemurragePrintHtml(
       font-size: 10.5pt;
       color: #333;
     }
-    .tbl tr.total-row {
-      background-color: ${primaryColor};
-    }
-    .tbl tr.total-row td {
-      color: white;
-      font-weight: 700;
-    }
-    .td-details { width: 35%; }
-    .td-values { width: 45%; }
-    .td-usd { width: 20%; text-align: left; }
-    
+    .tbl tr.total-row { background-color: ${esc(green)}; }
+    .tbl tr.total-row td { color: white; font-weight: 700; }
     .signature-area {
       margin-top: auto;
-      margin-bottom: 40px;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       gap: 10px;
-      position: relative;
-      z-index: 1;
     }
-    .sig-label { font-size: 12pt; font-weight: 500; }
+    .sig-label { font-size: 11pt; font-weight: 500; }
     .sig-line { border-bottom: 1px solid #000; width: 80px; }
-    .stamp-img { height: 75px; object-fit: contain; }
-
-    .footer {
-      border-top: 4px solid ${primaryColor};
-      padding-top: 15px;
-      position: relative;
-      z-index: 1;
+    .stamp-img { height: 72px; object-fit: contain; }
+    .doc-footer { margin-top: 8px; }
+    @media screen {
+      body { background: #b8b8b8; padding: 16px 0; }
+      .page-container {
+        padding: 12mm 14mm;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      }
     }
-    .footer-content { 
-      display: flex;
-      justify-content: space-between;
-      font-size: 12pt;
-      font-weight: 700;
-      color: #000;
-      line-height: 1.4;
-    }
-    .footer-left { text-align: left; }
-    .footer-right { text-align: left; width: 50%; }
-    .footer-item span { font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="page-container">
-    <div class="top-double-lines"></div>
-    ${watermarkImg ? `<img src="${esc(watermarkImg)}" class="watermark" alt="" />` : ''}
-    
-    <div class="header">
-        ${logoSrc ? `<img src="${esc(logoSrc)}" class="logo" alt="" />` : ''}
-        <div class="company-name">${esc(branding.companyName || DEFAULT_COMPANY_NAME)}</div>
-    </div>
+    ${wm}
+    <div class="content">
+      ${letter}
 
-    <div class="title-section">
-      <div class="invoice-title">Détails de Démurrage</div>
-      <div class="invoice-subtitle">${esc(displayLocation)}, ${esc(displayDate)}</div>
-      <div class="client-line">Client: ${esc(p.client_name)} -</div>
-    </div>
-
-    <table class="tbl">
-      <thead>
-        <tr>
-          <th class="td-details">Details</th>
-          <th class="td-values">Values</th>
-          <th class="td-usd">USD ($)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Customer</td>
-          <td>${esc(p.client_name)} -</td>
-          <td></td>
-        </tr>
-        <tr>
-          <td>Bill of Lading</td>
-          <td>${esc(p.bill_of_lading)}</td>
-          <td></td>
-        </tr>
-        <tr>
-          <td>Number of Container</td>
-          <td>${esc(String(p.container_count))}</td>
-          <td></td>
-        </tr>
-        <tr>
-          <td>Demurrage of Shipping</td>
-          <td>Fdj ${fmtUsd(p.expedition_demurrage)}</td>
-          <td>$ ${fmtUsd(p.expedition_demurrage / 177.7)}</td>
-        </tr>
-        <tr>
-          <td>Demurrage of STGD</td>
-          <td>Fdj ${fmtUsd(p.sgtd_demurrage)}</td>
-          <td>$ ${fmtUsd(p.sgtd_demurrage / 177.7)}</td>
-        </tr>
-        <tr class="total-row">
-          <td>Total</td>
-          <td>Fdj ${fmtUsd(p.total)} container</td>
-          <td>$ ${fmtUsd(p.total / 177.7)} container</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="signature-area">
-      <span class="sig-label">Signature:</span>
-      <div class="sig-line"></div>
-      ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="Cachet" />` : ''}
-    </div>
-
-    <div class="footer">
-      <div class="footer-content">
-        <div class="footer-left">
-          <div class="footer-item">Mob: ${esc(branding.companyPhone || '+ 253 77 86 22 08')}</div>
-          <div class="footer-item">TEL : ${esc(branding.companyPhone || '+ 253 21 35 55 21')}</div>
-        </div>
-        <div class="footer-right">
-          <div class="footer-item">Adresse: ${esc(branding.companyAddress || 'Salam Arica Bank //bureau 922')}</div>
-          <div class="footer-item">Email : ${esc(branding.companyEmail || 'mahamedali11.mhd@gmail.com')}</div>
-        </div>
+      <div class="title-section">
+        <div class="invoice-title">Détails de Démurrage</div>
+        <div class="invoice-subtitle">${esc(displayLocation)}, ${esc(displayDate)}</div>
+        <div class="client-line">Client: ${esc(p.client_name)}</div>
       </div>
+
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Details</th>
+            <th>Values</th>
+            <th>USD ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Customer</td>
+            <td>${esc(p.client_name)}</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Bill of Lading</td>
+            <td>${esc(p.bill_of_lading)}</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Number of Container</td>
+            <td>${esc(String(p.container_count))}</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Demurrage of Shipping</td>
+            <td>Fdj ${fmtUsd(p.expedition_demurrage)}</td>
+            <td>$ ${fmtUsd(p.expedition_demurrage / 177.7)}</td>
+          </tr>
+          <tr>
+            <td>Demurrage of STGD</td>
+            <td>Fdj ${fmtUsd(p.sgtd_demurrage)}</td>
+            <td>$ ${fmtUsd(p.sgtd_demurrage / 177.7)}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td>Fdj ${fmtUsd(p.total)} container</td>
+            <td>$ ${fmtUsd(p.total / 177.7)} container</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="signature-area">
+        <span class="sig-label">Signature:</span>
+        <div class="sig-line"></div>
+        ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="" />` : ''}
+      </div>
+
+      <footer class="doc-footer">${footer}</footer>
     </div>
   </div>
 </body>

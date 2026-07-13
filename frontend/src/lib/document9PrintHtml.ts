@@ -19,9 +19,18 @@ function fmtDate(s: string): string {
   return esc(s);
 }
 
-function fmtValue(n: number): string {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return esc(n.toLocaleString('fr-FR'));
+function fmtValue(v: string | number | undefined | null): string {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '—';
+  const n = Number(raw.replace(/\s/g, '').replace(',', '.'));
+  if (Number.isFinite(n) && /^-?\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ''))) {
+    return esc(n.toLocaleString('fr-FR'));
+  }
+  return esc(raw);
+}
+
+function hasFieldValue(v: string | number | undefined | null): boolean {
+  return String(v ?? '').trim() !== '';
 }
 
 const TX_LABELS: Record<string, string> = {
@@ -54,20 +63,13 @@ function hasText(v: string | undefined | null): boolean {
   return String(v ?? '').trim() !== '';
 }
 
-function hasNumber(v: number | undefined | null): boolean {
-  return v != null && Number.isFinite(v) && v !== 0;
-}
-
 type FieldRow = { label: string; value: string };
 
 function collectStep3Rows(doc: Document9Record): FieldRow[] {
   const rows: FieldRow[] = [];
-  const add = (label: string, v: string | number | undefined | null, asNumber?: boolean) => {
-    if (asNumber) {
-      if (!hasNumber(v as number)) return;
-      rows.push({ label, value: fmtValue(v as number) });
-    } else if (hasText(String(v ?? ''))) {
-      rows.push({ label, value: esc(v) });
+  const add = (label: string, v: string | number | undefined | null) => {
+    if (hasFieldValue(v)) {
+      rows.push({ label, value: fmtValue(v) });
     }
   };
   add('Entreprise vendeuse', doc.seller_company);
@@ -78,18 +80,18 @@ function collectStep3Rows(doc: Document9Record): FieldRow[] {
     rows.push({ label: 'Date de clôture', value: fmtDate(doc.closing_date) });
   }
   add('Bill of loading', doc.bill_of_loading);
-  add('Déclaration S', doc.declaration_s, true);
-  add('Déclaration E', doc.declaration_e, true);
-  add('Frais de dossier', doc.dossier_fee, true);
-  add('Quantité chargement camion', doc.truck_load_quantity, true);
-  add('Frais de transit', doc.transit_fee, true);
-  add('Frais de service', doc.service_fee, true);
-  add('Annulation laissez-passer', doc.pass_cancel_fee, true);
-  add('Total transfert', doc.transfer_total, true);
+  add('Déclaration S', doc.declaration_s);
+  add('Déclaration E', doc.declaration_e);
+  add('Frais de dossier', doc.dossier_fee);
+  add('Quantité chargement camion', doc.truck_load_quantity);
+  add('Frais de transit', doc.transit_fee);
+  add('Frais de service', doc.service_fee);
+  add('Annulation laissez-passer', doc.pass_cancel_fee);
+  add('Total transfert', doc.transfer_total);
   return rows;
 }
 
-type DocPriceRow = { docLabel: string; file?: string; priceLabel?: string; price?: number };
+type DocPriceRow = { docLabel: string; file?: string; priceLabel?: string; price?: string };
 
 function collectStep4Rows(doc: Document9Record): DocPriceRow[] {
   const items: DocPriceRow[] = [
@@ -125,7 +127,7 @@ function collectStep4Rows(doc: Document9Record): DocPriceRow[] {
     },
   ];
   return items.filter(
-    (i) => hasText(i.file) || (i.price != null && hasNumber(i.price))
+    (i) => hasText(i.file) || hasFieldValue(i.price)
   );
 }
 
@@ -173,7 +175,7 @@ function buildTransferSupplementHtml(doc: Document9Record): string {
             (r) => `<tr>
           <td>${esc(r.docLabel)}</td>
           <td>${hasText(r.file) ? esc(r.file) : '—'}</td>
-          <td>${r.price != null && hasNumber(r.price) ? `${fmtValue(r.price)} FDJ` : '—'}</td>
+          <td>${hasFieldValue(r.price) ? `${fmtValue(r.price)} FDJ` : '—'}</td>
         </tr>`
           )
           .join('')}

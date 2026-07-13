@@ -1,8 +1,15 @@
 import type { CommercialChamberRecord } from '../api/commercialChamberApi';
 import type { DocumentBranding } from '../types/documentBranding';
-import { buildLetterheadHtml, cssUrlForBackground, documentImageSrc } from './documentPrintImages';
-import { letterheadBannerPrintCss } from './chamberDocumentPrintShared';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { buildLetterheadHtml } from './documentPrintImages';
+import {
+  buildDocWatermark,
+  buildMawadaContactFooterHtml,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  watermarkPrintCss,
+} from './chamberDocumentPrintShared';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 import {
   computeServiceChargeUsd,
   DEFAULT_COMMERCIAL_PERCENTAGE,
@@ -37,26 +44,13 @@ function fmtDateFr(iso: string): string {
   return esc(iso);
 }
 
-const GREEN = '#3d9140';
-const GREEN_DARK = '#2f7332';
+const GREEN = '#00AA48';
+const GREEN_DARK = '#008f3c';
 
-/** Deux lignes Mob / TEL depuis le champ téléphone (séparateurs | / ; saut de ligne). */
-function splitPhones(phone: string): { mob: string; tel: string } {
-  const raw = (phone || '').trim();
-  if (!raw) return { mob: '—', tel: '—' };
-  const parts = raw
-    .split(/\||\/|\n|;|(?:\s{2,})/)
-    ?.map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
-    .filter(Boolean);
-  if (parts.length >= 2) return { mob: parts[0], tel: parts[1] };
-  return { mob: raw, tel: '' };
-}
-
-/** Détail commercial — design aligné sur le modèle « Commercial Detail » (A4, orange #EE964C). */
+/** Détail commercial — design aligné sur le modèle MAWADA (A4). */
 export function buildCommercialDetailPrintHtml(
   record: CommercialChamberRecord,
-  branding: DocumentBranding,
-  djfPerOneUsd: number
+  branding: DocumentBranding
 ): string {
   const rate = getCommercialChamberDjfRate();
   const toUsd = (fdj: number) => (Number.isFinite(fdj) && rate > 0 ? fdj / rate : 0);
@@ -73,36 +67,10 @@ export function buildCommercialDetailPrintHtml(
   const totalUsd = toUsd(chamber) + serviceUsd + toUsd(bank) + toUsd(transport) + toUsd(cert);
 
   const letter = buildLetterheadHtml(branding);
-
-  const footerSrc = documentImageSrc(branding.footerLogoUrl);
-  const footerLogo = footerSrc
-    ? `<div class="footer-logo"><img src="${esc(footerSrc)}" alt="" /></div>`
-    : '';
-
-  const { mob, tel } = splitPhones(branding.companyPhone);
-  const addr = (branding.companyAddress || '').trim();
-  const em = (branding.companyEmail || '').trim();
-
-  const footerBlock = `
-    <div class="footer-bar"></div>
-    <div class="footer-grid">
-      <div class="footer-left">
-        <div class="footer-line"><span class="footer-label">Mob:</span> ${esc(mob)}</div>
-        <div class="footer-line"><span class="footer-label">TEL:</span> ${tel ? esc(tel) : esc('—')}</div>
-      </div>
-      <div class="footer-right">
-        <div class="footer-line"><span class="footer-label">Adresse:</span> ${addr ? esc(addr) : '—'}</div>
-        <div class="footer-line"><span class="footer-label">Email:</span> ${em ? esc(em) : '—'}</div>
-      </div>
-      ${footerLogo}
-    </div>`;
+  const footerBlock = buildMawadaContactFooterHtml(branding);
+  const wm = buildDocWatermark(branding);
 
   const today = fmtDateFr(new Date().toISOString().split('T')[0]);
-
-  const wmCss = cssUrlForBackground(branding.footerLogoUrl);
-  const wm = wmCss
-    ? `<div class="watermark" style="background-image:url(\"${wmCss}\")"></div>`
-    : `<div class="watermark" aria-hidden="true"></div>`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -112,29 +80,33 @@ export function buildCommercialDetailPrintHtml(
   <style>
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
-    body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
-    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
-    .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
-    .watermark {
-      position: fixed; left: 50%; top: 48%; transform: translate(-50%, -50%);
-      width: 380px; height: 380px; opacity: 0.06; pointer-events: none; z-index: 0;
-      background-size: contain; background-repeat: no-repeat; background-position: center;
-      filter: grayscale(30%);
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
+    body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 11pt; color: #1a1a1a; }
+    .page {
+      display: flex;
+      flex-direction: column;
+      min-height: 297mm;
+      width: 210mm;
+      position: relative;
+      box-sizing: border-box;
     }
-    .doc-head { position: relative; z-index: 1; margin-bottom: 18px; }
-    .doc-title { font-size: 20pt; font-weight: 700; margin: 0 0 6px; letter-spacing: 0.02em; color: #111; }
-    .doc-place-date { font-size: 10.5pt; color: #444; margin-bottom: 14px; }
-    .doc-client { font-size: 11pt; font-weight: 700; margin: 6px 0; line-height: 1.35; }
+    .page-main { flex: 1 1 auto; position: relative; z-index: 1; display: flex; flex-direction: column; }
+    .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
+    .doc-head { position: relative; z-index: 1; margin-bottom: 18px; text-align: center; }
+    .doc-title { font-size: 22pt; font-weight: 700; margin: 0 0 8px; letter-spacing: 0.02em; color: #111; }
+    .doc-place-date { font-size: 12pt; font-weight: 700; color: #444; margin-bottom: 14px; }
+    .doc-client { font-size: 12.5pt; font-weight: 700; margin: 6px 0; line-height: 1.35; }
     .doc-client span { font-weight: 600; }
-    .doc-resp { font-size: 11pt; font-weight: 700; margin: 4px 0 0; }
+    .doc-resp { font-size: 12.5pt; font-weight: 700; margin: 4px 0 0; }
     .info-wrap { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 18px 0 22px; min-height: 100px; }
     .info-left { flex: 1; min-width: 0; }
-    .info-row { margin: 5px 0; font-size: 10pt; line-height: 1.45; text-align: left; }
-    .info-row .lbl { font-weight: 600; color: #222; }
+    .info-row { margin: 5px 0; font-size: 10.5pt; line-height: 1.45; text-align: left; font-weight: 700; }
+    .info-row .lbl { font-weight: 700; color: #222; }
     .pct-box { flex-shrink: 0; align-self: center; text-align: right; padding: 8px 4px 8px 16px; max-width: 38%; }
     .pct-box .pct-line { font-size: 20pt; font-weight: 800; color: #111; line-height: 1.15; letter-spacing: 0.02em; }
     .pct-box .pct-line .num { font-size: 26pt; }
-    .fin-table { width: 100%; border-collapse: collapse; font-size: 10pt; margin: 8px 0 20px; position: relative; z-index: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .fin-table { width: 100%; border-collapse: collapse; font-size: 10.5pt; margin: 8px 0 20px; position: relative; z-index: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .fin-table thead th {
       background: linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%);
       color: #fff; font-weight: 700; padding: 10px 12px; text-align: left;
@@ -150,21 +122,41 @@ export function buildCommercialDetailPrintHtml(
       background: linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%) !important;
       color: #fff !important; font-weight: 700; border: none; padding: 11px 12px;
     }
-    .doc-footer { margin-top: auto; }
-    .footer-bar { height: 4px; background: ${GREEN}; margin-top: 8px; margin-bottom: 12px; border-radius: 1px; }
-    .footer-grid { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; font-size: 9.5pt; color: #222; line-height: 1.5; position: relative; z-index: 1; }
-    .footer-left, .footer-right { flex: 1; min-width: 200px; }
-    .footer-line { margin: 3px 0; }
-    .footer-label { font-weight: 700; color: #111; margin-right: 4px; }
-    .footer-logo { flex-shrink: 0; }
-    .footer-logo img { max-height: 52px; max-width: 160px; object-fit: contain; display: block; }
-    .ref-note { font-size: 8.5pt; color: #666; margin-top: 10px; text-align: center; }
+    .doc-footer { margin-top: auto; flex-shrink: 0; position: relative; z-index: 1; padding-top: 12px; }
+    .ref-note { font-size: 8.5pt; color: #666; margin-top: 8px; text-align: center; }
+    @media print {
+      html, body {
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+      }
+      body { box-shadow: none !important; }
+      .page {
+        width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
+        padding: 12mm 14mm !important;
+        box-shadow: none !important;
+        background: #fff !important;
+      }
+    }
+    @media screen {
+      body { background: #b8b8b8; padding: 16px 0; }
+      .page {
+        margin: 0 auto;
+        padding: 12mm 14mm;
+        background: #fff;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      }
+    }
   </style>
 </head>
 <body>
   <div class="page">
-    ${letter}
     ${wm}
+    <div class="page-main">
+    ${letter}
 
     <header class="doc-head">
       <h1 class="doc-title">Commercial Detail</h1>
@@ -176,7 +168,7 @@ export function buildCommercialDetailPrintHtml(
     <div class="info-wrap">
       <div class="info-left">
         <div class="info-row"><span class="lbl">Description of goods:</span> ${esc(record.goods_description || '—')}</div>
-        <div class="info-row"><span class="lbl">Quantity:</span> ${esc(fmtMoney(record.quantity ?? 0, 2))}</div>
+        <div class="info-row"><span class="lbl">Quantity:</span> ${esc(record.quantity || '—')}</div>
         <div class="info-row"><span class="lbl">Tell (Phone):</span> ${esc(record.tell || '—')}</div>
         <div class="info-row"><span class="lbl">Unit Price Commercial Invoice:</span> $ ${fmtMoney(unitPriceUsd, 2)}</div>
         <div class="info-row"><span class="lbl">Tim NO:</span> ${esc(record.timno || '—')}</div>
@@ -231,8 +223,8 @@ export function buildCommercialDetailPrintHtml(
         </tr>
       </tbody>
     </table>
+    </div>
 
-    <div style="flex-grow: 1;"></div>
     <footer class="doc-footer">
       ${footerBlock}
       <p class="ref-note">Réf. dossier : ${esc(record.commercial_no)}</p>
@@ -245,16 +237,9 @@ export function buildCommercialDetailPrintHtml(
 export async function openCommercialDetailPrint(record: CommercialChamberRecord): Promise<void> {
   const { fetchDocumentBranding } = await import('./documentBranding');
   const branding = await fetchDocumentBranding();
-  const rate = getCommercialChamberDjfRate();
-  const html = buildCommercialDetailPrintHtml(record, branding, rate);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  const html = buildCommercialDetailPrintHtml(record, branding);
+  const safeNo = String(record.commercial_no || 'dossier').replace(/[^\w-]+/g, '-');
+  await openHtmlPrintThenPdfInBrowser(html, `Commercial-Detail-${safeNo}.pdf`);
 }
 
 export function buildCommercialListPrintHtml(
@@ -278,13 +263,11 @@ export function buildCommercialListPrintHtml(
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>Liste commerciaux</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
     body{font-family:Arial,sans-serif;font-size:11pt}
     table{width:100%;border-collapse:collapse}
     th,td{border:1px solid #ccc;padding:6px 8px}
     th{background:linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%);color:#fff;text-align:left;font-weight:700}
-    .letterhead{text-align:center;margin-bottom:12px}
-    .letterhead img{max-height:80px;width:100%;object-fit:contain}
-    .sub{font-size:10pt;color:#444;margin:8px 0 16px}
   </style></head><body>
   ${letter}
   <h2>Liste des dossiers commerciaux</h2>
@@ -298,14 +281,8 @@ export async function openCommercialListPrint(rows: CommercialChamberRecord[]): 
   const { fetchDocumentBranding } = await import('./documentBranding');
   const branding = await fetchDocumentBranding();
   const html = buildCommercialListPrintHtml(rows, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  const today = new Date().toISOString().split('T')[0];
+  await openHtmlPrintThenPdfInBrowser(html, `Liste-Commerciaux-${today}.pdf`);
 }
 
 

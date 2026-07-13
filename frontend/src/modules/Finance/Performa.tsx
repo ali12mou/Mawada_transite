@@ -9,7 +9,7 @@ import {
   type PerformaPrintItem,
   type PerformaPrintRecord,
 } from '../../lib/performaPrintHtml';
-import { PerformaViewModal, type PerformaViewData } from './performaView';
+import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
 
 interface PerformaData {
   id: string;
@@ -25,9 +25,34 @@ interface PerformaItem {
   description_of_goods: string;
   origin: string;
   hs_code: string;
-  quantity: number;
-  unit_price: number;
-  total_unit_price: number;
+  quantity: string;
+  unit_price: string;
+  total_unit_price: string;
+}
+
+function valStr(v: unknown): string {
+  if (v == null || v === '') return '';
+  return String(v);
+}
+
+function computePerformaLineTotal(quantity: string, unitPrice: string): string {
+  const q = parseLocalizedNumber(quantity);
+  const p = parseLocalizedNumber(unitPrice);
+  if (!q || !p) return '';
+  const amount = Math.round(q * p * 100) / 100;
+  return String(amount);
+}
+
+function applyPerformaItemUpdate(
+  row: PerformaItem,
+  field: keyof PerformaItem,
+  value: unknown
+): PerformaItem {
+  const next = { ...row, [field]: String(value ?? '') } as PerformaItem;
+  if (field === 'quantity' || field === 'unit_price') {
+    next.total_unit_price = computePerformaLineTotal(next.quantity, next.unit_price);
+  }
+  return next;
 }
 
 interface RouteRecord {
@@ -45,9 +70,9 @@ const emptyPerformaItem = (): PerformaItem => ({
   description_of_goods: '',
   origin: '',
   hs_code: '',
-  quantity: 0,
-  unit_price: 0,
-  total_unit_price: 0,
+  quantity: '',
+  unit_price: '',
+  total_unit_price: '',
 });
 
 const pfLabelClass = 'mb-1 block text-sm font-semibold text-gray-800';
@@ -230,13 +255,7 @@ export function Performa() {
 
   const updatePerformaItem = (index: number, field: keyof PerformaItem, value: unknown) => {
     const newItems = [...performaItems];
-    const row = { ...newItems[index], [field]: value } as PerformaItem;
-    if (field === 'quantity' || field === 'unit_price') {
-      const q = field === 'quantity' ? Number(value) : row.quantity;
-      const pr = field === 'unit_price' ? Number(value) : row.unit_price;
-      row.total_unit_price = Math.round(q * pr * 100) / 100;
-    }
-    newItems[index] = row;
+    newItems[index] = applyPerformaItemUpdate(newItems[index], field, value);
     setPerformaItems(newItems);
   };
 
@@ -268,9 +287,9 @@ export function Performa() {
       origin: String(it.origin ?? ''),
       hs_code: String(it.hs_code ?? ''),
       unit: String(it.unit ?? ''),
-      quantity: Number(it.quantity) || 0,
-      unit_price: Number(it.unit_price) || 0,
-      total_unit_price: Number(it.total_unit_price) || 0,
+      quantity: valStr(it.quantity),
+      unit_price: valStr(it.unit_price),
+      total_unit_price: valStr(it.total_unit_price),
     }));
   }
 
@@ -366,9 +385,9 @@ export function Performa() {
             description_of_goods: String(it.description_of_goods ?? ''),
             origin: String(it.origin ?? ''),
             hs_code: String(it.hs_code ?? ''),
-            quantity: Number(it.quantity) || 0,
-            unit_price: Number(it.unit_price) || 0,
-            total_unit_price: Number(it.total_unit_price) || 0,
+            quantity: valStr(it.quantity),
+            unit_price: valStr(it.unit_price),
+            total_unit_price: valStr(it.total_unit_price),
           }))
           : [emptyPerformaItem()]
       );
@@ -686,32 +705,29 @@ export function Performa() {
                           </td>
                           <td className="px-3 py-2 align-top">
                             <input
-                              type="number"
-                              step="0.01"
-                              value={item.quantity || ''}
+                              type="text"
+                              value={item.quantity}
                               onChange={(e) =>
-                                updatePerformaItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                                updatePerformaItem(index, 'quantity', e.target.value)
                               }
                               className={pfInputClass}
                             />
                           </td>
                           <td className="px-3 py-2 align-top">
                             <input
-                              type="number"
-                              step="0.01"
-                              value={item.unit_price || ''}
+                              type="text"
+                              value={item.unit_price}
                               onChange={(e) =>
-                                updatePerformaItem(index, 'unit_price', parseFloat(e.target.value) || 0)
+                                updatePerformaItem(index, 'unit_price', e.target.value)
                               }
                               className={pfInputClass}
                             />
                           </td>
                           <td className="px-3 py-2 align-top">
                             <input
-                              type="number"
-                              step="0.01"
+                              type="text"
                               readOnly
-                              value={item.total_unit_price || ''}
+                              value={item.total_unit_price}
                               className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800"
                             />
                           </td>

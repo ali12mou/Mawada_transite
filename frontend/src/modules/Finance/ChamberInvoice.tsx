@@ -29,7 +29,6 @@ import {
   type ChamberInvoicePrintItem,
   type ChamberInvoicePrintRecord,
 } from '../../lib/chamberInvoicePrintHtml';
-import { DocumentBrandBanner } from '../Shared/DocumentBrandBanner';
 
 interface RouteRecord {
   id?: string;
@@ -891,7 +890,6 @@ export function ChamberInvoice() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <DocumentBrandBanner className="mb-5" />
               <div className="space-y-5">
                 <InvoiceFormSection
                   title={t('chamberInvoice.details')}

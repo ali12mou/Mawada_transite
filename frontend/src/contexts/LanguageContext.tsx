@@ -32,6 +32,7 @@ const translations = {
     'common.to': 'to',
     'common.of': 'of',
     'common.entries': 'entries',
+    'common.all': 'All',
     'common.approved': 'Approved',
     'common.rejected': 'Rejected',
     'common.version': 'Version: 2.0.0 / MAJOR',
@@ -655,6 +656,7 @@ const translations = {
     'local.editRecord': 'Edit Record',
     'local.addUpdate': 'Add/Update Local Company',
     'local.printService': 'Print Service',
+    'local.printList': 'Print',
     'local.deleteNotAllowedAge': 'Deletion not allowed for records older than 30 days',
     'local.deleteTypeClientName': 'Please type the client name to confirm deletion',
     'local.step1Label': 'File Information',
@@ -757,7 +759,11 @@ const translations = {
     'transfer9.actionViewDocument': 'View document',
     'transfer9.actionEdit': 'Edit',
     'transfer9.actionDelete': 'Delete',
+    'transfer9.actionPrint': 'Print',
     'transfer9.actionDownloadPdf': 'Download PDF',
+    'transfer9.transferDetails': 'Transfer Details',
+    'transfer9.detailsColumn': 'Details',
+    'transfer9.valuesColumn': 'Values',
 
     // Document 4
     'document4.title': 'Document No 4',
@@ -919,6 +925,7 @@ const translations = {
     'document9.deleteConfirm': 'Are you sure you want to delete this document?',
     'document9.actionViewDocument': 'View Document',
     'document9.actionDownloadPdf': 'Download PDF',
+    'document9.print': 'Print',
 
     // Clearance
     'clearance.title': 'Manage Demurrage Details',
@@ -1548,6 +1555,7 @@ const translations = {
     'common.to': 'à',
     'common.of': 'sur',
     'common.entries': 'entrées',
+    'common.all': 'Tous',
     'common.approved': 'Approuvé',
     'common.rejected': 'Rejeté',
     'common.version': 'Version: 2.0.0 / MAJEUR',
@@ -2186,6 +2194,7 @@ const translations = {
     'local.declarationCancellationPrice': 'Prix d\'annulation de la déclaration S, E ou T',
     'local.fullScannedDocument': 'Full Scanned Document',
     'local.printService': 'Print Service',
+    'local.printList': 'Imprimer',
     'local.next': 'Suivant',
     'local.finish': 'Terminer',
     'local.documentsNote': 'Les documents suivants sont requis. Veuillez vous assurer qu\'ils sont valides et en bon état.',
@@ -2277,7 +2286,11 @@ const translations = {
     'transfer9.actionViewDocument': 'Voir le document',
     'transfer9.actionEdit': 'Modifier',
     'transfer9.actionDelete': 'Supprimer',
+    'transfer9.actionPrint': 'Imprimer',
     'transfer9.actionDownloadPdf': 'Télécharger le PDF',
+    'transfer9.transferDetails': 'Détails du transfert',
+    'transfer9.detailsColumn': 'Détails',
+    'transfer9.valuesColumn': 'Valeurs',
 
     // Document 4
     'document4.title': 'Document N° 4',
@@ -2439,6 +2452,7 @@ const translations = {
     'document9.deleteConfirm': 'Êtes-vous sûr de vouloir supprimer ce document ?',
     'document9.actionViewDocument': 'Voir le document',
     'document9.actionDownloadPdf': 'Télécharger le PDF',
+    'document9.print': 'Imprimer',
 
     // Clearance
     'clearance.title': 'Gérer les Détails de Démurrage',
@@ -3072,6 +3086,7 @@ const translations = {
     'common.to': 'إلى',
     'common.of': 'من',
     'common.entries': 'إدخالات',
+    'common.all': 'الكل',
     'common.approved': 'تمت الموافقة',
     'common.rejected': 'مرفوض',
     'common.version': 'الإصدار: 2.0.0 / رئيسي',
@@ -3303,6 +3318,7 @@ const translations = {
     'local.editRecord': 'تعديل السجل',
     'local.addUpdate': 'إضافة/تحديث شركة محلية',
     'local.printService': 'طباعة الخدمة',
+    'local.printList': 'طباعة',
     'local.deleteNotAllowedAge': 'لا يُسمح بحذف السجلات التي مضى عليها أكثر من 30 يوماً',
     'local.deleteTypeClientName': 'يرجى كتابة اسم العميل لتأكيد الحذف',
     'local.step1Label': 'بيانات الملف',
@@ -3369,7 +3385,11 @@ const translations = {
     'transfer9.actionViewDocument': 'عرض المستند',
     'transfer9.actionEdit': 'تعديل',
     'transfer9.actionDelete': 'حذف',
+    'transfer9.actionPrint': 'طباعة',
     'transfer9.actionDownloadPdf': 'تنزيل PDF',
+    'transfer9.transferDetails': 'تفاصيل النقل',
+    'transfer9.detailsColumn': 'التفاصيل',
+    'transfer9.valuesColumn': 'القيم',
 
     // Chamber Invoice
     'chamberInvoice.title': 'فاتورة الغرفة',

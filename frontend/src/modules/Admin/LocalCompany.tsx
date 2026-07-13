@@ -13,7 +13,12 @@ import {
   type LocalCompanyCreateInput,
 } from '../../api/localCompanyApi';
 import { openLocalCompanyPrint } from '../../lib/localCompanyPrintHtml';
+import { openLocalCompanyListPrint } from '../../lib/localCompanyListPrintHtml';
+import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
 import { ActionMenu } from '../Shared/common/ActionMenu';
+
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100] as const;
+type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number] | 'all';
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:border-[#0F3C66] focus:outline-none focus:ring-2 focus:ring-[#0F3C66]/15';
@@ -59,13 +64,13 @@ function buildLocalCompanyCreateInput(
     bill_of_loading: formData.bill_of_loading.trim(),
     declaration_s: formData.declaration_s.trim(),
     declaration_e: formData.declaration_e.trim(),
-    file_fee: parseFloat(formData.file_fee) || 0,
-    quantity: parseFloat(formData.quantity) || 0,
-    truck_loading_quantity: parseFloat(formData.truck_loading_quantity) || 0,
-    transit_fee: parseFloat(formData.transit_fee) || 0,
-    service_fee: parseFloat(formData.service_fee) || 0,
-    escort_fee: parseFloat(formData.escort_fee) || 0,
-    total: parseFloat(formData.total) || 0,
+    file_fee: parseLocalizedNumber(formData.file_fee),
+    quantity: formData.quantity.trim(),
+    truck_loading_quantity: formData.truck_loading_quantity.trim(),
+    transit_fee: parseLocalizedNumber(formData.transit_fee),
+    service_fee: parseLocalizedNumber(formData.service_fee),
+    escort_fee: parseLocalizedNumber(formData.escort_fee),
+    total: parseLocalizedNumber(formData.total),
     numero_9: formData.numero_9.trim(),
     numero_9_price: parseFloat(formData.numero_9_price) || 0,
     numero_4: formData.numero_4.trim(),
@@ -77,14 +82,38 @@ function buildLocalCompanyCreateInput(
   };
 }
 
-function numStr(v: number | undefined | null): string {
-  if (v === undefined || v === null || (typeof v === 'number' && Number.isNaN(v))) return '';
+function numStr(v: number | string | undefined | null): string {
+  if (v === undefined || v === null || v === '') return '';
+  if (typeof v === 'number' && Number.isNaN(v)) return '';
   return String(v);
+}
+
+type LocalCompanyFeeFields = {
+  file_fee: string;
+  transit_fee: string;
+  service_fee: string;
+  escort_fee: string;
+  total: string;
+};
+
+/** Total étape 1 = Frais de dossier + transit + service + escorte. */
+function computeLocalCompanyFeesTotal(fees: LocalCompanyFeeFields): string {
+  const sum =
+    parseLocalizedNumber(fees.file_fee) +
+    parseLocalizedNumber(fees.transit_fee) +
+    parseLocalizedNumber(fees.service_fee) +
+    parseLocalizedNumber(fees.escort_fee);
+  const rounded = Math.round(sum * 100) / 100;
+  return Number.isFinite(rounded) ? String(rounded) : '';
+}
+
+function withComputedLocalTotal<T extends LocalCompanyFeeFields>(data: T): T {
+  return { ...data, total: computeLocalCompanyFeesTotal(data) };
 }
 
 function recordToFormData(r: LocalCompanyRecord) {
   const d = r.closure_date ? String(r.closure_date).slice(0, 10) : '';
-  return {
+  return withComputedLocalTotal({
     client_name: r.client_name || '',
     vendor_company: r.vendor_company || '',
     purchasing_company: r.purchasing_company || '',
@@ -109,7 +138,7 @@ function recordToFormData(r: LocalCompanyRecord) {
     declaration_cancellation: r.declaration_cancellation || '',
     transfer: r.transfer || '',
     declaration_cancellation_price: numStr(r.declaration_cancellation_price),
-  };
+  });
 }
 
 const MAX_DELETE_AGE_DAYS = 30;
@@ -227,6 +256,7 @@ export function LocalCompany() {
   const [showModal, setShowModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pageSize, setPageSize] = useState<PageSizeOption>(5);
   const [activeTab, setActiveTab] = useState('local');
   const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
   const [formClientId, setFormClientId] = useState('');
@@ -262,6 +292,12 @@ export function LocalCompany() {
     transfer: '',
     declaration_cancellation_price: '',
   });
+
+  const updateStep1Fees = (
+    patch: Partial<Pick<typeof formData, 'file_fee' | 'transit_fee' | 'service_fee' | 'escort_fee'>>
+  ) => {
+    setFormData((prev) => withComputedLocalTotal({ ...prev, ...patch }));
+  };
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingRecord, setViewingRecord] = useState<LocalCompanyRecord | null>(null);
@@ -304,6 +340,11 @@ export function LocalCompany() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (currentStep === 1) {
+      setCurrentStep(2);
+      return;
+    }
 
     try {
       const payload = buildLocalCompanyCreateInput(formData, formClientId);
@@ -405,6 +446,10 @@ export function LocalCompany() {
     (comp.goods_description && comp.goods_description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const displayedCompanies =
+    pageSize === 'all' ? filteredCompanies : filteredCompanies.slice(0, pageSize);
+  const displayedCount = displayedCompanies.length;
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">{t('common.loading')}</div>;
   }
@@ -416,6 +461,15 @@ export function LocalCompany() {
           {t('local.title')}
         </h1>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void openLocalCompanyListPrint(companies)}
+            disabled={companies.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-[#0F3C66] bg-white px-4 py-2 text-[#0F3C66] transition hover:bg-[#0F3C66]/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Printer size={20} />
+            {t('local.printList')}
+          </button>
           <button
             type="button"
             onClick={openCreateModal}
@@ -455,11 +509,23 @@ export function LocalCompany() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">{t('common.show')}</span>
-                  <input
-                    type="number"
-                    defaultValue={5}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm w-16"
-                  />
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPageSize(value === 'all' ? 'all' : (Number(value) as PageSizeOption));
+                    }}
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                    aria-label={t('common.show')}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                    <option value="all">{t('common.all')}</option>
+                  </select>
+                  <span className="text-sm text-gray-600">{t('common.entries')}</span>
                 </div>
                 <input
                   type="text"
@@ -512,7 +578,7 @@ export function LocalCompany() {
                         </td>
                       </tr>
                     ) : (
-                      filteredCompanies?.map((company, index) => (
+                      displayedCompanies.map((company, index) => (
                         <tr key={company.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4">{index + 1}</td>
                           <td className="py-3 px-4">{company.client_name}</td>
@@ -521,8 +587,8 @@ export function LocalCompany() {
                           <td className="py-3 px-4">{company.goods_description || '-'}</td>
                           <td className="py-3 px-4">{company.purchasing_company || '-'}</td>
                           <td className="py-3 px-4 text-right">{formatAmount(company.file_fee ?? 0)}</td>
-                          <td className="py-3 px-4 text-right">{(company.quantity ?? 0).toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right">{(company.truck_loading_quantity ?? 0).toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right">{company.quantity || '—'}</td>
+                          <td className="py-3 px-4 text-right">{company.truck_loading_quantity || '—'}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-center">
                               <ActionMenu
@@ -561,7 +627,9 @@ export function LocalCompany() {
 
               <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
                 <div>
-                  {t('common.showing')} 1 {t('common.to')} {filteredCompanies.length > 5 ? 5 : filteredCompanies.length} {t('common.of')} {filteredCompanies.length} {t('common.entries')}
+                  {displayedCount === 0
+                    ? `${t('common.showing')} 0 ${t('common.of')} ${filteredCompanies.length} ${t('common.entries')}`
+                    : `${t('common.showing')} 1 ${t('common.to')} ${displayedCount} ${t('common.of')} ${filteredCompanies.length} ${t('common.entries')}`}
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
@@ -679,18 +747,14 @@ export function LocalCompany() {
                         <label className={labelClass}>
                           {t('local.goodsDescription')} *
                         </label>
-                        <select
+                        <input
+                          type="text"
                           value={formData.goods_description}
                           onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
                           className={inputClass}
+                          placeholder="Ex. Electronics, sucre, textile…"
                           required
-                        >
-                          <option value="">Select</option>
-                          <option value="Electronics">Electronics</option>
-                          <option value="Automobile">Automobile</option>
-                          <option value="Clothing">Clothing</option>
-                          <option value="Furniture">Furniture</option>
-                        </select>
+                        />
                       </div>
                       <div>
                         <label className={labelClass}>
@@ -792,11 +856,11 @@ export function LocalCompany() {
                           {t('local.fileFee')} *
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.file_fee}
-                          onChange={(e) => setFormData({ ...formData, file_fee: e.target.value })}
+                          onChange={(e) => updateStep1Fees({ file_fee: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0.00"
                           required
                         />
                       </div>
@@ -805,11 +869,11 @@ export function LocalCompany() {
                           {t('local.quantity')} *
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.quantity}
                           onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0"
                           required
                         />
                       </div>
@@ -821,11 +885,11 @@ export function LocalCompany() {
                           {t('local.truckLoadingQuantity')} *
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.truck_loading_quantity}
                           onChange={(e) => setFormData({ ...formData, truck_loading_quantity: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0"
                           required
                         />
                       </div>
@@ -834,11 +898,11 @@ export function LocalCompany() {
                           {t('local.transitFee')} *
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.transit_fee}
-                          onChange={(e) => setFormData({ ...formData, transit_fee: e.target.value })}
+                          onChange={(e) => updateStep1Fees({ transit_fee: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0.00"
                           required
                         />
                       </div>
@@ -850,11 +914,11 @@ export function LocalCompany() {
                           {t('local.serviceFee')} *
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.service_fee}
-                          onChange={(e) => setFormData({ ...formData, service_fee: e.target.value })}
+                          onChange={(e) => updateStep1Fees({ service_fee: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0.00"
                           required
                         />
                       </div>
@@ -863,11 +927,11 @@ export function LocalCompany() {
                           {t('local.escortFee')}
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           value={formData.escort_fee}
-                          onChange={(e) => setFormData({ ...formData, escort_fee: e.target.value })}
+                          onChange={(e) => updateStep1Fees({ escort_fee: e.target.value })}
                           className={`${inputClass} tabular-nums`}
+                          placeholder="0.00"
                         />
                       </div>
                       <div>
@@ -875,11 +939,11 @@ export function LocalCompany() {
                           {t('local.total')}
                         </label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          readOnly
                           value={formData.total}
-                          onChange={(e) => setFormData({ ...formData, total: e.target.value })}
-                          className={`${inputClass} tabular-nums`}
+                          className={`${inputClass} tabular-nums bg-gray-50`}
+                          placeholder="0"
                         />
                       </div>
                     </div>
@@ -1056,8 +1120,7 @@ export function LocalCompany() {
                 )}
                 {currentStep === 1 ? (
                   <button
-                    type="button"
-                    onClick={() => setCurrentStep(2)}
+                    type="submit"
                     className="ml-auto rounded-xl bg-[#0F3C66] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#0F3C66]/20 transition hover:bg-[#152a44]"
                   >
                     {t('local.next')}
@@ -1110,8 +1173,8 @@ export function LocalCompany() {
                   [t('local.goodsDescription'), viewingRecord.goods_description || '—'],
                   [t('local.closureDate'), viewingRecord.closure_date || '—'],
                   [t('local.fileFee'), formatAmount(viewingRecord.file_fee ?? 0)],
-                  [t('local.quantity'), String(viewingRecord.quantity ?? 0)],
-                  [t('local.truckLoadingQuantity'), String(viewingRecord.truck_loading_quantity ?? 0)],
+                  [t('local.quantity'), viewingRecord.quantity || '—'],
+                  [t('local.truckLoadingQuantity'), viewingRecord.truck_loading_quantity || '—'],
                   [t('local.transitFee'), formatAmount(viewingRecord.transit_fee ?? 0)],
                   [t('local.serviceFee'), formatAmount(viewingRecord.service_fee ?? 0)],
                   [t('local.total'), formatAmount(viewingRecord.total ?? 0)],

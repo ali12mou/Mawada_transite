@@ -1,5 +1,13 @@
 import type { DocumentBranding } from '../types/documentBranding';
 import { fetchDocumentBranding } from './documentBranding';
+import { buildLetterheadHtml } from './documentPrintImages';
+import {
+  buildDocWatermark,
+  buildMawadaContactFooterHtml,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  watermarkPrintCss,
+} from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 function esc(s: string | number | undefined | null): string {
@@ -56,6 +64,9 @@ export function buildOrdersPrintHtml(
   const location =
     (options.location || branding.companyAddress || 'Djibouti').split(',')[0].trim() || 'Djibouti';
   const grandTotal = rows.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const letter = buildLetterheadHtml(branding);
+  const footer = buildMawadaContactFooterHtml(branding);
+  const wm = buildDocWatermark(branding);
 
   const bodyRows = rows.length
     ? rows
@@ -79,6 +90,9 @@ export function buildOrdersPrintHtml(
   <title>DÉTAILS DE LA COMMANDE</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 14mm 12mm; }
     * { box-sizing: border-box; }
     body {
@@ -89,12 +103,18 @@ export function buildOrdersPrintHtml(
       padding: 0;
       line-height: 1.35;
     }
-    .sheet { width: 100%; }
+    .sheet {
+      width: 100%;
+      min-height: 270mm;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
     h1 {
       text-align: center;
       font-size: 16pt;
       font-weight: 700;
-      margin: 0 0 14px;
+      margin: 10px 0 14px;
       letter-spacing: 0.02em;
     }
     .meta {
@@ -145,15 +165,25 @@ export function buildOrdersPrintHtml(
       vertical-align: bottom;
       height: 14px;
     }
+    .doc-footer { margin-top: auto; padding-top: 20px; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; break-inside: avoid; }
-    @media print {
-      .sheet { page-break-after: auto; }
+    @media screen {
+      body { background: #b8b8b8; padding: 16px 0; }
+      .sheet {
+        width: 210mm;
+        margin: 0 auto;
+        padding: 12mm 14mm;
+        background: #fff;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      }
     }
   </style>
 </head>
 <body>
   <div class="sheet">
+    ${wm}
+    ${letter}
     <h1>DÉTAILS DE LA COMMANDE</h1>
     <div class="meta">
       <div class="meta-line">Généré par: ${esc(generatedBy)}</div>
@@ -183,6 +213,8 @@ export function buildOrdersPrintHtml(
     <div class="signature">
       Signature:<span class="sig-line"></span>
     </div>
+
+    <footer class="doc-footer">${footer}</footer>
   </div>
 </body>
 </html>`;

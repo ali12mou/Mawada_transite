@@ -2,6 +2,13 @@ import { useMemo, useState } from 'react';
 import { Eye, FilePenLine, Plus, Printer, Search, Trash2, X } from 'lucide-react';
 import { fetchDocumentBranding } from '../../../lib/documentBranding';
 import { buildLetterheadHtml } from '../../../lib/documentPrintImages';
+import {
+  buildDocWatermark,
+  buildMawadaContactFooterHtml,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  watermarkPrintCss,
+} from '../../../lib/chamberDocumentPrintShared';
 import { appendAutoPrintBeforeBodyClose, STYLE_A4_SHEET } from '../../../lib/printA4';
 import type { DocumentBranding } from '../../../types/documentBranding';
 
@@ -194,25 +201,13 @@ export function OtherProfitTransitModule() {
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
 
-  const splitPhones = (phone: string): { mob: string; tel: string } => {
-    const raw = (phone || '').trim();
-    if (!raw) return { mob: '—', tel: '—' };
-    const parts = raw
-      .split(/\||\/|\n|;|(?:\s{2,})/)
-      .map(s => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
-      .filter(Boolean);
-    if (parts.length >= 2) return { mob: parts[0], tel: parts[1] };
-    return { mob: raw, tel: '—' };
-  };
-
   const buildPrintDocumentHtml = (row: OtherProfitRow, branding: DocumentBranding): string => {
     const amountDjf = formatMoney(row.amountDjf);
     const amountUsd = formatMoney(row.amountUsd);
     const letterhead = buildLetterheadHtml(branding);
     const companyName = (branding.companyName || 'GEOSOM TRANSIT').trim();
-    const { mob, tel } = splitPhones(branding.companyPhone);
-    const address = (branding.companyAddress || '—').trim();
-    const email = (branding.companyEmail || '—').trim();
+    const footer = buildMawadaContactFooterHtml(branding);
+    const wm = buildDocWatermark(branding);
 
     return `<!doctype html>
 <html lang="fr">
@@ -221,45 +216,14 @@ export function OtherProfitTransitModule() {
   <title>${escapeHtml(companyName)} - Other Profit Details - ${escapeHtml(row.name)}</title>
   <style>
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; margin: 0; font-size: 11px; }
-    .sheet { padding: 4px 8px; min-height: 100vh; }
-    .letterhead { text-align: center; margin-bottom: 14px; }
-    .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
+    .sheet { padding: 4px 8px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
     .meta-top { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #111827; margin: 0 0 8px; }
-    .brand-bar {
-      background: #0f3c66;
-      color: #fff;
-      border-radius: 4px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      margin-bottom: 10px;
-    }
-    .brand-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      background: #fff;
-      object-fit: contain;
-      padding: 4px;
-    }
-    .brand-icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 6px;
-      background: #ffffff;
-      color: #0f3c66;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .brand { font-weight: 800; letter-spacing: .02em; line-height: 1.05; font-size: 14px; text-transform: uppercase; }
-    .title { text-align: center; font-weight: 700; margin: 8px 0 4px; font-size: 40px; }
+    .title { text-align: center; font-weight: 700; margin: 8px 0 4px; font-size: 28px; letter-spacing: 0.04em; }
     .meta-center { text-align: center; font-size: 12px; color: #4b5563; margin-bottom: 2px; }
     .meta-center-strong { text-align: center; font-size: 12px; margin-bottom: 2px; font-weight: 700; }
     .summary {
@@ -272,26 +236,26 @@ export function OtherProfitTransitModule() {
     .summary .left > div,
     .summary .right > div { margin: 0 0 5px; }
     .pct-box { display: flex; align-items: center; justify-content: flex-end; min-height: 70px; }
-    .pct-text { font-size: 40px; font-weight: 800; color: #111827; }
+    .pct-text { font-size: 28px; font-weight: 800; color: #111827; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
     th, td { border-bottom: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
     thead th {
-      background: linear-gradient(180deg, #ee964c 0%, #d35400 100%);
+      background: linear-gradient(180deg, #00AA48 0%, #008f3c 100%);
       color: #fff;
       border-bottom: none;
       font-weight: 700;
     }
     thead th.num, td.num { text-align: right; }
     .totals td {
-      background: linear-gradient(180deg, #ee964c 0%, #d35400 100%);
+      background: linear-gradient(180deg, #00AA48 0%, #008f3c 100%);
       color: #fff;
       font-weight: 700;
       border-bottom: none;
     }
     .note { margin-top: 14px; font-style: italic; font-size: 10px; color: #6b7280; }
     .signature { margin-top: 28px; font-size: 11px; }
-    .stamp { margin-top: 10px; border: 2px solid #2563eb; color: #2563eb; display: inline-block; padding: 7px 11px; font-weight: 700; font-size: 9px; }
-    .footer { margin-top: 28px; border-top: 3px solid #ee964c; padding-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; font-weight: 600; }
+    .stamp { margin-top: 10px; border: 2px solid #2F5496; color: #2F5496; display: inline-block; padding: 7px 11px; font-weight: 700; font-size: 9px; }
+    .doc-footer { margin-top: auto; padding-top: 20px; }
     @media print {
       .sheet { border: none; padding: 0; }
     }
@@ -299,6 +263,7 @@ export function OtherProfitTransitModule() {
 </head>
 <body>
   <div class="sheet">
+    ${wm}
     <div class="meta-top">
       <div>${escapeHtml(new Date().toLocaleString('fr-FR'))}</div>
       <div>Other Profit Detail — ${escapeHtml(companyName)}</div>
@@ -357,10 +322,7 @@ export function OtherProfitTransitModule() {
       <div class="stamp">${escapeHtml(companyName.toUpperCase())}</div>
     </div>
 
-    <div class="footer">
-      <div>Mob: ${escapeHtml(mob)}<br />TEL: ${escapeHtml(tel)}</div>
-      <div>Adresse: ${escapeHtml(address)}<br />Email: ${escapeHtml(email)}</div>
-    </div>
+    <footer class="doc-footer">${footer}</footer>
   </div>
 </body>
 </html>`;

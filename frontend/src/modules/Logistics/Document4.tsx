@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { Edit2, Trash2, Eye, Printer, Plus, Search } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import Modal from '../Shared/common/Modal';
+import { openDocument4ViewDocumentWindow, openDocument4PrintWindow } from '../../lib/document4PrintHtml';
 
 interface Document4 {
   id: string;
@@ -26,7 +27,7 @@ interface Document4 {
   exit_qty: string;
   merchandise_description: string;
   gross_weight: string;
-  declared_value: number;
+  declared_value: string;
   exit_point: string;
   destination: string;
   created_at: string;
@@ -63,7 +64,7 @@ export function Document4() {
     exit_qty: '',
     merchandise_description: '',
     gross_weight: '',
-    declared_value: 0,
+    declared_value: '',
     exit_point: '',
     destination: ''
   });
@@ -107,7 +108,7 @@ export function Document4() {
 
     try {
       if (editingDocument) {
-        await genericApi.update('document_4', editingId, formData);
+        await genericApi.update('document_4', editingDocument.id, formData);
 
         
       } else {
@@ -146,7 +147,7 @@ export function Document4() {
       exit_qty: document.exit_qty || '',
       merchandise_description: document.merchandise_description || '',
       gross_weight: document.gross_weight || '',
-      declared_value: document.declared_value || 0,
+      declared_value: document.declared_value != null ? String(document.declared_value) : '',
       exit_point: document.exit_point || '',
       destination: document.destination || ''
     });
@@ -186,7 +187,7 @@ export function Document4() {
       exit_qty: '',
       merchandise_description: '',
       gross_weight: '',
-      declared_value: 0,
+      declared_value: '',
       exit_point: '',
       destination: ''
     });
@@ -277,7 +278,7 @@ export function Document4() {
                           {
                             label: t('common.view'),
                             icon: <Eye size={16} />,
-                            onClick: () => console.log('View Document 4', doc.id),
+                            onClick: () => void openDocument4ViewDocumentWindow(doc),
                           },
                           {
                             label: t('common.edit'),
@@ -293,7 +294,7 @@ export function Document4() {
                           {
                             label: t('common.print'),
                             icon: <Printer size={16} />,
-                            onClick: () => console.log('Print Document 4', doc.id),
+                            onClick: () => void openDocument4PrintWindow(doc),
                           },
                         ]}
                       />
@@ -378,7 +379,7 @@ export function Document4() {
                 { label: t('document4.exitQty') || 'Exit Qty', key: 'exit_qty' },
                 { label: t('document4.merchandiseDescription') || 'Merchandise Description', key: 'merchandise_description' },
                 { label: t('document4.grossWeight') || 'Gross Weight', key: 'gross_weight' },
-                { label: t('document4.declaredValue') || 'Declared Value', key: 'declared_value', type: 'number' },
+                { label: t('document4.declaredValue') || 'Declared Value', key: 'declared_value' },
                 { label: t('document4.exitPoint') || 'Exit Point', key: 'exit_point' },
                 { label: t('document4.destination') || 'Destination', key: 'destination' }
               ].map((field) => (
@@ -388,8 +389,8 @@ export function Document4() {
                   </label>
                   <input
                     type={field.type || 'text'}
-                    value={formData[field.key as keyof typeof formData] as string | number}
-                    onChange={(e) => setFormData({ ...formData, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
+                    value={formData[field.key as keyof typeof formData] as string}
+                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
                   />
                 </div>

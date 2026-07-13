@@ -1,29 +1,36 @@
 import type { DocumentBranding } from '../types/documentBranding';
-import { cssUrlForBackground, documentImageSrc, buildLetterheadHtml } from './documentPrintImages';
+import { cssUrlForBackground, documentImageSrc, buildLetterheadHtml, watermarkCssUrl } from './documentPrintImages';
 import { STYLE_A4_SHEET } from './printA4';
 
-export const DEFAULT_DOC_GREEN = '#00a651';
-export const DEFAULT_DOC_NAVY = '#0F3C66';
+/** Vert MAWADA (premier mot du nom). */
+export const DEFAULT_DOC_GREEN = '#00AA48';
+/** Bleu MAWADA (reste du nom / accents). */
+export const DEFAULT_DOC_NAVY = '#2F5496';
+/** Trait souligné turquoise (modèle Word MAWADA). */
+export const DEFAULT_DOC_TEAL = '#00B0F0';
 
-/** Styles CSS du bandeau d'en-tête (logo blanc + nom société sur fond bleu marine). */
+/** Styles CSS en-tête style MAWADA (logo + nom vert/bleu + filet turquoise). */
 export function letterheadBannerPrintCss(): string {
   return `
     .letterhead-banner { margin-bottom: 14px; }
     .lh-banner-inner {
       display: flex;
       align-items: center;
-      gap: 14px;
-      background: ${DEFAULT_DOC_NAVY};
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 10px;
+      gap: 12px;
+      background: transparent;
+      padding: 2px 0 2px;
+    }
+    .lh-full-img {
+      display: block;
+      width: 100%;
+      max-height: 92px;
+      object-fit: contain;
     }
     .lh-logo-box {
       flex-shrink: 0;
-      width: 52px;
-      height: 52px;
-      background: #fff;
-      border-radius: 8px;
+      width: 58px;
+      height: 58px;
+      background: transparent;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -33,18 +40,32 @@ export function letterheadBannerPrintCss(): string {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      padding: 4px;
     }
-    .lh-logo-ph { background: #fff; }
-    .lh-brand-text { text-align: left; }
-    .lh-brand-line1,
-    .lh-brand-line2 {
-      font-family: Arial, Helvetica, sans-serif;
-      font-weight: 800;
-      font-size: 13pt;
-      letter-spacing: 0.06em;
-      line-height: 1.2;
+    .lh-logo-ph {
+      border: 1px dashed #c5c5c5;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .lh-brand-text { text-align: left; flex: 1; min-width: 0; }
+    .lh-brand-name {
+      font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 26pt;
+      letter-spacing: 0.02em;
+      line-height: 1;
       text-transform: uppercase;
+      white-space: nowrap;
+      margin: 0;
+      padding: 0;
+    }
+    .lh-brand-green { color: ${DEFAULT_DOC_GREEN}; }
+    .lh-brand-blue { color: ${DEFAULT_DOC_NAVY}; }
+    .lh-rule {
+      height: 0;
+      border: none;
+      border-bottom: 2.5px solid ${DEFAULT_DOC_TEAL};
+      margin: 2px 0 0;
+      width: 100%;
     }
   `;
 }
@@ -77,10 +98,31 @@ export function docGreen(branding: DocumentBranding): string {
   return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : DEFAULT_DOC_GREEN;
 }
 
-export function buildDocWatermark(branding: DocumentBranding): string {
-  const src = cssUrlForBackground(branding.footerLogoUrl || branding.letterHeadUrl);
+export function buildDocWatermark(branding?: DocumentBranding): string {
+  const src = watermarkCssUrl(branding);
   if (!src) return '';
   return `<div class="wm" style="background-image:url(&quot;${src}&quot;)" aria-hidden="true"></div>`;
+}
+
+/** Styles CSS du filigrane centré (classe .wm ou .watermark). */
+export function watermarkPrintCss(): string {
+  return `
+    .wm,
+    .watermark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      height: 420px;
+      opacity: 0.1;
+      pointer-events: none;
+      z-index: 0;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+  `;
 }
 
 /** Bandeau logo + nom société (2 lignes) sur fond bleu marine. */
@@ -89,10 +131,6 @@ export function buildDocLetterhead(branding: DocumentBranding): string {
 }
 
 export function buildDocFooter(branding: DocumentBranding): string {
-  const navy = DEFAULT_DOC_NAVY;
-  const addr = (branding.companyAddress || '').trim();
-  const phone = (branding.companyPhone || '').trim();
-  const email = (branding.companyEmail || '').trim();
   const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
 
   const stampHtml = stampSrc
@@ -102,18 +140,54 @@ export function buildDocFooter(branding: DocumentBranding): string {
   return `
     ${stampHtml}
     <footer class="doc-footer">
-      <hr class="foot-rule" style="border-color:${esc(navy)}" />
-      <div class="foot-grid">
-        <div class="foot-left">
-          <div>Mob: ${phone ? esc(phone) : '—'}</div>
-          <div>TEL : ${phone ? esc(phone) : '—'}</div>
-        </div>
-        <div class="foot-right">
-          <div>Adresse: ${addr ? esc(addr) : '—'}</div>
-          <div>Email : ${email ? esc(email) : '—'}</div>
-        </div>
-      </div>
+      ${buildMawadaContactFooterHtml(branding)}
     </footer>`;
+}
+
+/**
+ * Pied de page contact style MAWADA (cadre + 2 colonnes MOB / Address+Email).
+ * Réutilisable hors bundle facture commerciale.
+ */
+export function buildMawadaContactFooterHtml(branding: DocumentBranding): string {
+  const addr = (branding.companyAddress || '').trim();
+  const phone = (branding.companyPhone || '').trim();
+  const email = (branding.companyEmail || '').trim();
+
+  const phones = phone
+    .split(/\||\/|\n|;|(?:\s{2,})/)
+    .map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
+    .filter(Boolean);
+  const mob1 = phones[0] || phone || '—';
+  const mob2 = phones[1] || '';
+
+  return `
+      <div class="foot-box">
+        <div class="foot-grid">
+          <div class="foot-left">
+            <div><strong>MOB:</strong> ${esc(mob1)}</div>
+            ${mob2 ? `<div><strong>Mob:</strong> ${esc(mob2)}</div>` : `<div><strong>TEL:</strong> ${esc(mob1)}</div>`}
+          </div>
+          <div class="foot-right">
+            <div><strong>Address:</strong> ${addr ? esc(addr) : '—'}</div>
+            <div><strong>Email:</strong> ${email ? esc(email) : '—'}</div>
+          </div>
+        </div>
+      </div>`;
+}
+
+/** CSS minimal pour le pied MAWADA (si le document n’utilise pas sharedPrintStyles). */
+export function mawadaContactFooterPrintCss(): string {
+  return `
+    .foot-box {
+      border: 1px solid #222;
+      padding: 10px 14px;
+      background: #fff;
+    }
+    .foot-grid { display: table; width: 100%; font-size: 9pt; font-weight: 700; }
+    .foot-grid > div { display: table-cell; width: 50%; vertical-align: top; line-height: 1.55; }
+    .foot-right { text-align: left; padding-left: 12px; }
+    .foot-left strong, .foot-right strong { margin-right: 4px; }
+  `;
 }
 
 export function sharedPrintStyles(branding: DocumentBranding): string {
@@ -158,20 +232,7 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
       page-break-before: always;
       break-before: page;
     }
-    .wm {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 380px;
-      height: 380px;
-      opacity: 0.08;
-      pointer-events: none;
-      z-index: 0;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
+    ${watermarkPrintCss()}
     .page-body {
       position: relative;
       z-index: 1;
@@ -234,10 +295,16 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
     .stamp-img { max-height: 72px; max-width: 200px; object-fit: contain; }
     .stamp-line .sig-line { width: 180px; border-bottom: 1px solid #333; margin-top: 40px; }
     .doc-footer { margin-top: auto; padding-top: 8px; }
+    .foot-box {
+      border: 1px solid #222;
+      padding: 10px 14px;
+      background: #fff;
+    }
     .foot-rule { border: none; border-top: 1px solid ${green}; margin: 0 0 8px; }
-    .foot-grid { display: table; width: 100%; font-size: 8.5pt; }
-    .foot-grid > div { display: table-cell; width: 50%; vertical-align: top; }
-    .foot-right { text-align: right; }
+    .foot-grid { display: table; width: 100%; font-size: 9pt; font-weight: 700; }
+    .foot-grid > div { display: table-cell; width: 50%; vertical-align: top; line-height: 1.55; }
+    .foot-right { text-align: left; padding-left: 12px; }
+    .foot-left strong, .foot-right strong { margin-right: 4px; }
     @media screen {
       body { background: #b8b8b8; }
       .print-bundle {

@@ -263,7 +263,7 @@ export function CommercialChamber() {
   const buildPayload = () => ({
     ...formData,
     chamber_service_amount: parseLocalizedNumber(formData.chamber_service_amount),
-    quantity: parseLocalizedNumber(formData.quantity),
+    quantity: formData.quantity.trim(),
     unit_price: parseLocalizedNumber(formData.unit_price),
     percentage: parseLocalizedNumber(formData.percentage) || DEFAULT_COMMERCIAL_PERCENTAGE,
     service_charge: parseLocalizedNumber(formData.service_charge),
@@ -479,7 +479,7 @@ export function CommercialChamber() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] border-collapse text-sm">
             <thead>
-              <tr className="bg-gradient-to-r from-[#0F3C66] to-[#154b8a] text-left text-xs font-bold uppercase tracking-wider text-white">
+              <tr className="bg-gradient-to-r from-[#0F3C66] to-[#152a44] text-left text-xs font-bold uppercase tracking-wider text-white">
                 <th className="whitespace-nowrap px-4 py-3.5">#</th>
                 <th className="whitespace-nowrap px-4 py-3.5">{t('commercial.client')}</th>
                 <th className="whitespace-nowrap px-4 py-3.5">{t('commercial.responsible')}</th>
@@ -740,8 +740,7 @@ export function CommercialChamber() {
                       {t('commercial.chamberServiceAmount')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.chamber_service_amount}
                       onChange={(e) => setFormData({ ...formData, chamber_service_amount: e.target.value })}
                       className="tabular-nums"
@@ -754,8 +753,7 @@ export function CommercialChamber() {
                       {t('commercial.quantity')}
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.quantity}
                       onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                       className="tabular-nums"
@@ -811,8 +809,7 @@ export function CommercialChamber() {
                       {t('commercial.serviceCharge')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.service_charge}
                       readOnly
                       className="tabular-nums bg-slate-50"
@@ -857,16 +854,14 @@ export function CommercialChamber() {
                   </div>
                   <div>
                     <FormLabel>
-                      {t('commercial.bankFee')} * <span className="normal-case text-gray-400">(FDJ)</span>
+                      {t('commercial.bankFee')} <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.bank_commission_fee}
                       onChange={(e) => setFormData({ ...formData, bank_commission_fee: e.target.value })}
                       className="tabular-nums"
                       placeholder="0.00"
-                      required
                     />
                   </div>
 
@@ -875,8 +870,7 @@ export function CommercialChamber() {
                       {t('commercial.transport')} * <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.transport_dhl}
                       onChange={(e) => setFormData({ ...formData, transport_dhl: e.target.value })}
                       className="tabular-nums"
@@ -889,8 +883,7 @@ export function CommercialChamber() {
                       {t('commercial.total')} <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.total}
                       readOnly
                       className="tabular-nums bg-slate-50 font-semibold text-[#0F3C66]"
@@ -974,8 +967,7 @@ export function CommercialChamber() {
                       {t('commercial.certificateFee')} <span className="normal-case text-gray-400">(FDJ)</span>
                     </FormLabel>
                     <FormInput
-                      type="number"
-                      step="0.01"
+                      type="text"
                       value={formData.certificate_fee}
                       onChange={(e) => setFormData({ ...formData, certificate_fee: e.target.value })}
                       className="tabular-nums"
@@ -1101,7 +1093,7 @@ export function CommercialChamber() {
               <div className="mt-4 flex flex-wrap gap-4 border-t border-gray-50 pt-4">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-tight">{t('commercial.quantity')}:</span>
-                  <span className="text-sm font-bold text-[#0F3C66]">{viewRecord.quantity || '0'}</span>
+                  <span className="text-sm font-bold text-[#0F3C66]">{viewRecord.quantity || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-tight">{t('commercial.unitPrice')}:</span>
@@ -1111,9 +1103,11 @@ export function CommercialChamber() {
             </div>
 
             {/* Section: Financial Details */}
-            <div className="rounded-2xl border border-[#0F3C66]/10 bg-white shadow-md overflow-hidden">
-              <div className="bg-[#0F3C66] px-5 py-3 text-white">
-                <h3 className="text-sm font-bold uppercase tracking-wider">{t('commercial.servicesTotal')} Breakdown</h3>
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-200 bg-gray-50 px-5 py-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">
+                  {t('commercial.servicesTotal')} Breakdown
+                </h3>
               </div>
               <div className="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
                 <div className="p-4 space-y-3">

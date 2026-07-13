@@ -1,7 +1,15 @@
-import { DEFAULT_COMPANY_NAME, type DocumentBranding } from '../types/documentBranding';
-import { documentImageSrc } from './documentPrintImages';
+import type { DocumentBranding } from '../types/documentBranding';
+import { buildLetterheadHtml, documentImageSrc } from './documentPrintImages';
+import {
+  buildDocWatermark,
+  buildMawadaContactFooterHtml,
+  docGreen,
+  esc,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  watermarkPrintCss,
+} from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
-import { docGreen, esc } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
 function fmtDateDisplay(iso?: string): string {
@@ -25,17 +33,6 @@ function cell(val: string | undefined | null, emptyWhenMissing = false): string 
   const s = String(val ?? '').trim();
   if (!s || s === 'N/A' || s === '—') return emptyWhenMissing ? '' : 'N/A';
   return esc(s);
-}
-
-function splitPhones(phone: string): { mob: string; tel: string } {
-  const raw = (phone || '').trim();
-  if (!raw) return { mob: '—', tel: '—' };
-  const parts = raw
-    .split(/\||\/|\n|;|(?:\s{2,})/)
-    .map((s) => s.replace(/^(mob|tel|tél|phone)\s*:\s*/i, '').trim())
-    .filter(Boolean);
-  if (parts.length >= 2) return { mob: parts[0], tel: parts[1] };
-  return { mob: raw, tel: raw };
 }
 
 export type CarrierPrintRecord = {
@@ -77,6 +74,9 @@ function carrierTableRow(c: CarrierPrintRecord, index: number, listMode = false)
 function buildCarrierPageStyles(green: string): string {
   return `
     ${STYLE_A4_SHEET}
+    ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
@@ -94,47 +94,12 @@ function buildCarrierPageStyles(green: string): string {
       display: flex;
       flex-direction: column;
     }
-    .wm {
-      position: absolute;
-      left: 50%;
-      top: 52%;
-      transform: translate(-50%, -50%);
-      width: 420px;
-      height: 420px;
-      opacity: 0.07;
-      pointer-events: none;
-      z-index: 0;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
     .content {
       position: relative;
       z-index: 1;
       flex: 1;
       display: flex;
       flex-direction: column;
-    }
-    .head-brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #c5c5c5;
-      margin-bottom: 14px;
-    }
-    .head-logo {
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .head-name {
-      font-family: Georgia, 'Times New Roman', Times, serif;
-      font-size: 22pt;
-      font-weight: 400;
-      color: ${green};
-      line-height: 1.15;
     }
     .title-row {
       position: relative;
@@ -238,23 +203,7 @@ function buildCarrierPageStyles(green: string): string {
       height: 1px;
     }
     .stamp-img { max-height: 72px; max-width: 200px; object-fit: contain; }
-    .footer {
-      border-top: 3px solid ${green};
-      padding-top: 12px;
-    }
-    .footer-content {
-      display: table;
-      width: 100%;
-      font-size: 9.5pt;
-      font-weight: 700;
-    }
-    .footer-content > div {
-      display: table-cell;
-      width: 50%;
-      vertical-align: top;
-      line-height: 1.55;
-    }
-    .footer-right { text-align: right; }
+    .footer { padding-top: 4px; }
     @media screen {
       body { background: #b8b8b8; padding: 16px 0; }
       .page {
@@ -269,9 +218,6 @@ function buildCarrierPageStyles(green: string): string {
 }
 
 function buildFooterBlock(branding: DocumentBranding): string {
-  const { mob, tel } = splitPhones(branding.companyPhone || '');
-  const addr = (branding.companyAddress || '').trim();
-  const email = (branding.companyEmail || '').trim();
   const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
 
   return `
@@ -282,38 +228,17 @@ function buildFooterBlock(branding: DocumentBranding): string {
         ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="" />` : ''}
       </div>
       <div class="footer">
-        <div class="footer-content">
-          <div class="footer-left">
-            <div>Mob: ${mob ? esc(mob) : '—'}</div>
-            <div>TEL : ${tel ? esc(tel) : '—'}</div>
-          </div>
-          <div class="footer-right">
-            <div>Adresse: ${addr ? esc(addr) : '—'}</div>
-            <div>Email : ${email ? esc(email) : '—'}</div>
-          </div>
-        </div>
+        ${buildMawadaContactFooterHtml(branding)}
       </div>
     </div>`;
 }
 
 function buildWatermark(branding: DocumentBranding): string {
-  const wmSrc = documentImageSrc(branding.footerLogoUrl || branding.letterHeadUrl);
-  if (!wmSrc) return '';
-  const safe = wmSrc.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  return `<div class="wm" style="background-image:url(&quot;${safe}&quot;)" aria-hidden="true"></div>`;
+  return buildDocWatermark(branding);
 }
 
 function buildLetterhead(branding: DocumentBranding): string {
-  const logoSrc = documentImageSrc(branding.footerLogoUrl || branding.letterHeadUrl);
-  const companyName = (branding.companyName || DEFAULT_COMPANY_NAME).trim();
-
-  return `
-    <header>
-      <div class="head-brand">
-        ${logoSrc ? `<img class="head-logo" src="${esc(logoSrc)}" alt="" />` : ''}
-        <div class="head-name">${esc(companyName)}</div>
-      </div>
-    </header>`;
+  return buildLetterheadHtml(branding);
 }
 
 export function buildCarrierPrintHtml(
