@@ -1,4 +1,4 @@
-// dashboard route
+// dashboard routes
 import { Router } from 'express';
 import * as dashboardService from '../api/dashboardService.js';
 
