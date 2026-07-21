@@ -6,6 +6,7 @@ import {
   buildMawadaContactFooterHtml,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
@@ -92,6 +93,7 @@ export function buildOrdersPrintHtml(
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('sheet')}
     ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 14mm 12mm; }
     * { box-sizing: border-box; }
@@ -102,13 +104,6 @@ export function buildOrdersPrintHtml(
       margin: 0;
       padding: 0;
       line-height: 1.35;
-    }
-    .sheet {
-      width: 100%;
-      min-height: 270mm;
-      display: flex;
-      flex-direction: column;
-      position: relative;
     }
     h1 {
       text-align: center;
@@ -165,19 +160,9 @@ export function buildOrdersPrintHtml(
       vertical-align: bottom;
       height: 14px;
     }
-    .doc-footer { margin-top: auto; padding-top: 20px; }
+    .doc-footer { padding-top: 20px; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; break-inside: avoid; }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .sheet {
-        width: 210mm;
-        margin: 0 auto;
-        padding: 12mm 14mm;
-        background: #fff;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
   </style>
 </head>
 <body>
@@ -210,11 +195,13 @@ export function buildOrdersPrintHtml(
       </tbody>
     </table>
 
-    <div class="signature">
-      Signature:<span class="sig-line"></span>
-    </div>
+    <div class="page-bottom">
+      <div class="signature">
+        Signature:<span class="sig-line"></span>
+      </div>
 
-    <footer class="doc-footer">${footer}</footer>
+      <footer class="doc-footer">${footer}</footer>
+    </div>
   </div>
 </body>
 </html>`;

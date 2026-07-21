@@ -7,6 +7,7 @@ import {
   esc,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
@@ -76,6 +77,7 @@ function buildCarrierPageStyles(green: string): string {
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page')}
     ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -87,19 +89,13 @@ function buildCarrierPageStyles(green: string): string {
       padding: 0;
       background: #fff;
     }
-    .page {
-      position: relative;
-      width: 100%;
-      min-height: 270mm;
-      display: flex;
-      flex-direction: column;
-    }
     .content {
       position: relative;
       z-index: 1;
-      flex: 1;
+      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
+      min-height: 0;
     }
     .title-row {
       position: relative;
@@ -188,7 +184,7 @@ function buildCarrierPageStyles(green: string): string {
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
-    .bottom-block { margin-top: auto; }
+    .footer { padding-top: 4px; }
     .signature-area {
       display: flex;
       align-items: center;
@@ -203,17 +199,6 @@ function buildCarrierPageStyles(green: string): string {
       height: 1px;
     }
     .stamp-img { max-height: 72px; max-width: 200px; object-fit: contain; }
-    .footer { padding-top: 4px; }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .page {
-        width: 210mm;
-        margin: 0 auto;
-        padding: 12mm 14mm;
-        background: #fff;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
   `;
 }
 
@@ -221,13 +206,13 @@ function buildFooterBlock(branding: DocumentBranding): string {
   const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
 
   return `
-    <div class="bottom-block">
+    <div class="page-bottom bottom-block">
       <div class="signature-area">
         <span class="sig-label">Signature:</span>
         <div class="sig-line"></div>
         ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="" />` : ''}
       </div>
-      <div class="footer">
+      <div class="footer doc-footer">
         ${buildMawadaContactFooterHtml(branding)}
       </div>
     </div>`;

@@ -10,6 +10,7 @@ import {
   type PerformaPrintRecord,
 } from '../../lib/performaPrintHtml';
 import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
+import { PerformaViewModal, type PerformaViewData } from './performaView';
 
 interface PerformaData {
   id: string;
@@ -64,6 +65,16 @@ interface RouteRecord {
 
 function formatRouteLabel(route: RouteRecord): string {
   return `${route.source} -To- ${route.destination}`;
+}
+
+function performaRowId(performa: PerformaData): string {
+  const raw = performa.id || performa._id;
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object' && raw !== null && '$oid' in raw) {
+    return String((raw as { $oid: string }).$oid);
+  }
+  return String(raw);
 }
 
 const emptyPerformaItem = (): PerformaItem => ({
@@ -134,6 +145,18 @@ export function Performa() {
     }
     return labels;
   }, [routesList, formData.source_destination]);
+
+  const finalDestinationOptions = useMemo(() => {
+    const fromLocations = locationsList.map((l) => l.name).filter(Boolean);
+    const fromRoutes = routesList.map((r) => r.destination).filter(Boolean);
+    const merged = [...new Set([...fromLocations, ...fromRoutes])].sort((a, b) =>
+      a.localeCompare(b, 'fr')
+    );
+    if (formData.final_destination && !merged.includes(formData.final_destination)) {
+      return [formData.final_destination, ...merged];
+    }
+    return merged;
+  }, [locationsList, routesList, formData.final_destination]);
 
   useEffect(() => {
     loadPerformas();
@@ -338,7 +361,12 @@ export function Performa() {
   }
 
   async function openPreviewModal(id: string) {
-    const full = await loadPerformaForView(id);
+    const docId = String(id || '').trim();
+    if (!docId) {
+      alert('Identifiant Performa invalide.');
+      return;
+    }
+    const full = await loadPerformaForView(docId);
     if (!full) {
       alert('Impossible de charger le Performa.');
       return;
@@ -511,7 +539,7 @@ export function Performa() {
                 </tr>
               ) : (
                 filteredPerformas?.map((performa, idx) => {
-                  const pId = performa._id || performa.id || '';
+                  const pId = performaRowId(performa);
                   return (
                     <tr key={pId} className={`border-b hover:bg-blue-50/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/80'}`}>
                       <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
@@ -800,9 +828,9 @@ export function Performa() {
                       className={pfSelectClass}
                     >
                       <option value="">{t('performa.selectFinalDestination')}</option>
-                      {locationsList.map((l) => (
-                        <option key={`dest-${l.id || l._id}`} value={l.name}>
-                          {l.name}
+                      {finalDestinationOptions.map((name) => (
+                        <option key={`dest-${name}`} value={name}>
+                          {name}
                         </option>
                       ))}
                     </select>

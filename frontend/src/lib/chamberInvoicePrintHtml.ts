@@ -192,7 +192,7 @@ function buildCommercialInvoicePageHtml(
     .join('');
 
   const page = `
-    <section class="print-page">
+    <section class="print-page ci-commercial-page">
       ${wm}
       <div class="page-body">
         ${head}
@@ -223,25 +223,25 @@ function buildCommercialInvoicePageHtml(
         <table class="tbl">
           <thead>
             <tr>
-              <th style="width:4%">SR. NO</th>
-              <th style="width:30%">DESCRIPTIONS OF GOOD</th>
-              <th style="width:8%">ORIGIN</th>
-              <th style="width:9%">HS Code</th>
-              <th style="width:7%">UNIT</th>
-              <th style="width:6%">QT</th>
-              <th style="width:12%">UNIT PRICE USD($)</th>
-              <th style="width:12%">TOTAL UNIT PRICE</th>
+              <th style="width:5%">SR. NO</th>
+              <th style="width:28%">DESCRIPTIONS OF GOOD</th>
+              <th style="width:9%">ORIGIN</th>
+              <th style="width:10%">HS Code</th>
+              <th style="width:8%">UNIT</th>
+              <th style="width:7%">QT</th>
+              <th style="width:13%">UNIT PRICE USD($)</th>
+              <th style="width:13%">TOTAL UNIT PRICE</th>
             </tr>
           </thead>
           <tbody>
             ${rows || '<tr><td colspan="8" class="td-left">—</td></tr>'}
-            <tr>
+            <tr class="total-row">
               <td colspan="6"></td>
-              <td class="td-num" style="font-weight:700">TOTAL</td>
-              <td class="td-num" style="font-weight:700">${fmtNum(totalUsd)}</td>
+              <td class="td-num">TOTAL</td>
+              <td class="td-num">${fmtNum(totalUsd)}</td>
             </tr>
-            <tr>
-              <td colspan="8" class="td-left" style="font-weight:700">AMOUNT IN WORDS: ${esc(words)}</td>
+            <tr class="words-row">
+              <td colspan="8" class="td-left">AMOUNT IN WORDS: ${esc(words)}</td>
             </tr>
           </tbody>
         </table>
@@ -249,11 +249,11 @@ function buildCommercialInvoicePageHtml(
           <div class="line">PAYMENT: ${v(inv.payment_conditions)}</div>
           <div class="line">NOTE: ALL THE BANK CHARGES INSIDE OUTSIDE OF DJIBOUTI WILL COME TO BUYERS ACCOUNT.</div>
           <div class="line">SHIPPING: ${v(inv.expedition)}</div>
-          <div class="line">SWIFTY CODE: ${v(inv.swift_code)}</div>
+          <div class="line">SWIFT CODE: ${v(inv.swift_code)}</div>
           <div class="line">PORT OF LOADING: ${v(inv.loading_port)}</div>
           <div class="line">FINAL DESTINATION: ${v(inv.final_destination) || 'N/A'}</div>
           <div class="line">BANK DETAILS: ${v(inv.bank_details)}</div>
-          <div class="line">${v(inv.bank_details)} ACCOUNT : ${v(inv.bank_account)}</div>
+          <div class="line">ACCOUNT: ${v(inv.bank_account)}</div>
           <div class="line">INTERMEDIATE BANK: ${v(inv.intermediate_bank)}</div>
           <div class="line">SWIFT CODE: ${v(inv.swift_code_2)}</div>
         </div>

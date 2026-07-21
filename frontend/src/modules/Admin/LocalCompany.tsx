@@ -3,6 +3,8 @@ import { Edit2, Trash2, Plus, Eye, FileText, X, Upload, Printer } from 'lucide-r
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { fetchClients, type ClientRecord } from '../../api/clientsApi';
+import { fetchCompanies, type CompanyRecord } from '../../api/companiesApi';
+import { genericApi } from '../../api/genericApi';
 import { formatClientLabel } from '../../lib/clientLabel';
 import {
   fetchLocalCompanies,
@@ -259,6 +261,10 @@ export function LocalCompany() {
   const [pageSize, setPageSize] = useState<PageSizeOption>(5);
   const [activeTab, setActiveTab] = useState('local');
   const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
+  const [sellerCompaniesList, setSellerCompaniesList] = useState<CompanyRecord[]>([]);
+  const [goodsCategoriesList, setGoodsCategoriesList] = useState<
+    { id?: string; _id?: string; name: string }[]
+  >([]);
   const [formClientId, setFormClientId] = useState('');
   const [documents, setDocuments] = useState<Record<LocalCompanyDocSlot, File | null>>(() =>
     emptyLocalDocuments()
@@ -311,6 +317,19 @@ export function LocalCompany() {
         setClientsList(await fetchClients());
       } catch (e) {
         console.error('Error loading clients:', e);
+      }
+      try {
+        setSellerCompaniesList(await fetchCompanies());
+      } catch (e) {
+        console.error('Error loading seller companies:', e);
+      }
+      try {
+        const categories = await genericApi.list<{ id?: string; _id?: string; name: string }>(
+          'product_categories'
+        );
+        setGoodsCategoriesList(categories || []);
+      } catch (e) {
+        console.error('Error loading goods categories:', e);
       }
     })();
   }, []);
@@ -718,15 +737,25 @@ export function LocalCompany() {
                         <label className={labelClass}>
                           {t('local.vendorCompany')} *
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={formData.vendor_company}
-                          onChange={(e) => setFormData({ ...formData, vendor_company: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, vendor_company: e.target.value })
+                          }
                           className={inputClass}
-                          placeholder={t('local.vendorCompanyPlaceholder')}
                           required
-                          autoComplete="organization"
-                        />
+                        >
+                          <option value="">{t('local.selectVendorCompany')}</option>
+                          {formData.vendor_company &&
+                          !sellerCompaniesList.some((c) => c.name === formData.vendor_company) ? (
+                            <option value={formData.vendor_company}>{formData.vendor_company}</option>
+                          ) : null}
+                          {sellerCompaniesList.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className={labelClass}>
@@ -747,14 +776,30 @@ export function LocalCompany() {
                         <label className={labelClass}>
                           {t('local.goodsDescription')} *
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={formData.goods_description}
-                          onChange={(e) => setFormData({ ...formData, goods_description: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, goods_description: e.target.value })
+                          }
                           className={inputClass}
-                          placeholder="Ex. Electronics, sucre, textile…"
                           required
-                        />
+                        >
+                          <option value="">{t('local.selectGoodsDescription')}</option>
+                          {formData.goods_description &&
+                          !goodsCategoriesList.some((c) => c.name === formData.goods_description) ? (
+                            <option value={formData.goods_description}>
+                              {formData.goods_description}
+                            </option>
+                          ) : null}
+                          {goodsCategoriesList.map((c) => {
+                            const key = c.id || c._id || c.name;
+                            return (
+                              <option key={key} value={c.name}>
+                                {c.name}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
                       <div>
                         <label className={labelClass}>

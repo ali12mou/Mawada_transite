@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
@@ -9,12 +9,13 @@ import {
   type Document9Record,
 } from '../../api/document9Api';
 import {
-  buildDocument9PrintHtml,
   openDocument9PrintWindow,
 } from '../../lib/document9PrintHtml';
+import {
+  buildDocument9ClassicPrintHtml,
+  openDocument9ClassicPrintWindow,
+} from '../../lib/document9ClassicPrintHtml';
 import { Transfer9DetailsView } from './Transfer9DetailsView';
-import { fetchDocumentBranding } from '../../lib/documentBranding';
-import { brandingFromConfig, type DocumentBranding } from '../../types/documentBranding';
 import { fetchCompanies, type CompanyRecord } from '../../api/companiesApi';
 import { fetchClients, type ClientRecord } from '../../api/clientsApi';
 import { genericApi } from '../../api/genericApi';
@@ -40,6 +41,17 @@ const TRANSPORT_OPTIONS: { id: string; label: string }[] = [
   { id: 'navire', label: 'Navire' },
   { id: 'boutre', label: 'Boutre' },
 ];
+
+type RouteRecord = {
+  id?: string;
+  _id?: string;
+  source: string;
+  destination: string;
+};
+
+function formatRouteLabel(route: RouteRecord): string {
+  return `${route.source} -To- ${route.destination}`;
+}
 
 type FormState = Omit<Document9Record, 'id' | 'sqn' | 'createdAt' | 'updatedAt'>;
 
@@ -248,17 +260,18 @@ function validateTransferStep1(form: FormState, requireAll: boolean): boolean {
   if (!requireAll) return true;
   const required: (keyof FormState)[] = [
     'declarant',
-    'license_code',
-    'entry_doc_ref',
-    'do_number',
-    'boat',
     'declarant_nif',
-    'actual_recipient_nif',
-    'operator_name',
-    'sommier_ref',
-    'quantity_entered',
-    'arrival_date',
     'actual_recipient',
+    'actual_recipient_nif',
+    'license_code',
+    'operator_name',
+    'entry_doc_ref',
+    'entry_date',
+    'quantity_entered',
+    'boat',
+    'arrival_date',
+    'bl_number',
+    'country_origin',
   ];
   return required.every((key) => String(form[key] ?? '').trim() !== '');
 }
@@ -278,6 +291,11 @@ export function Document9({
   const headingTitle = pageTitle ?? t('document9.title');
   const addLabel = addButtonLabel ?? t('document9.addNew');
 
+  const printDocument = (doc: Document9Record) => {
+    if (transferWizardModal) void openDocument9PrintWindow(doc);
+    else void openDocument9ClassicPrintWindow(doc);
+  };
+
   const [documents, setDocuments] = useState<Document9Record[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<Document9Record[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,7 +303,6 @@ export function Document9({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<Document9Record | null>(null);
-  const [branding, setBranding] = useState<DocumentBranding | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -296,7 +313,28 @@ export function Document9({
   const [companiesList, setCompaniesList] = useState<CompanyRecord[]>([]);
   const [clientsList, setClientsList] = useState<ClientRecord[]>([]);
   const [goodsCategories, setGoodsCategories] = useState<{ id?: string; _id?: string; name: string }[]>([]);
-  const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [routesList, setRoutesList] = useState<RouteRecord[]>([]);
+
+  const sourceDestinationOptions = useMemo(() => {
+    const labels = routesList.map((route) => formatRouteLabel(route)).filter(Boolean);
+    const saved = formData.source_destination_label?.trim();
+    if (saved && !labels.includes(saved)) return [saved, ...labels];
+    return labels;
+  }, [routesList, formData.source_destination_label]);
+
+  const exitPointOptions = useMemo(() => {
+    const fromRoutes = [...new Set(routesList.map((r) => r.source?.trim()).filter(Boolean))];
+    const cur = formData.exit_point?.trim();
+    if (cur && !fromRoutes.includes(cur)) return [cur, ...fromRoutes];
+    return fromRoutes;
+  }, [routesList, formData.exit_point]);
+
+  const destinationOptions = useMemo(() => {
+    const fromRoutes = [...new Set(routesList.map((r) => r.destination?.trim()).filter(Boolean))];
+    const cur = formData.destination?.trim();
+    if (cur && !fromRoutes.includes(cur)) return [cur, ...fromRoutes];
+    return fromRoutes;
+  }, [routesList, formData.destination]);
 
   const transferMaxStep = editingDocument && transferWizardModal ? 4 : 2;
 
@@ -319,30 +357,24 @@ export function Document9({
   }, [fetchDocuments]);
 
   useEffect(() => {
-    fetchDocumentBranding()
-      .then(setBranding)
-      .catch(() => setBranding(brandingFromConfig({})));
-  }, []);
-
-  useEffect(() => {
-    if (!transferWizardModal) return;
+    if (!showModal) return;
     (async () => {
       try {
-        const [companies, clients, categories, locations] = await Promise.all([
+        const [companies, clients, categories, routes] = await Promise.all([
           fetchCompanies(),
           fetchClients(),
           genericApi.list('product_categories'),
-          genericApi.list('locations'),
+          genericApi.list<RouteRecord>('routes'),
         ]);
         setCompaniesList(companies);
         setClientsList(clients);
         setGoodsCategories(categories || []);
-        setLocationsList(locations || []);
+        setRoutesList(routes || []);
       } catch (e) {
-        console.error('Error loading transfer form lists:', e);
+        console.error('Error loading document 9 form lists:', e);
       }
     })();
-  }, [transferWizardModal]);
+  }, [showModal]);
 
   useEffect(() => {
     let filtered = [...documents];
@@ -550,7 +582,7 @@ export function Document9({
                                 {
                                   label: t('transfer9.actionPrint'),
                                   icon: <Printer size={16} />,
-                                  onClick: () => void openDocument9PrintWindow(doc),
+                                  onClick: () => printDocument(doc),
                                 },
                                 {
                                   label: t('transfer9.actionEdit'),
@@ -599,7 +631,7 @@ export function Document9({
                                 {
                                   label: t('document9.print'),
                                   icon: <Printer size={16} />,
-                                  onClick: () => void openDocument9PrintWindow(doc),
+                                  onClick: () => printDocument(doc),
                                 },
                               ]}
                             />
@@ -717,17 +749,20 @@ export function Document9({
                     {(
                       [
                         ['declarant', 'transfer9.recipientName'],
-                        ['license_code', 'transfer9.licenseCode'],
-                        ['entry_doc_ref', 'transfer9.declarationEntry'],
-                        ['do_number', 'transfer9.doNumber'],
-                        ['boat', 'transfer9.vesselName'],
-                        ['declarant_nif', 'transfer9.nifCode'],
-                        ['actual_recipient_nif', 'transfer9.codeNo'],
-                        ['operator_name', 'transfer9.fzOperatorName'],
-                        ['sommier_ref', 'transfer9.summitNumber'],
-                        ['quantity_entered', 'transfer9.entryQuantity'],
-                        ['arrival_date', 'transfer9.arrivalDate', 'date'],
+                        ['declarant_nif', 'transfer9.codeNo'],
                         ['actual_recipient', 'transfer9.tableRecipient'],
+                        ['actual_recipient_nif', 'transfer9.noCode'],
+                        ['license_code', 'transfer9.licenseCode'],
+                        ['operator_name', 'transfer9.fzOperatorName'],
+                        ['entry_doc_ref', 'transfer9.declarationEntry'],
+                        ['entry_date', 'transfer9.entryDate', 'date'],
+                        ['quantity_entered', 'transfer9.entryQuantity'],
+                        ['boat', 'transfer9.vesselName'],
+                        ['arrival_date', 'transfer9.arrivalDate', 'date'],
+                        ['bl_number', 'transfer9.shippingNumber'],
+                        ['country_origin', 'transfer9.originCountry'],
+                        ['do_number', 'transfer9.doNumber'],
+                        ['sommier_ref', 'transfer9.summitNumber'],
                       ] as const
                     ).map(([key, labelKey, type]) => (
                       <div key={key}>
@@ -757,8 +792,6 @@ export function Document9({
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       {(
                         [
-                          ['bl_number', 'transfer9.shippingNumber'],
-                          ['country_origin', 'transfer9.originCountry'],
                           ['trip_number', 'transfer9.voyageNumber'],
                           ['fiscal_reg', 'transfer9.fiscalReg'],
                           ['nomenclature', 'transfer9.hsCode'],
@@ -794,8 +827,6 @@ export function Document9({
                         [
                           ['gross_weight', 'transfer9.grossWeight'],
                           ['value', 'transfer9.declaredValue'],
-                          ['exit_point', 'transfer9.exitPoint'],
-                          ['destination', 'transfer9.destination'],
                         ] as const
                       ).map(([key, labelKey]) => (
                         <div key={key}>
@@ -814,6 +845,40 @@ export function Document9({
                           />
                         </div>
                       ))}
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.exitPoint')}</label>
+                        <select
+                          value={formData.exit_point}
+                          onChange={(e) =>
+                            setFormData({ ...formData, exit_point: e.target.value })
+                          }
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectExitPoint')}</option>
+                          {exitPointOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={transferLabelClass}>{t('transfer9.destination')}</label>
+                        <select
+                          value={formData.destination}
+                          onChange={(e) =>
+                            setFormData({ ...formData, destination: e.target.value })
+                          }
+                          className={transferFieldClass}
+                        >
+                          <option value="">{t('transfer9.selectDestination')}</option>
+                          {destinationOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between pt-2">
                       <button
@@ -892,15 +957,23 @@ export function Document9({
                         <label className={transferLabelClass}>{t('transfer9.sourceDestination')}</label>
                         <select
                           value={formData.source_destination_label}
-                          onChange={(e) =>
-                            setFormData({ ...formData, source_destination_label: e.target.value })
-                          }
+                          onChange={(e) => {
+                            const label = e.target.value;
+                            const route = routesList.find((r) => formatRouteLabel(r) === label);
+                            setFormData({
+                              ...formData,
+                              source_destination_label: label,
+                              ...(route
+                                ? { exit_point: route.source, destination: route.destination }
+                                : {}),
+                            });
+                          }}
                           className={transferFieldClass}
                         >
                           <option value="">{t('transfer9.selectSourceDestination')}</option>
-                          {locationsList.map((l) => (
-                            <option key={l.id || l._id} value={l.name}>
-                              {l.name}
+                          {sourceDestinationOptions.map((label) => (
+                            <option key={label} value={label}>
+                              {label}
                             </option>
                           ))}
                         </select>
@@ -1100,38 +1173,74 @@ export function Document9({
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                  {[
-                    { key: 'date', label: t('common.date'), type: 'date' },
-                    { key: 'actual_recipient', label: t('transfer9.actualRecipient') },
-                    { key: 'actual_recipient_nif', label: t('transfer9.nifRecipient') },
-                    { key: 'declarant', label: t('transfer9.declarant') },
-                    { key: 'declarant_nif', label: t('transfer9.nifDeclarant') },
-                    { key: 'do_number', label: t('transfer9.doNumber') },
-                    { key: 'container_number', label: t('document9.colContainer') },
-                    { key: 'boat', label: t('transfer9.boat') },
-                    { key: 'trip_number', label: t('transfer9.tripNumber') },
-                    { key: 'bl_number', label: t('transfer9.blNumber') },
-                    { key: 'invoice_count', label: t('transfer9.invoiceCount') },
-                    { key: 'nomenclature', label: t('transfer9.nomenclature') },
-                    { key: 'quantity', label: t('transfer9.quantity') },
-                    { key: 'weight', label: t('transfer9.weight') },
-                    { key: 'value', label: t('transfer9.value') },
-                    { key: 'exit_point', label: t('transfer9.exitPoint') },
-                    { key: 'destination', label: t('transfer9.destination') },
-                  ].map((field) => (
-                    <div key={field.key}>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{field.label}</label>
+                  {(
+                    [
+                      ['entry_doc_ref', 'document9.fieldS'],
+                      ['date', 'common.date', 'date'],
+                      ['actual_recipient', 'document9.realRecipient'],
+                      ['declarant', 'document9.declarant'],
+                      ['declarant_nif', 'document9.codeNif'],
+                      ['container_number', 'document9.containerNo'],
+                      ['boat', 'document9.boat'],
+                      ['trip_number', 'document9.tripNumber'],
+                      ['bl_number', 'document9.blNumber'],
+                      ['nomenclature', 'document9.nomenclatureSh'],
+                      ['quantity', 'document9.quantity'],
+                      ['weight', 'document9.weight'],
+                      ['value', 'document9.value'],
+                    ] as const
+                  ).map(([key, labelKey, type]) => (
+                    <div key={key}>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                        {t(labelKey)}
+                      </label>
                       <input
-                        type={field.type || 'text'}
-                        value={formData[field.key as keyof typeof formData] as string}
-                        onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                        type={type === 'date' ? 'date' : 'text'}
+                        value={formData[key] as string}
+                        onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
                         placeholder={t('transfer9.placeholderEnter')}
                       />
                     </div>
                   ))}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      {t('document9.exitPoint')}
+                    </label>
+                    <select
+                      value={formData.exit_point}
+                      onChange={(e) => setFormData({ ...formData, exit_point: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
+                    >
+                      <option value="">{t('transfer9.selectExitPoint')}</option>
+                      {exitPointOptions.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      {t('document9.destination')}
+                    </label>
+                    <select
+                      value={formData.destination}
+                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-sm bg-white"
+                    >
+                      <option value="">{t('transfer9.selectDestination')}</option>
+                      {destinationOptions.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="col-span-full">
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('transfer9.goodsDescription')}</label>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      {t('document9.description')}
+                    </label>
                     <textarea
                       rows={2}
                       value={formData.description}
@@ -1141,40 +1250,6 @@ export function Document9({
                     />
                   </div>
                 </div>
-
-                <details className="mt-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm group">
-                  <summary className="cursor-pointer text-sm font-bold text-[#0F3C66] hover:text-[#EE964C] transition">{t('document9.optionalDetails')}</summary>
-                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4 border-t border-gray-100">
-                     {[
-                      { key: 'license_code', label: t('transfer9.licenseCode') },
-                      { key: 'operator_name', label: t('transfer9.fzOperatorName') },
-                      { key: 'entry_doc_ref', label: t('transfer9.declarationEntry') },
-                      { key: 'entry_date', label: t('common.date'), type: 'date' },
-                      { key: 'sommier_ref', label: t('transfer9.summitNumber') },
-                      { key: 'do_date', label: t('common.date'), type: 'date' },
-                      { key: 'quantity_entered', label: t('transfer9.entryQuantity') },
-                      { key: 'arrival_date', label: t('transfer9.arrivalDate'), type: 'date' },
-                      { key: 'country_origin', label: t('transfer9.originCountry') },
-                      { key: 'fiscal_reg', label: t('transfer9.fiscalReg') },
-                      { key: 'packaging', label: t('transfer9.packaging') },
-                      { key: 'qty_packages', label: t('transfer9.qtyPackages') },
-                      { key: 'net_weight', label: t('transfer9.netWeight') },
-                      { key: 'gross_weight', label: t('transfer9.grossWeight') },
-                      { key: 'volume', label: t('transfer9.volume') },
-                      { key: 'remaining_qty', label: t('transfer9.remainingQty') },
-                    ].map(field => (
-                       <div key={field.key}>
-                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wide">{field.label}</label>
-                        <input
-                          type={field.type || 'text'}
-                          value={formData[field.key as keyof typeof formData] as string}
-                          onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition text-xs"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </details>
 
                 <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
                   <button
@@ -1232,7 +1307,7 @@ export function Document9({
             <div className="flex justify-end gap-2 border-b border-gray-100 bg-gray-50/50 p-3">
               <button
                 type="button"
-                onClick={() => previewDoc && void openDocument9PrintWindow(previewDoc)}
+                onClick={() => previewDoc && printDocument(previewDoc)}
                 className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-[#154b8a]"
               >
                 <Printer className="h-4 w-4" />
@@ -1242,7 +1317,7 @@ export function Document9({
             <iframe
               title="Aperçu document 9"
               className="w-full flex-1 border-0 bg-gray-100"
-              srcDoc={buildDocument9PrintHtml(previewDoc, branding ?? brandingFromConfig({}))}
+              srcDoc={buildDocument9ClassicPrintHtml(previewDoc)}
             />
           </div>
         )}

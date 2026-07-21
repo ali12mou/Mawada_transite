@@ -5,7 +5,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { Edit2, Trash2, Eye, Printer, Plus, Search } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import Modal from '../Shared/common/Modal';
-import { openDocument4ViewDocumentWindow, openDocument4PrintWindow } from '../../lib/document4PrintHtml';
+import { openDocument4PrintWindow } from '../../lib/document4PrintHtml';
+import { Document4DetailsView, type Document4ViewDoc } from './document4View';
 
 interface Document4 {
   id: string;
@@ -44,6 +45,7 @@ export function Document4() {
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDocument, setEditingDocument] = useState<Document4 | null>(null);
+  const [viewDoc, setViewDoc] = useState<{ doc: Document4ViewDoc; rowNumber: number } | null>(null);
 
   const [formData, setFormData] = useState({
     license_code: '',
@@ -278,7 +280,8 @@ export function Document4() {
                           {
                             label: t('common.view'),
                             icon: <Eye size={16} />,
-                            onClick: () => void openDocument4ViewDocumentWindow(doc),
+                            onClick: () =>
+                              setViewDoc({ doc, rowNumber: startIndex + index + 1 }),
                           },
                           {
                             label: t('common.edit'),
@@ -414,6 +417,29 @@ export function Document4() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!viewDoc}
+        onClose={() => setViewDoc(null)}
+        title={t('document4.viewDetailsTitle')}
+        size="lg"
+      >
+        {viewDoc ? (
+          <div className="space-y-4">
+            <Document4DetailsView doc={viewDoc.doc} t={t} rowNumber={viewDoc.rowNumber} />
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => void openDocument4PrintWindow(viewDoc.doc)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F3C66] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:bg-[#154b8a]"
+              >
+                <Printer className="h-4 w-4" />
+                {t('common.print')}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </div>
   );

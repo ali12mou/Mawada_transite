@@ -1,7 +1,6 @@
 import { ArrowLeft, Printer } from 'lucide-react';
 import type { ChamberInvoicePrintItem } from '../../lib/chamberInvoicePrintHtml';
 import type { WaybillLineItem } from './chamberInvoiceWaybillFields';
-import { DocumentBrandBanner } from '../Shared/DocumentBrandBanner';
 
 export type ChamberInvoiceViewData = {
   header: Record<string, string>;
@@ -233,8 +232,6 @@ export function ChamberInvoiceViewScreen({
           </button>
         </div>
       </div>
-
-      <DocumentBrandBanner className="mb-2" />
 
       <DetailSection
         title={t('chamberInvoice.viewCommercialDetails')}

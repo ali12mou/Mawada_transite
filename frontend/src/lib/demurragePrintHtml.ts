@@ -5,6 +5,7 @@ import {
   buildMawadaContactFooterHtml,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
@@ -57,6 +58,7 @@ export function buildDemurragePrintHtml(
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page-container')}
     ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -68,16 +70,7 @@ export function buildDemurragePrintHtml(
       padding: 0;
       background-color: #fff;
     }
-    .page-container {
-      width: 210mm;
-      min-height: 277mm;
-      margin: auto;
-      position: relative;
-      background: white;
-      display: flex;
-      flex-direction: column;
-    }
-    .content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
+    .content { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
     .title-section {
       text-align: center;
       margin: 18px 0 28px;
@@ -121,7 +114,6 @@ export function buildDemurragePrintHtml(
     .tbl tr.total-row { background-color: ${esc(green)}; }
     .tbl tr.total-row td { color: white; font-weight: 700; }
     .signature-area {
-      margin-top: auto;
       margin-bottom: 20px;
       display: flex;
       align-items: center;
@@ -130,14 +122,7 @@ export function buildDemurragePrintHtml(
     .sig-label { font-size: 11pt; font-weight: 500; }
     .sig-line { border-bottom: 1px solid #000; width: 80px; }
     .stamp-img { height: 72px; object-fit: contain; }
-    .doc-footer { margin-top: 8px; }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .page-container {
-        padding: 12mm 14mm;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
+    .doc-footer { padding-top: 0; }
   </style>
 </head>
 <body>
@@ -194,13 +179,14 @@ export function buildDemurragePrintHtml(
         </tbody>
       </table>
 
-      <div class="signature-area">
-        <span class="sig-label">Signature:</span>
-        <div class="sig-line"></div>
-        ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="" />` : ''}
+      <div class="page-bottom">
+        <div class="signature-area">
+          <span class="sig-label">Signature:</span>
+          <div class="sig-line"></div>
+          ${stampSrc ? `<img src="${esc(stampSrc)}" class="stamp-img" alt="" />` : ''}
+        </div>
+        <footer class="doc-footer">${footer}</footer>
       </div>
-
-      <footer class="doc-footer">${footer}</footer>
     </div>
   </div>
 </body>

@@ -1,8 +1,18 @@
 import type { DocumentBranding } from '../types/documentBranding';
 import { buildLetterheadHtml } from './documentPrintImages';
-import { fetchAppConfig } from '../api/appConfigApi';
-import { brandingFromConfig, DEFAULT_COMPANY_NAME } from '../types/documentBranding';
-import { buildDocWatermark, buildMawadaContactFooterHtml, docGreen, esc, fmtNum, letterheadBannerPrintCss, mawadaContactFooterPrintCss, watermarkPrintCss } from './chamberDocumentPrintShared';
+import { fetchDocumentBranding } from './documentBranding';
+import { DEFAULT_COMPANY_NAME } from '../types/documentBranding';
+import {
+  buildDocFooter,
+  buildDocWatermark,
+  docGreen,
+  esc,
+  fmtNum,
+  letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
+  watermarkPrintCss,
+} from './chamberDocumentPrintShared';
 import { parseLocalizedNumber } from './commercialChamberCalculations';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
 
@@ -139,7 +149,7 @@ export function buildPerformaPrintHtml(
   const green = docGreen(branding);
   const letterhead = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
-  const footer = buildMawadaContactFooterHtml(branding);
+  const footer = buildDocFooter(branding);
 
   const totalUsd = items.reduce((s, it) => s + parsePerformaAmount(it.total_unit_price), 0);
   const words = totalUsd <= 0 ? 'N/A' : amountInWordsUsd(totalUsd);
@@ -177,8 +187,9 @@ export function buildPerformaPrintHtml(
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page')}
     ${watermarkPrintCss()}
-    @page { size: A4 portrait; margin: 12mm 14mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -188,18 +199,18 @@ export function buildPerformaPrintHtml(
       padding: 0;
       background: #fff;
     }
-    .page {
-      position: relative;
-      width: 100%;
-      min-height: 270mm;
-    }
+    .content { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .doc-footer { padding-top: 8px; }
+    .stamp-zone { margin-top: 14px; min-height: 64px; }
+    .stamp-img { max-height: 72px; max-width: 200px; object-fit: contain; display: block; }
+    .stamp-line .sig-line { width: 180px; border-bottom: 1px solid #333; margin-top: 40px; }
     .title-row {
       position: relative;
       display: flex;
       justify-content: flex-end;
       align-items: baseline;
       min-height: 22px;
-      margin: 10px 0 18px;
+      margin: 8px 0 14px;
     }
     .title-main {
       position: absolute;
@@ -220,7 +231,7 @@ export function buildPerformaPrintHtml(
     .party-grid {
       display: table;
       width: 100%;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .party-grid > div { display: table-cell; width: 50%; vertical-align: top; }
     .party-grid > div + div { padding-left: 24px; }
@@ -231,7 +242,8 @@ export function buildPerformaPrintHtml(
       width: 100%;
       border-collapse: collapse;
       font-size: 9pt;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
+      table-layout: fixed;
     }
     .tbl th {
       background: ${green};
@@ -255,20 +267,8 @@ export function buildPerformaPrintHtml(
     .total-row td { font-weight: 700; border-top: 1px solid #b0b0b0; }
     .total-row td.empty { border-left: 1px solid #b0b0b0; border-right: 1px solid #b0b0b0; }
     .words-row td { font-weight: 700; font-size: 9pt; text-transform: uppercase; }
-    .terms { margin-top: 10px; font-size: 9.5pt; line-height: 1.6; }
-    .terms-line { margin: 1px 0; font-weight: 700; text-transform: uppercase; }
-    .content { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 270mm; }
-    .doc-footer { margin-top: auto; padding-top: 20px; }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .page {
-        width: 210mm;
-        margin: 0 auto;
-        padding: 12mm 14mm;
-        background: #fff;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
+    .terms { margin-top: 8px; font-size: 9pt; line-height: 1.5; }
+    .terms-line { margin: 2px 0; font-weight: 700; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -320,7 +320,7 @@ export function buildPerformaPrintHtml(
 
       <div class="terms">
         <div class="terms-line">SHIPPING: ${v(p.expedition)}</div>
-        <div class="terms-line">SWIFTY CODE: ${v(p.swift_code)}</div>
+        <div class="terms-line">SWIFT CODE: ${v(p.swift_code)}</div>
         <div class="terms-line">PORT OF LOADING: ${v(p.loading_port)}</div>
         <div class="terms-line">FINAL DESTINATION: ${v(p.final_destination)}</div>
         <div class="terms-line">PAYMENT: ${v(p.payment)}</div>
@@ -328,7 +328,7 @@ export function buildPerformaPrintHtml(
         ${bankLine2}
       </div>
 
-      <footer class="doc-footer">${footer}</footer>
+      ${footer}
     </div>
   </div>
 </body>
@@ -336,13 +336,7 @@ export function buildPerformaPrintHtml(
 }
 
 export async function openPerformaPrintWindow(p: PerformaPrintRecord, items: PerformaPrintItem[]): Promise<void> {
-  let branding: DocumentBranding;
-  try {
-    const cfg = await fetchAppConfig({ force: true });
-    branding = brandingFromConfig(cfg);
-  } catch {
-    branding = brandingFromConfig({});
-  }
+  const branding = await fetchDocumentBranding();
   const html = buildPerformaPrintHtml(p, items, branding);
   const w = window.open('', '_blank', 'width=900,height=1200');
   if (!w) {

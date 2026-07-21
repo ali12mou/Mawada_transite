@@ -1089,46 +1089,8 @@ export function ChamberInvoice() {
                       />
                     </InvoiceField>
                   </div>
-                </InvoiceFormSection>
 
-                <InvoiceFormSection title={t('chamberInvoice.packingListTitle')}>
-                  <WaybillFormFields
-                    idPrefix="pack"
-                    data={packingList}
-                    onChange={setPackingList}
-                    items={packingItems}
-                    onAddItem={addPackingItem}
-                    onRemoveItem={removePackingItem}
-                    onUpdateItem={updatePackingItem}
-                    purchaseOrderMode="packing"
-                    clientsList={clientsList}
-                    locationsList={locationsList}
-                    sourceDestinationOptions={sourceDestinationOptions}
-                    goodsCategories={goodsCategories}
-                    t={t}
-                  />
-                </InvoiceFormSection>
-
-                <InvoiceFormSection title={t('chamberInvoice.originalLetterTitle')}>
-                  <WaybillFormFields
-                    idPrefix="otb"
-                    data={originalLetter}
-                    onChange={setOriginalLetter}
-                    items={originalLetterItems}
-                    onAddItem={addOriginalLetterItem}
-                    onRemoveItem={removeOriginalLetterItem}
-                    onUpdateItem={updateOriginalLetterItem}
-                    purchaseOrderMode="otb"
-                    clientsList={clientsList}
-                    locationsList={locationsList}
-                    sourceDestinationOptions={sourceDestinationOptions}
-                    goodsCategories={goodsCategories}
-                    t={t}
-                  />
-                </InvoiceFormSection>
-
-                <InvoiceFormSection title={t('chamberInvoice.shippingBankSection')}>
-                  <div className={`${invoiceGrid3} mb-4`}>
+                  <div className={`${invoiceGrid3} mb-4 mt-2`}>
                     <InvoiceField label={t('chamberInvoice.expedition')}>
                       <input
                         type="text"
@@ -1198,7 +1160,7 @@ export function ChamberInvoice() {
                     </InvoiceField>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <InvoiceField label={t('chamberInvoice.intermediateBank')}>
                       <input
                         type="text"
@@ -1219,10 +1181,10 @@ export function ChamberInvoice() {
                     </InvoiceField>
                   </div>
 
-                  <div className="mt-5 overflow-x-auto rounded-lg border border-gray-200">
+                  <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full border-collapse text-sm">
                       <thead>
-                        <tr className="bg-gray-100 text-left text-xs font-bold uppercase text-gray-800">
+                        <tr className="bg-gray-100 text-left text-xs font-bold uppercase text-[#0F3C66]">
                           <th className="w-10 border border-gray-200 px-2 py-2 text-center">
                             {t('chamberInvoice.colNumber')}
                           </th>
@@ -1355,6 +1317,42 @@ export function ChamberInvoice() {
                       </tbody>
                     </table>
                   </div>
+                </InvoiceFormSection>
+
+                <InvoiceFormSection title={t('chamberInvoice.packingListTitle')}>
+                  <WaybillFormFields
+                    idPrefix="pack"
+                    data={packingList}
+                    onChange={setPackingList}
+                    items={packingItems}
+                    onAddItem={addPackingItem}
+                    onRemoveItem={removePackingItem}
+                    onUpdateItem={updatePackingItem}
+                    purchaseOrderMode="packing"
+                    clientsList={clientsList}
+                    locationsList={locationsList}
+                    sourceDestinationOptions={sourceDestinationOptions}
+                    goodsCategories={goodsCategories}
+                    t={t}
+                  />
+                </InvoiceFormSection>
+
+                <InvoiceFormSection title={t('chamberInvoice.originalLetterTitle')}>
+                  <WaybillFormFields
+                    idPrefix="otb"
+                    data={originalLetter}
+                    onChange={setOriginalLetter}
+                    items={originalLetterItems}
+                    onAddItem={addOriginalLetterItem}
+                    onRemoveItem={removeOriginalLetterItem}
+                    onUpdateItem={updateOriginalLetterItem}
+                    purchaseOrderMode="otb"
+                    clientsList={clientsList}
+                    locationsList={locationsList}
+                    sourceDestinationOptions={sourceDestinationOptions}
+                    goodsCategories={goodsCategories}
+                    t={t}
+                  />
                 </InvoiceFormSection>
               </div>
 

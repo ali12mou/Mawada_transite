@@ -6,6 +6,7 @@ import {
   buildMawadaContactFooterHtml,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET } from './printA4';
@@ -81,16 +82,9 @@ export function buildCommercialDetailPrintHtml(
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page')}
     ${watermarkPrintCss()}
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 11pt; color: #1a1a1a; }
-    .page {
-      display: flex;
-      flex-direction: column;
-      min-height: 297mm;
-      width: 210mm;
-      position: relative;
-      box-sizing: border-box;
-    }
     .page-main { flex: 1 1 auto; position: relative; z-index: 1; display: flex; flex-direction: column; }
     .letterhead img { max-height: 92px; width: 100%; object-fit: contain; }
     .doc-head { position: relative; z-index: 1; margin-bottom: 18px; text-align: center; }
@@ -122,34 +116,7 @@ export function buildCommercialDetailPrintHtml(
       background: linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%) !important;
       color: #fff !important; font-weight: 700; border: none; padding: 11px 12px;
     }
-    .doc-footer { margin-top: auto; flex-shrink: 0; position: relative; z-index: 1; padding-top: 12px; }
-    .ref-note { font-size: 8.5pt; color: #666; margin-top: 8px; text-align: center; }
-    @media print {
-      html, body {
-        width: 210mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #fff !important;
-      }
-      body { box-shadow: none !important; }
-      .page {
-        width: 210mm !important;
-        min-height: 297mm !important;
-        margin: 0 !important;
-        padding: 12mm 14mm !important;
-        box-shadow: none !important;
-        background: #fff !important;
-      }
-    }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .page {
-        margin: 0 auto;
-        padding: 12mm 14mm;
-        background: #fff;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
+    .doc-footer { padding-top: 12px; }
   </style>
 </head>
 <body>
@@ -225,9 +192,8 @@ export function buildCommercialDetailPrintHtml(
     </table>
     </div>
 
-    <footer class="doc-footer">
+    <footer class="doc-footer page-bottom">
       ${footerBlock}
-      <p class="ref-note">Réf. dossier : ${esc(record.commercial_no)}</p>
     </footer>
   </div>
 </body>
@@ -247,6 +213,7 @@ export function buildCommercialListPrintHtml(
   branding: DocumentBranding
 ): string {
   const letter = buildLetterheadHtml(branding);
+  const footerBlock = buildMawadaContactFooterHtml(branding);
   const lines = [branding.companyName, branding.companyPhone, branding.companyEmail].filter(Boolean);
   const head = lines.join(' · ');
   const rowHtml = rows
@@ -264,16 +231,22 @@ export function buildCommercialListPrintHtml(
   <style>
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page')}
     body{font-family:Arial,sans-serif;font-size:11pt}
-    table{width:100%;border-collapse:collapse}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
     th,td{border:1px solid #ccc;padding:6px 8px}
     th{background:linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DARK} 100%);color:#fff;text-align:left;font-weight:700}
+    .sub{margin:0 0 12px;color:#555}
   </style></head><body>
+  <div class="page">
   ${letter}
   <h2>Liste des dossiers commerciaux</h2>
   <p class="sub">${esc(head)}</p>
   <table><thead><tr><th>Réf.</th><th>Client</th><th>Marchandises</th><th>Total (FDJ)</th></tr></thead>
   <tbody>${rowHtml}</tbody></table>
+  <footer class="doc-footer page-bottom">${footerBlock}</footer>
+  </div>
   </body></html>`;
 }
 

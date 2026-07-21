@@ -138,10 +138,12 @@ export function buildDocFooter(branding: DocumentBranding): string {
     : `<div class="stamp-zone stamp-line"><div class="sig-line"></div></div>`;
 
   return `
-    ${stampHtml}
-    <footer class="doc-footer">
-      ${buildMawadaContactFooterHtml(branding)}
-    </footer>`;
+    <div class="page-bottom">
+      ${stampHtml}
+      <footer class="doc-footer">
+        ${buildMawadaContactFooterHtml(branding)}
+      </footer>
+    </div>`;
 }
 
 /**
@@ -190,14 +192,114 @@ export function mawadaContactFooterPrintCss(): string {
   `;
 }
 
+/**
+ * Mise en page A4 : pied de page contact MAWADA forcé en bas de feuille (écran + impression).
+ * Utiliser sur le conteneur page (.page, .a4-page, .sheet, .print-page, …).
+ */
+export function pinnedDocFooterPrintCss(pageClass = 'a4-page'): string {
+  const pageSelectors = [
+    `.${pageClass}`,
+    '.print-page',
+    '.page',
+    '.page-container',
+    '.sheet',
+  ].join(',\n    ');
+
+  const bodySelectors = [
+    `.${pageClass} > .a4-page-body`,
+    `.${pageClass} > .page-main`,
+    `.${pageClass} > .content`,
+    `.print-page > .page-body`,
+    '.page-container > .content',
+    '.page > .content',
+    '.sheet > .sheet-body',
+  ].join(',\n    ');
+
+  return `
+    ${pageSelectors} {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-sizing: border-box;
+      width: 210mm;
+      min-height: 297mm;
+    }
+    ${bodySelectors} {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+    }
+    .page-bottom,
+    .bottom-block {
+      margin-top: auto;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .print-page > .doc-footer,
+    .page > .doc-footer,
+    .page-container > .doc-footer,
+    .sheet > .doc-footer {
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+    .doc-footer {
+      flex-shrink: 0;
+      padding-top: 12px;
+    }
+    @media print {
+      html, body {
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+      }
+      body { box-shadow: none !important; }
+      ${pageSelectors} {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
+        padding: 12mm 14mm !important;
+        box-sizing: border-box !important;
+        background: #fff !important;
+        box-shadow: none !important;
+      }
+      .page-bottom,
+      .bottom-block,
+      .print-page > .doc-footer,
+      .page > .doc-footer,
+      .page-container > .doc-footer,
+      .sheet > .doc-footer {
+        margin-top: auto !important;
+        flex-shrink: 0 !important;
+      }
+    }
+    @media screen {
+      body { background: #b8b8b8; padding: 16px 0; }
+      ${pageSelectors} {
+        margin: 0 auto;
+        padding: 12mm 14mm;
+        background: #fff;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      }
+    }
+  `;
+}
+
 export function sharedPrintStyles(branding: DocumentBranding): string {
   const green = docGreen(branding);
   const navy = DEFAULT_DOC_NAVY;
   return `
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
-    @page { size: A4 portrait; margin: 10mm 12mm; }
-    * { box-sizing: border-box; }
+    ${pinnedDocFooterPrintCss('print-page')}
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 9pt;
@@ -214,11 +316,12 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
     .print-page {
       position: relative;
       width: 210mm;
-      min-height: 277mm;
-      padding: 0;
+      min-height: 297mm;
+      padding: 10mm 12mm;
       display: flex;
       flex-direction: column;
       background: #fff;
+      box-sizing: border-box;
       page-break-after: always;
       break-after: page;
       page-break-inside: avoid;
@@ -236,25 +339,30 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
     .page-body {
       position: relative;
       z-index: 1;
-      flex: 1;
+      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
-      min-height: 277mm;
-      padding: 0 2mm;
+      min-height: 0;
+      padding: 0 1mm;
     }
+    .page-bottom {
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+    .letterhead-banner { margin-bottom: 10px; }
     h1.doc-title {
       text-align: center;
       font-family: Arial, Helvetica, sans-serif;
       font-size: 12pt;
       font-weight: 700;
-      letter-spacing: 0.14em;
-      margin: 10px 0 14px;
+      letter-spacing: 0.12em;
+      margin: 6px 0 12px;
       text-transform: uppercase;
       color: #111;
     }
-    .cols-2 { display: table; width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-    .cols-2 > .col { display: table-cell; width: 50%; vertical-align: top; padding: 0 10px 0 0; font-size: 8.5pt; }
-    .cols-2 > .col + .col { padding: 0 0 0 10px; }
+    .cols-2 { display: table; width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .cols-2 > .col { display: table-cell; width: 50%; vertical-align: top; padding: 0 8px 0 0; font-size: 9pt; }
+    .cols-2 > .col + .col { padding: 0 0 0 8px; }
     .lbl {
       font-weight: 700;
       text-transform: uppercase;
@@ -262,49 +370,59 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
       letter-spacing: 0.02em;
       color: #222;
     }
-    .line { margin: 3px 0; font-size: 8.5pt; line-height: 1.45; }
+    .line { margin: 2px 0; font-size: 9pt; line-height: 1.4; }
     .cols-3 {
       display: table;
       width: 100%;
-      margin: 8px 0 10px;
+      margin: 6px 0 8px;
       font-size: 8.5pt;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.02em;
     }
-    .cols-3 > div { display: table-cell; width: 33.33%; padding: 4px 6px; }
-    .tbl { width: 100%; border-collapse: collapse; font-size: 8pt; margin: 8px 0; }
+    .cols-3 > div { display: table-cell; width: 33.33%; padding: 3px 5px; }
+    .tbl { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 6px 0 8px; table-layout: fixed; }
     .tbl th {
       background: ${green};
       color: #fff;
       font-weight: 700;
       text-transform: uppercase;
-      padding: 6px 4px;
+      padding: 7px 5px;
       border: 1px solid ${navy};
       text-align: center;
       font-size: 7.5pt;
       letter-spacing: 0.03em;
+      vertical-align: middle;
     }
-    .tbl td { border: 1px solid #333; padding: 5px 4px; vertical-align: top; font-size: 8pt; }
+    .tbl td {
+      border: 1px solid #b0b0b0;
+      padding: 6px 5px;
+      vertical-align: middle;
+      font-size: 8.5pt;
+      word-wrap: break-word;
+    }
     .td-left { text-align: left; }
     .td-num { text-align: right; font-variant-numeric: tabular-nums; }
-    .tbl tfoot td { font-weight: 700; }
-    .terms { margin-top: 10px; font-size: 8pt; line-height: 1.5; }
-    .terms .line { margin: 4px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
-    .stamp-zone { margin-top: 16px; min-height: 70px; }
-    .stamp-img { max-height: 72px; max-width: 200px; object-fit: contain; }
-    .stamp-line .sig-line { width: 180px; border-bottom: 1px solid #333; margin-top: 40px; }
-    .doc-footer { margin-top: auto; padding-top: 8px; }
+    .tbl tfoot td, .total-row td { font-weight: 700; }
+    .words-row td { font-weight: 700; font-size: 8.5pt; text-transform: uppercase; }
+    .terms { margin-top: 8px; font-size: 8.5pt; line-height: 1.45; }
+    .terms .line { margin: 3px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+    .stamp-zone { margin-top: 12px; min-height: 62px; }
+    .stamp-img { max-height: 68px; max-width: 190px; object-fit: contain; }
+    .stamp-line .sig-line { width: 180px; border-bottom: 1px solid #333; margin-top: 36px; }
+    .doc-footer { padding-top: 6px; }
     .foot-box {
       border: 1px solid #222;
-      padding: 10px 14px;
+      padding: 8px 12px;
       background: #fff;
     }
     .foot-rule { border: none; border-top: 1px solid ${green}; margin: 0 0 8px; }
-    .foot-grid { display: table; width: 100%; font-size: 9pt; font-weight: 700; }
-    .foot-grid > div { display: table-cell; width: 50%; vertical-align: top; line-height: 1.55; }
+    .foot-grid { display: table; width: 100%; font-size: 8.5pt; font-weight: 700; }
+    .foot-grid > div { display: table-cell; width: 50%; vertical-align: top; line-height: 1.5; }
     .foot-right { text-align: left; padding-left: 12px; }
     .foot-left strong, .foot-right strong { margin-right: 4px; }
+    .ci-commercial-page .cols-2 { margin-bottom: 6px; }
+    .ci-commercial-page .terms { margin-top: 6px; }
     @media screen {
       body { background: #b8b8b8; }
       .print-bundle {
@@ -316,6 +434,7 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
       }
       .print-page {
         min-height: 297mm;
+        padding: 10mm 12mm;
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
         page-break-after: unset;
         break-after: unset;
@@ -333,13 +452,29 @@ export function sharedPrintStyles(branding: DocumentBranding): string {
       }
       .print-bundle { width: 100%; padding: 0; gap: 0; }
       .print-page {
-        width: auto;
-        min-height: 0;
+        width: 210mm !important;
+        min-height: 297mm !important;
         height: auto;
         box-shadow: none;
-        margin: 0;
+        margin: 0 !important;
+        padding: 10mm 12mm !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
       }
-      .page-body { min-height: 0; }
+      .page-body {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+      }
+      .page-bottom {
+        margin-top: auto !important;
+        flex-shrink: 0 !important;
+      }
+      .doc-footer {
+        flex-shrink: 0 !important;
+      }
       .print-page { page-break-after: always; break-after: page; }
       .print-page:last-child { page-break-after: auto; break-after: auto; }
       .print-page + .print-page { page-break-before: always; break-before: page; }

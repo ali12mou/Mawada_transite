@@ -6,6 +6,7 @@ import {
   buildMawadaContactFooterHtml,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
+  pinnedDocFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET } from './printA4';
@@ -111,9 +112,9 @@ export function buildLocalCompanyServiceReportHtml(
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
     ${mawadaContactFooterPrintCss()}
+    ${pinnedDocFooterPrintCss('page')}
     ${watermarkPrintCss()}
     body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; }
-    .page { display: flex; flex-direction: column; min-height: 276mm; position: relative; }
     .doc-head { position: relative; z-index: 1; margin: 10px 0 18px; text-align: center; }
     .doc-title { font-size: 22pt; font-weight: 700; margin: 0 0 8px; color: #111; }
     .doc-place-date { font-size: 12pt; font-weight: 700; margin: 0; }
@@ -191,35 +192,7 @@ export function buildLocalCompanyServiceReportHtml(
       object-fit: contain;
       pointer-events: none;
     }
-    .doc-footer { margin-top: auto; position: relative; z-index: 1; }
-    @media print {
-      html, body {
-        width: 210mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #fff !important;
-      }
-      body { box-shadow: none !important; }
-      .page {
-        width: 210mm !important;
-        min-height: 297mm !important;
-        margin: 0 !important;
-        padding: 12mm 14mm !important;
-        box-sizing: border-box !important;
-        background: #fff !important;
-        box-shadow: none !important;
-      }
-    }
-    @media screen {
-      body { background: #b8b8b8; padding: 16px 0; }
-      .page {
-        width: 210mm;
-        margin: 0 auto;
-        padding: 12mm 14mm;
-        background: #fff;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-      }
-    }
+    .doc-footer { padding-top: 0; }
   </style>
 </head>
 <body>
@@ -250,8 +223,7 @@ export function buildLocalCompanyServiceReportHtml(
       </tbody>
     </table>
 
-    <div style="flex-grow: 1;"></div>
-    <footer class="doc-footer">
+    <footer class="doc-footer page-bottom">
       ${footerBlock}
     </footer>
   </div>
