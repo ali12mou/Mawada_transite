@@ -59,21 +59,36 @@ function valStr(v: string | number | undefined | null): string {
 export function buildLocalCompanyServiceInvoiceHtml(
   record: LocalCompanyRecord,
   branding: DocumentBranding,
-  djfPerOneUsd: number,
+  _djfPerOneUsd: number,
   clientDetail: ClientRecord | null = null
 ): string {
-  const rate = djfPerOneUsd > 0 ? djfPerOneUsd : 177;
+  /** Taux fixe : FDJ → USD = montant / 178 */
+  const rate = 178;
   const toUsd = (fdj: number) => (Number.isFinite(fdj) && rate > 0 ? fdj / rate : 0);
 
   const fileFee = num(record.file_fee);
   const serviceFee = num(record.service_fee);
+  const truckQty = num(record.truck_loading_quantity, 0);
   const transitFee = num(record.transit_fee);
   const escortFee = num(record.escort_fee);
   const declCancel = num(record.declaration_cancellation_price);
   const n4 = num(record.numero_4_price);
   const n9 = num(record.numero_9_price);
-  const totalFdj = num(record.total);
   const tiFdj = num(parseFloat(String(record.ti_cancellation ?? '').replace(',', '.')) || 0);
+  /** (frais de service × quantité camion) + frais de dossier → USD (cellule fusionnée). */
+  const dossierServiceFdj = serviceFee * truckQty + fileFee;
+  const dossierServiceUsd = toUsd(dossierServiceFdj);
+  /** Total = dossier + (service × camion) + transit + laissez-passer + annulation décl. + TI + n°4 + n°9 */
+  const totalFdj =
+    fileFee +
+    serviceFee * truckQty +
+    transitFee +
+    escortFee +
+    declCancel +
+    tiFdj +
+    n4 +
+    n9;
+  const totalUsd = toUsd(totalFdj);
 
   const letter = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
@@ -116,21 +131,31 @@ export function buildLocalCompanyServiceInvoiceHtml(
     </tr>`;
   };
 
+  const dossierServiceRows = `
+    <tr>
+      <td>Frais de dossier</td>
+      <td>Fdj ${fmtMoney(fileFee, 2)}</td>
+      <td class="usd usd-merged" rowspan="2"><strong>$ ${fmtMoney(dossierServiceUsd, 2)}</strong></td>
+    </tr>
+    <tr>
+      <td>Frais de Service</td>
+      <td>Fdj ${fmtMoney(serviceFee, 2)}</td>
+    </tr>`;
+
   const tableBody =
     rowInfo('Client', clientDisplay) +
     rowInfo('Source Destination', valStr(record.source_destination)) +
     rowInfo('Entreprise Vendeuse', valStr(record.vendor_company)) +
     rowInfo('Entreprise Acheteuse', valStr(record.purchasing_company)) +
     rowInfo('Description des Marchandises', valStr(record.goods_description)) +
-    rowMoney('Frais de dossier', fileFee, toUsd(fileFee)) +
-    rowMoney('Frais de Service', serviceFee, toUsd(serviceFee)) +
+    dossierServiceRows +
     rowMoney('Frais de Transit', transitFee, toUsd(transitFee)) +
     rowMoney('Annuler le Laissez-Passer', escortFee, toUsd(escortFee)) +
     rowMoney('Annulation du Prix de la Déclaration', declCancel, toUsd(declCancel)) +
     rowMoney('Canceling TI Price', tiFdj, toUsd(tiFdj)) +
     rowMoney('Prix Numéro 4', n4, toUsd(n4)) +
     rowMoney('Prix Numéro 9', n9, toUsd(n9), true) +
-    rowMoney('Totals', totalFdj, toUsd(totalFdj), true);
+    rowMoney('Totals', totalFdj, totalUsd, true);
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -183,6 +208,11 @@ export function buildLocalCompanyServiceInvoiceHtml(
     }
     .fin-table thead th.usd { text-align: right; }
     .fin-table tbody td.usd { text-align: right; font-variant-numeric: tabular-nums; }
+    .fin-table tbody td.usd-merged {
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 700;
+    }
     .fin-table tbody tr.row-info td { font-weight: 400; }
     .fin-table tbody tr.row-hl td {
       background: linear-gradient(180deg, ${TABLE_GREEN} 0%, ${TABLE_GREEN_DARK} 100%) !important;
@@ -271,17 +301,8 @@ export function buildLocalCompanyServiceInvoiceHtml(
 
 export async function openLocalCompanyPrint(record: LocalCompanyRecord): Promise<void> {
   const { fetchDocumentBranding } = await import('./documentBranding');
-  const { fetchAppConfig } = await import('../api/appConfigApi');
   const { fetchClient } = await import('../api/clientsApi');
   const branding = await fetchDocumentBranding();
-  let rate = 177;
-  try {
-    const cfg = await fetchAppConfig();
-    const r = parseFloat(String(cfg.djf_exchange_rate || '').replace(',', '.'));
-    if (Number.isFinite(r) && r > 0) rate = r;
-  } catch {
-    /* défaut */
-  }
   let clientDetail: ClientRecord | null = null;
   if (record.client_id) {
     try {
@@ -290,7 +311,7 @@ export async function openLocalCompanyPrint(record: LocalCompanyRecord): Promise
       clientDetail = null;
     }
   }
-  const html = buildLocalCompanyServiceInvoiceHtml(record, branding, rate, clientDetail);
+  const html = buildLocalCompanyServiceInvoiceHtml(record, branding, 178, clientDetail);
   const safeName = (clientDetail ? formatClientLabel(clientDetail) : record.client_name || 'client')
     .replace(/[^\w\u00C0-\u024F\s-]/g, '')
     .trim()
