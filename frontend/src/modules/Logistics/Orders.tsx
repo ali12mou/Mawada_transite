@@ -13,11 +13,28 @@ import {
 } from '../../api/ordersApi';
 import { genericApi } from '../../api/genericApi';
 import { openOrdersPrintWindow, orderToPrintRow } from '../../lib/ordersPrintHtml';
+import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
 
 interface Order extends OrderData {
   id: string;
   creation_date?: string;
   created_by_name?: string;
+}
+
+type RouteRecord = {
+  id?: string;
+  _id?: string;
+  source: string;
+  destination: string;
+};
+
+function formatRouteLabel(route: RouteRecord): string {
+  return `${route.source} -To- ${route.destination}`;
+}
+
+function numStr(v: string | number | undefined | null): string {
+  if (v == null || v === '') return '';
+  return String(v);
 }
 
 type OrderFormData = {
@@ -26,24 +43,24 @@ type OrderFormData = {
   source_destination: string;
   item_price: string;
   bl_number: string;
-  amount_djf: number;
-  quantity: number;
-  recharge_amount: number;
-  maritime_line_fees: number;
-  sgtd_wharfage: number;
-  document_9: number;
-  document_4: number;
-  port_handling: number;
-  port_passage: number;
-  file_fees: number;
-  escort_fees: number;
-  transport: number;
-  elevator_cart: number;
-  ctn: number;
-  chamber: number;
-  exit: number;
-  transit: number;
-  ci_amount: number;
+  amount_djf: string;
+  quantity: string;
+  recharge_amount: string;
+  maritime_line_fees: string;
+  sgtd_wharfage: string;
+  document_9: string;
+  document_4: string;
+  port_handling: string;
+  port_passage: string;
+  file_fees: string;
+  escort_fees: string;
+  transport: string;
+  elevator_cart: string;
+  ctn: string;
+  chamber: string;
+  exit: string;
+  transit: string;
+  ci_amount: string;
   order_date: string;
 };
 
@@ -53,52 +70,52 @@ const emptyForm = (): OrderFormData => ({
   source_destination: '',
   item_price: '',
   bl_number: '',
-  amount_djf: 0,
-  quantity: 0,
-  recharge_amount: 0,
-  maritime_line_fees: 0,
-  sgtd_wharfage: 0,
-  document_9: 0,
-  document_4: 0,
-  port_handling: 0,
-  port_passage: 0,
-  file_fees: 0,
-  escort_fees: 0,
-  transport: 0,
-  elevator_cart: 0,
-  ctn: 0,
-  chamber: 0,
-  exit: 0,
-  transit: 0,
-  ci_amount: 0,
+  amount_djf: '',
+  quantity: '',
+  recharge_amount: '',
+  maritime_line_fees: '',
+  sgtd_wharfage: '',
+  document_9: '',
+  document_4: '',
+  port_handling: '',
+  port_passage: '',
+  file_fees: '',
+  escort_fees: '',
+  transport: '',
+  elevator_cart: '',
+  ctn: '',
+  chamber: '',
+  exit: '',
+  transit: '',
+  ci_amount: '',
   order_date: new Date().toISOString().slice(0, 16),
 });
 
 function computeTotalServices(fd: OrderFormData): number {
   return (
-    Number(fd.maritime_line_fees) +
-    Number(fd.sgtd_wharfage) +
-    Number(fd.document_9) +
-    Number(fd.document_4) +
-    Number(fd.port_handling) +
-    Number(fd.port_passage) +
-    Number(fd.file_fees) +
-    Number(fd.escort_fees) +
-    Number(fd.transport) +
-    Number(fd.elevator_cart) +
-    Number(fd.ctn) +
-    Number(fd.chamber) +
-    Number(fd.exit) +
-    Number(fd.transit)
+    parseLocalizedNumber(fd.maritime_line_fees) +
+    parseLocalizedNumber(fd.sgtd_wharfage) +
+    parseLocalizedNumber(fd.document_9) +
+    parseLocalizedNumber(fd.document_4) +
+    parseLocalizedNumber(fd.port_handling) +
+    parseLocalizedNumber(fd.port_passage) +
+    parseLocalizedNumber(fd.file_fees) +
+    parseLocalizedNumber(fd.escort_fees) +
+    parseLocalizedNumber(fd.transport) +
+    parseLocalizedNumber(fd.elevator_cart) +
+    parseLocalizedNumber(fd.ctn) +
+    parseLocalizedNumber(fd.chamber) +
+    parseLocalizedNumber(fd.exit) +
+    parseLocalizedNumber(fd.transit)
   );
 }
 
 function computeTotalItemPrice(fd: OrderFormData): number {
-  return Number(fd.amount_djf) * Number(fd.quantity);
+  return parseLocalizedNumber(fd.amount_djf) * parseLocalizedNumber(fd.quantity);
 }
 
 function computeProfit(fd: OrderFormData): number {
-  const total = computeTotalItemPrice(fd) + Number(fd.recharge_amount);
+  const total = computeTotalItemPrice(fd) + parseLocalizedNumber(fd.recharge_amount);
   return total - computeTotalServices(fd);
 }
 
@@ -143,7 +160,7 @@ export function Orders() {
   const { formatAmount } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [locationsList, setLocationsList] = useState<{ id?: string; _id?: string; name: string }[]>([]);
+  const [routesList, setRoutesList] = useState<RouteRecord[]>([]);
   const [itemPrices, setItemPrices] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -164,7 +181,10 @@ export function Orders() {
   useEffect(() => {
     void fetchOrders();
     fetchClients().then(setClients).catch(console.error);
-    genericApi.list('locations').then((d) => setLocationsList(d || [])).catch(console.error);
+    genericApi
+      .list<RouteRecord>('routes')
+      .then((d) => setRoutesList(d || []))
+      .catch(console.error);
     genericApi
       .list('item_prices')
       .then((d) => setItemPrices(d || []))
@@ -190,10 +210,18 @@ export function Orders() {
   };
 
   const sourceOptions = useMemo(() => {
+    const fromRoutes = routesList.map((route) => formatRouteLabel(route)).filter(Boolean);
     const fromOrders = orders.map((o) => o.source_destination).filter(Boolean);
-    const fromLocs = locationsList.map((l) => l.name);
-    return [...new Set([...fromLocs, ...fromOrders])];
-  }, [orders, locationsList]);
+    return [...new Set([...fromRoutes, ...fromOrders])];
+  }, [routesList, orders]);
+
+  const formSourceOptions = useMemo(() => {
+    const labels = routesList.map((route) => formatRouteLabel(route)).filter(Boolean);
+    if (formData.source_destination && !labels.includes(formData.source_destination)) {
+      return [formData.source_destination, ...labels];
+    }
+    return labels;
+  }, [routesList, formData.source_destination]);
 
   const filteredOrders = useMemo(() => {
     let filtered = [...orders];
@@ -242,13 +270,34 @@ export function Orders() {
     try {
       const orderNumber = `ORDER${String(orders.length + 1).padStart(5, '0')}`;
       await createOrder({
-        ...formData,
+        client_name: formData.client_name,
+        client_phone: formData.client_phone,
+        source_destination: formData.source_destination,
+        item_price: formData.item_price,
+        bl_number: formData.bl_number,
+        amount_djf: parseLocalizedNumber(formData.amount_djf),
+        quantity: parseLocalizedNumber(formData.quantity),
+        recharge_amount: parseLocalizedNumber(formData.recharge_amount),
+        maritime_line_fees: parseLocalizedNumber(formData.maritime_line_fees),
+        sgtd_wharfage: parseLocalizedNumber(formData.sgtd_wharfage),
+        document_9: parseLocalizedNumber(formData.document_9),
+        document_4: parseLocalizedNumber(formData.document_4),
+        port_handling: parseLocalizedNumber(formData.port_handling),
+        port_passage: parseLocalizedNumber(formData.port_passage),
+        file_fees: parseLocalizedNumber(formData.file_fees),
+        escort_fees: parseLocalizedNumber(formData.escort_fees),
+        transport: parseLocalizedNumber(formData.transport),
+        elevator_cart: parseLocalizedNumber(formData.elevator_cart),
+        ctn: parseLocalizedNumber(formData.ctn),
+        chamber: parseLocalizedNumber(formData.chamber),
+        exit: parseLocalizedNumber(formData.exit),
+        transit: parseLocalizedNumber(formData.transit),
         order_number: orderNumber,
         total_services: totalServices,
         total_item_price: totalItemPrice,
-        total: totalItemPrice + Number(formData.recharge_amount),
+        total: totalItemPrice + parseLocalizedNumber(formData.recharge_amount),
         profit_amount: profitAmount,
-        ci_amount: formData.ci_amount,
+        ci_amount: parseLocalizedNumber(formData.ci_amount),
         delivery_status: 'PENDING',
         status: 'PENDING',
         created_by: user?.nom || user?.id,
@@ -475,24 +524,24 @@ export function Orders() {
                                 source_destination: order.source_destination,
                                 item_price: order.item_price,
                                 bl_number: order.bl_number,
-                                amount_djf: order.amount_djf,
-                                quantity: order.quantity,
-                                recharge_amount: order.recharge_amount,
-                                maritime_line_fees: order.maritime_line_fees,
-                                sgtd_wharfage: order.sgtd_wharfage,
-                                document_9: order.document_9,
-                                document_4: order.document_4,
-                                port_handling: order.port_handling,
-                                port_passage: order.port_passage,
-                                file_fees: order.file_fees,
-                                escort_fees: order.escort_fees,
-                                transport: order.transport,
-                                elevator_cart: order.elevator_cart,
-                                ctn: order.ctn,
-                                chamber: order.chamber,
-                                exit: order.exit,
-                                transit: order.transit,
-                                ci_amount: order.ci_amount,
+                                amount_djf: numStr(order.amount_djf),
+                                quantity: numStr(order.quantity),
+                                recharge_amount: numStr(order.recharge_amount),
+                                maritime_line_fees: numStr(order.maritime_line_fees),
+                                sgtd_wharfage: numStr(order.sgtd_wharfage),
+                                document_9: numStr(order.document_9),
+                                document_4: numStr(order.document_4),
+                                port_handling: numStr(order.port_handling),
+                                port_passage: numStr(order.port_passage),
+                                file_fees: numStr(order.file_fees),
+                                escort_fees: numStr(order.escort_fees),
+                                transport: numStr(order.transport),
+                                elevator_cart: numStr(order.elevator_cart),
+                                ctn: numStr(order.ctn),
+                                chamber: numStr(order.chamber),
+                                exit: numStr(order.exit),
+                                transit: numStr(order.transit),
+                                ci_amount: numStr(order.ci_amount),
                                 order_date: order.order_date?.slice(0, 16) || emptyForm().order_date,
                               });
                               setCurrentStep(1);
@@ -632,7 +681,7 @@ export function Orders() {
                         className={selectClass}
                       >
                         <option value="">{t('orders.selectSourceDestination')}</option>
-                        {sourceOptions.map((s) => (
+                        {formSourceOptions.map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -673,31 +722,31 @@ export function Orders() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <Field label={t('orders.amountDjf')}>
                       <input
-                        type="number"
-                        value={formData.amount_djf || ''}
+                        type="text"
+                        value={formData.amount_djf}
                         onChange={(e) =>
-                          setFormData({ ...formData, amount_djf: Number(e.target.value) })
+                          setFormData({ ...formData, amount_djf: e.target.value })
                         }
                         className={inputClass}
                       />
                     </Field>
                     <Field label={t('orders.quantity')} required>
                       <input
-                        type="number"
+                        type="text"
                         required
-                        value={formData.quantity || ''}
+                        value={formData.quantity}
                         onChange={(e) =>
-                          setFormData({ ...formData, quantity: Number(e.target.value) })
+                          setFormData({ ...formData, quantity: e.target.value })
                         }
                         className={inputClass}
                       />
                     </Field>
                     <Field label={t('orders.rechargeAmount')}>
                       <input
-                        type="number"
-                        value={formData.recharge_amount || ''}
+                        type="text"
+                        value={formData.recharge_amount}
                         onChange={(e) =>
-                          setFormData({ ...formData, recharge_amount: Number(e.target.value) })
+                          setFormData({ ...formData, recharge_amount: e.target.value })
                         }
                         className={inputClass}
                       />
@@ -715,10 +764,10 @@ export function Orders() {
                     ).map(([key, label, req]) => (
                       <Field key={key} label={label} required={req}>
                         <input
-                          type="number"
-                          value={formData[key] || ''}
+                          type="text"
+                          value={formData[key]}
                           onChange={(e) =>
-                            setFormData({ ...formData, [key]: Number(e.target.value) })
+                            setFormData({ ...formData, [key]: e.target.value })
                           }
                           className={inputClass}
                         />
@@ -736,10 +785,10 @@ export function Orders() {
                     ).map(([key, label, req]) => (
                       <Field key={key} label={label} required={req}>
                         <input
-                          type="number"
-                          value={formData[key] || ''}
+                          type="text"
+                          value={formData[key]}
                           onChange={(e) =>
-                            setFormData({ ...formData, [key]: Number(e.target.value) })
+                            setFormData({ ...formData, [key]: e.target.value })
                           }
                           className={inputClass}
                         />
@@ -757,10 +806,10 @@ export function Orders() {
                     ).map(([key, label, req]) => (
                       <Field key={key} label={label} required={req}>
                         <input
-                          type="number"
-                          value={formData[key] || ''}
+                          type="text"
+                          value={formData[key]}
                           onChange={(e) =>
-                            setFormData({ ...formData, [key]: Number(e.target.value) })
+                            setFormData({ ...formData, [key]: e.target.value })
                           }
                           className={inputClass}
                         />
@@ -779,9 +828,9 @@ export function Orders() {
                     </Field>
                     <Field label={t('orders.ctn')}>
                       <input
-                        type="number"
-                        value={formData.ctn || ''}
-                        onChange={(e) => setFormData({ ...formData, ctn: Number(e.target.value) })}
+                        type="text"
+                        value={formData.ctn}
+                        onChange={(e) => setFormData({ ...formData, ctn: e.target.value })}
                         className={inputClass}
                       />
                     </Field>
@@ -790,19 +839,19 @@ export function Orders() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label={t('orders.chamber')}>
                       <input
-                        type="number"
-                        value={formData.chamber || ''}
+                        type="text"
+                        value={formData.chamber}
                         onChange={(e) =>
-                          setFormData({ ...formData, chamber: Number(e.target.value) })
+                          setFormData({ ...formData, chamber: e.target.value })
                         }
                         className={inputClass}
                       />
                     </Field>
                     <Field label={t('orders.exit')}>
                       <input
-                        type="number"
-                        value={formData.exit || ''}
-                        onChange={(e) => setFormData({ ...formData, exit: Number(e.target.value) })}
+                        type="text"
+                        value={formData.exit}
+                        onChange={(e) => setFormData({ ...formData, exit: e.target.value })}
                         className={inputClass}
                       />
                     </Field>
@@ -811,11 +860,11 @@ export function Orders() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label={t('orders.transit')} required>
                       <input
-                        type="number"
+                        type="text"
                         required
-                        value={formData.transit || ''}
+                        value={formData.transit}
                         onChange={(e) =>
-                          setFormData({ ...formData, transit: Number(e.target.value) })
+                          setFormData({ ...formData, transit: e.target.value })
                         }
                         className={inputClass}
                       />
@@ -874,11 +923,11 @@ export function Orders() {
 
                   <Field label={`${t('orders.ciAmountDesc')} *`} required>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      value={formData.ci_amount || ''}
+                      value={formData.ci_amount}
                       onChange={(e) =>
-                        setFormData({ ...formData, ci_amount: Number(e.target.value) })
+                        setFormData({ ...formData, ci_amount: e.target.value })
                       }
                       className={inputClass}
                     />
