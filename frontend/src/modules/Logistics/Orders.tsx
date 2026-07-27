@@ -12,7 +12,7 @@ import {
   type OrderData,
 } from '../../api/ordersApi';
 import { genericApi } from '../../api/genericApi';
-import { openOrdersPrintWindow, orderToPrintRow } from '../../lib/ordersPrintHtml';
+import { openOrdersPrintWindow } from '../../lib/ordersPrintHtml';
 import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
 
 interface Order extends OrderData {
@@ -61,6 +61,7 @@ type OrderFormData = {
   exit: string;
   transit: string;
   ci_amount: string;
+  complete_document: string;
   order_date: string;
 };
 
@@ -88,6 +89,7 @@ const emptyForm = (): OrderFormData => ({
   exit: '',
   transit: '',
   ci_amount: '',
+  complete_document: '',
   order_date: new Date().toISOString().slice(0, 16),
 });
 
@@ -143,17 +145,6 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-const DOC_UPLOAD_FIELDS = [
-  'orders.livraison',
-  'orders.connaissement',
-  'orders.syndonia',
-  'orders.countryDeclaration',
-  'orders.doc9',
-  'orders.doc4',
-  'orders.docS',
-  'orders.docE',
-] as const;
-
 export function Orders() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -164,7 +155,6 @@ export function Orders() {
   const [itemPrices, setItemPrices] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -262,8 +252,8 @@ export function Orders() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentStep === 1) {
-      setCurrentStep(2);
+    if (!formData.complete_document.trim()) {
+      alert(t('orders.completeDocumentRequired'));
       return;
     }
 
@@ -298,13 +288,13 @@ export function Orders() {
         total: totalItemPrice + parseLocalizedNumber(formData.recharge_amount),
         profit_amount: profitAmount,
         ci_amount: parseLocalizedNumber(formData.ci_amount),
+        complete_document: formData.complete_document,
         delivery_status: 'PENDING',
         status: 'PENDING',
         created_by: user?.nom || user?.id,
         order_date: formData.order_date,
       });
       setShowModal(false);
-      setCurrentStep(1);
       setFormData(emptyForm());
       await fetchOrders();
     } catch (error) {
@@ -327,10 +317,7 @@ export function Orders() {
   const currentOrders = filteredOrders.slice(startIndex, startIndex + entriesPerPage);
 
   const printOrders = (list: Order[]) => {
-    void openOrdersPrintWindow(
-      list.map(orderToPrintRow),
-      user?.nom || user?.email || '—'
-    );
+    void openOrdersPrintWindow(list, user?.nom || user?.email || '—');
   };
 
   if (loading) {
@@ -356,7 +343,6 @@ export function Orders() {
             type="button"
             onClick={() => {
               setFormData(emptyForm());
-              setCurrentStep(1);
               setShowModal(true);
             }}
             className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white hover:bg-[#152a44]"
@@ -542,9 +528,9 @@ export function Orders() {
                                 exit: numStr(order.exit),
                                 transit: numStr(order.transit),
                                 ci_amount: numStr(order.ci_amount),
+                                complete_document: order.complete_document || '',
                                 order_date: order.order_date?.slice(0, 16) || emptyForm().order_date,
                               });
-                              setCurrentStep(1);
                               setShowModal(true);
                             },
                           },
@@ -617,7 +603,6 @@ export function Orders() {
                 type="button"
                 onClick={() => {
                   setShowModal(false);
-                  setCurrentStep(1);
                   setFormData(emptyForm());
                 }}
                 className="text-xl text-gray-500 hover:text-gray-700"
@@ -626,27 +611,8 @@ export function Orders() {
               </button>
             </div>
 
-            <div className="mb-6 flex items-center justify-center gap-3">
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                  currentStep === 1 ? 'bg-[#0F3C66] text-white' : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                1
-              </div>
-              <div className="h-px w-16 bg-gray-300" />
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                  currentStep === 2 ? 'bg-[#0F3C66] text-white' : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                2
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit}>
-              {currentStep === 1 ? (
-                <div className="space-y-4">
+              <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label={t('orders.colClient')} required>
                       <select
@@ -897,61 +863,31 @@ export function Orders() {
                       />
                     </Field>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-md bg-[#0F3C66] px-4 py-3 text-sm text-white">
-                    <span className="font-bold text-[#EE964C]">NOTE </span>
-                    {t('orders.reqDocsDesc')}
-                  </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {DOC_UPLOAD_FIELDS.map((key) => (
-                      <Field key={key} label={t(key)} required>
-                        <input type="file" className={inputClass} />
-                      </Field>
-                    ))}
-                  </div>
-
-                  <Field label={t('orders.factureSgtd')} required>
-                    <input type="file" className={inputClass} />
-                  </Field>
-
-                  <Field label={t('orders.docCi')} required>
-                    <input type="file" className={inputClass} />
-                  </Field>
-
-                  <Field label={`${t('orders.ciAmountDesc')} *`} required>
+                  <Field label={t('orders.completeDocument')} required>
                     <input
-                      type="text"
-                      required
-                      value={formData.ci_amount}
+                      type="file"
+                      required={!formData.complete_document}
                       onChange={(e) =>
-                        setFormData({ ...formData, ci_amount: e.target.value })
+                        setFormData({
+                          ...formData,
+                          complete_document: e.target.files?.[0]?.name || '',
+                        })
                       }
                       className={inputClass}
                     />
+                    {formData.complete_document ? (
+                      <p className="mt-1 text-xs text-gray-600">{formData.complete_document}</p>
+                    ) : null}
                   </Field>
-                </div>
-              )}
+              </div>
 
-              <div className="mt-6 flex justify-between">
-                {currentStep === 2 ? (
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    className="rounded bg-[#0F3C66] px-5 py-2 text-sm font-medium text-white hover:bg-[#152a44]"
-                  >
-                    {t('orders.previous')}
-                  </button>
-                ) : (
-                  <span />
-                )}
+              <div className="mt-6 flex justify-end">
                 <button
                   type="submit"
                   className="rounded bg-[#0F3C66] px-5 py-2 text-sm font-medium text-white hover:bg-[#152a44]"
                 >
-                  {currentStep === 1 ? t('orders.next') : t('orders.finish')}
+                  {t('orders.finish')}
                 </button>
               </div>
             </form>
