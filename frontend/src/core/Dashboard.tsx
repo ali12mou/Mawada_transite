@@ -1,4 +1,4 @@
-//  dashboards
+//  dashboard
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
