@@ -29,6 +29,7 @@ const orderSchema = new mongoose.Schema({
   profit_amount: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   ci_amount: { type: Number, default: 0 },
+  complete_document: { type: String, default: '' },
   order_date: { type: Date, default: Date.now },
   delivery_status: { type: String, default: 'PENDING' },
   status: { type: String, default: 'PENDING' },
