@@ -4,6 +4,7 @@ const expenseItemSchema = new mongoose.Schema({
   expense_category_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ExpenseCategory', required: true },
   name: { type: String, required: true },
   amount: { type: Number, required: true },
+  quantity: { type: Number, default: 1 },
   description: { type: String },
   check_number: { type: String }
 });

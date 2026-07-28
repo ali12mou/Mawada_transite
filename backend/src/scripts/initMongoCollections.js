@@ -30,6 +30,7 @@ const collectionsToCreate = [
   'document_4',
   'clearance_demurrage',
   'invoice_reports',
+  'applicant_invoices',
   'products',
   'inventories',
   'warehouses',
