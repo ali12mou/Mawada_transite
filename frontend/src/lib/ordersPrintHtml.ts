@@ -1,9 +1,11 @@
 import type { DocumentBranding } from '../types/documentBranding';
 import { fetchDocumentBranding } from './documentBranding';
-import { buildLetterheadHtml } from './documentPrintImages';
+import { buildLetterheadHtml, documentImageSrc } from './documentPrintImages';
 import {
   buildDocWatermark,
+  buildMawadaContactFooterHtml,
   letterheadBannerPrintCss,
+  mawadaContactFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
@@ -118,6 +120,9 @@ function rowHighlight(label: string, fdj: number): string {
 function buildSingleOrderInvoiceHtml(order: OrderInvoicePrintData, branding: DocumentBranding): string {
   const letter = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
+  const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
+  const stamp = stampSrc ? `<img class="stamp-img" src="${esc(stampSrc)}" alt="" />` : '';
+  const footer = buildMawadaContactFooterHtml(branding);
 
   const qty = String(order.quantity ?? '').trim() || '1';
   const itemPrice = String(order.item_price ?? '').trim();
@@ -192,46 +197,59 @@ function buildSingleOrderInvoiceHtml(order: OrderInvoicePrintData, branding: Doc
   return `
   <div class="page">
     ${wm}
-    ${letter}
+    <div class="page-main">
+      ${letter}
 
-    <div class="doc-info">
-      <h1 class="doc-info-title">FACTURE DE COMMANDE</h1>
-      ${orderRef ? `<div class="doc-info-line">Réf. de Commande: <strong>#${esc(orderRef)}</strong></div>` : ''}
-      <div class="doc-info-line">Djibouti, ${esc(dateStr)}</div>
-      <div class="doc-info-line">Client: <strong>${esc(clientName)}</strong></div>
+      <div class="doc-info">
+        <h1 class="doc-info-title">FACTURE DE COMMANDE</h1>
+        ${orderRef ? `<div class="doc-info-line">Réf. de Commande: <strong>#${esc(orderRef)}</strong></div>` : ''}
+        <div class="doc-info-line">Djibouti, ${esc(dateStr)}</div>
+        <div class="doc-info-line">Client: <strong>${esc(clientName)}</strong></div>
+      </div>
+
+      <table class="invoice-table" cellspacing="0" cellpadding="0">
+        <colgroup>
+          <col style="width:34%" />
+          <col style="width:33%" />
+          <col style="width:33%" />
+        </colgroup>
+        <tbody>
+          <tr class="hdr-row">
+            <td class="hdr-span" colspan="3">CONTAINER</td>
+          </tr>
+          <tr class="hdr-row">
+            <td class="hdr-lbl-cell">BL Number</td>
+            <td class="hdr-val-cell">${esc(bl)}</td>
+            <td class="hdr-empty-cell"></td>
+          </tr>
+          <tr class="hdr-row">
+            <td class="hdr-lbl-cell">DATE //</td>
+            <td class="hdr-val-cell">${esc(dateStr)}</td>
+            <td class="hdr-empty-cell"></td>
+          </tr>
+          <tr class="hdr-row">
+            <td class="hdr-span hdr-goods" colspan="3">${esc(bannerTitle)}</td>
+          </tr>
+          <tr class="col-head">
+            <td>DESCRIPTION</td>
+            <td class="num">Montant DJF</td>
+            <td class="num">Montant USD</td>
+          </tr>
+          ${midRows}
+        </tbody>
+      </table>
     </div>
 
-    <table class="invoice-table" cellspacing="0" cellpadding="0">
-      <colgroup>
-        <col style="width:34%" />
-        <col style="width:33%" />
-        <col style="width:33%" />
-      </colgroup>
-      <tbody>
-        <tr class="hdr-row">
-          <td class="hdr-span" colspan="3">CONTAINER</td>
-        </tr>
-        <tr class="hdr-row">
-          <td class="hdr-lbl-cell">BL Number</td>
-          <td class="hdr-val-cell">${esc(bl)}</td>
-          <td class="hdr-empty-cell"></td>
-        </tr>
-        <tr class="hdr-row">
-          <td class="hdr-lbl-cell">DATE //</td>
-          <td class="hdr-val-cell">${esc(dateStr)}</td>
-          <td class="hdr-empty-cell"></td>
-        </tr>
-        <tr class="hdr-row">
-          <td class="hdr-span hdr-goods" colspan="3">${esc(bannerTitle)}</td>
-        </tr>
-        <tr class="col-head">
-          <td>DESCRIPTION</td>
-          <td class="num">Montant DJF</td>
-          <td class="num">Montant USD</td>
-        </tr>
-        ${midRows}
-      </tbody>
-    </table>
+    <div class="page-bottom">
+      <div class="sig-block">
+        <span class="sig-label">Signature:</span>
+        <span class="sig-line" aria-hidden="true"></span>
+        ${stamp}
+      </div>
+      <footer class="doc-footer">
+        ${footer}
+      </footer>
+    </div>
   </div>`;
 }
 
@@ -253,6 +271,7 @@ export function buildOrdersPrintHtml(
   <style>
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
+    ${mawadaContactFooterPrintCss()}
     ${watermarkPrintCss()}
     @page { size: A4 portrait; margin: 12mm 10mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -268,17 +287,35 @@ export function buildOrdersPrintHtml(
     }
     .page {
       position: relative;
+      display: flex;
+      flex-direction: column;
       width: 100%;
+      min-height: 0;
+      height: auto;
       padding: 4mm 3mm 6mm;
       page-break-after: always;
       break-after: page;
       overflow: visible;
-      height: auto;
-      min-height: 0;
+      box-sizing: border-box;
     }
     .page:last-child {
       page-break-after: auto;
       break-after: auto;
+    }
+    .page-main {
+      flex: 0 1 auto;
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+    }
+    .page-bottom {
+      margin-top: 16px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      padding-top: 8px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .doc-info {
       position: relative;
@@ -309,6 +346,7 @@ export function buildOrdersPrintHtml(
       padding: 2.6mm 3.5mm;
       vertical-align: middle;
       line-height: 1.2;
+      border: 1px solid #000 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
@@ -316,7 +354,7 @@ export function buildOrdersPrintHtml(
       background: ${TABLE_GREEN} !important;
       color: #fff !important;
       font-weight: 700;
-      border: 1px solid #fff;
+      border: 1px solid #000 !important;
     }
     .invoice-table .hdr-span {
       text-align: left;
@@ -333,7 +371,7 @@ export function buildOrdersPrintHtml(
       background: #fff !important;
       color: #111 !important;
       font-weight: 700;
-      border: 1px solid #bdbdbd;
+      border: 1px solid #000 !important;
       padding: 2.8mm 3.5mm;
     }
     .invoice-table tr.col-head td.num,
@@ -345,14 +383,48 @@ export function buildOrdersPrintHtml(
     .invoice-table tbody tr:not(.hdr-row):not(.col-head):not(.row-hl) td {
       background: #fff !important;
       color: #111 !important;
-      border: 1px solid #c8c8c8;
+      border: 1px solid #000 !important;
     }
     .invoice-table tbody tr.row-item td { font-weight: 700; }
     .invoice-table tbody tr.row-hl td {
       background: ${TABLE_GREEN} !important;
       color: #fff !important;
       font-weight: 700;
-      border: 1px solid #fff;
+      border: 1px solid #000 !important;
+    }
+    .sig-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0 0 12px;
+      font-size: 11pt;
+      font-weight: 700;
+    }
+    .sig-line {
+      display: inline-block;
+      width: 150px;
+      border-bottom: 1.5px solid #111;
+      height: 0;
+      margin: 0 4px 4px 0;
+      vertical-align: middle;
+    }
+    .stamp-img {
+      display: block;
+      max-height: 72px;
+      max-width: 150px;
+      width: auto;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .doc-footer { padding-top: 0; }
+    .foot-box {
+      border: 1px solid #111 !important;
+      padding: 10px 14px !important;
+      background: #fff;
+    }
+    .foot-grid {
+      font-size: 9.5pt;
+      font-weight: 700;
     }
     @media print {
       html, body {
@@ -367,6 +439,11 @@ export function buildOrdersPrintHtml(
         height: auto !important;
         min-height: 0 !important;
         page-break-inside: auto;
+      }
+      .page-bottom {
+        margin-top: 16px !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
       .invoice-table { page-break-inside: auto; }
       .invoice-table tr {

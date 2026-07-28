@@ -1,7 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Download, Pencil, Trash2, X } from 'lucide-react';
+import { Download, Pencil, Trash2, Upload, X } from 'lucide-react';
+import {
+  downloadProductsExcelTemplate,
+  parseProductsExcelFile,
+} from '../../lib/productsExcel';
 
 interface Product {
   id: string;
@@ -30,8 +36,11 @@ function SortIcon() {
 
 export function Products() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
@@ -111,9 +120,11 @@ export function Products() {
       } else {
         await genericApi.create('products', formData);
       }
+      crudToast.onSaved(!!editingProduct);
       closeModal();
       fetchProducts();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving product:', error);
     }
   };
@@ -129,11 +140,13 @@ export function Products() {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!confirm(t('common.deleteConfirm'))) return;
+    if (!(await appConfirm(t('common.deleteConfirm')))) return;
     try {
       await genericApi.delete('products', productId(product));
+      crudToast.onDeleted();
       fetchProducts();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting product:', error);
     }
   };
@@ -154,6 +167,58 @@ export function Products() {
     setShowModal(true);
   };
 
+  const handleDownloadTemplate = () => {
+    downloadProductsExcelTemplate('modele-produits.xlsx');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const rows = await parseProductsExcelFile(file);
+      if (rows.length === 0) {
+        alert(t('products.importEmpty'));
+        return;
+      }
+
+      let ok = 0;
+      let fail = 0;
+      for (const row of rows) {
+        try {
+          await genericApi.create('products', {
+            name: row.name,
+            description: row.description,
+            unit_weight: row.unit_weight,
+            created_at: new Date().toISOString(),
+          });
+          ok += 1;
+        } catch (err) {
+          console.error('Error importing product row:', row, err);
+          fail += 1;
+        }
+      }
+
+      await fetchProducts();
+      alert(
+        t('products.importResult')
+          .replace('{ok}', String(ok))
+          .replace('{fail}', String(fail))
+      );
+    } catch (error) {
+      console.error('Error importing products excel:', error);
+      alert(t('products.importError'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -169,7 +234,7 @@ export function Products() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-800">{t('products.title')}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={openAddModal}
@@ -179,11 +244,28 @@ export function Products() {
           </button>
           <button
             type="button"
+            onClick={handleDownloadTemplate}
             className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
           >
             <Download size={16} />
-            {t('products.export')}
+            {t('products.exportExcel')}
           </button>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={importing}
+            className="inline-flex items-center gap-2 rounded bg-emerald-700 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60"
+          >
+            <Upload size={16} />
+            {importing ? t('products.importing') : t('products.importExcel')}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(ev) => void handleImportFile(ev)}
+          />
         </div>
       </div>
 

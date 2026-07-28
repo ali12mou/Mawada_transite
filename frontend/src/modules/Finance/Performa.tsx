@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit, Trash2, Plus, Eye, FileText } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
@@ -107,6 +109,7 @@ export function Performa() {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   const [formData, setFormData] = useState({
     performa_code: '',
@@ -218,6 +221,8 @@ export function Performa() {
         await genericApi.create('performa', payload);
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       resetForm();
       loadPerformas();
@@ -229,10 +234,13 @@ export function Performa() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this performa?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this performa?'))) return;
 
     try {
       await genericApi.delete('performa', id);
+
+      
+      crudToast.onDeleted();
 
       
       loadPerformas();

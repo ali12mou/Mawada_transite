@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Edit2, Trash2, User, CreditCard, Banknote, FileText, Plus, Search, Users } from 'lucide-react';
@@ -41,6 +43,7 @@ type ModalStep = 'personal' | 'contact' | 'banking' | 'contract';
 export function Employees() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,11 +135,14 @@ export function Employees() {
         await createEmployee(employeeData);
       }
 
+      crudToast.onSaved(!!editingEmployee);
+
       setShowModal(false);
       setEditingEmployee(null);
       resetForm();
       fetchEmployeesList();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving employee:', error);
     }
   };
@@ -173,12 +179,14 @@ export function Employees() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('common.confirmDelete'))) return;
+    if (!(await appConfirm(t('common.confirmDelete')))) return;
 
     try {
       await deleteEmployee(id);
+      crudToast.onDeleted();
       fetchEmployeesList();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting employee:', error);
     }
   };

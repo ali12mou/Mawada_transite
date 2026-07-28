@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit2, Trash2, Plus, Eye, FileText, X, Upload, Printer } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -270,6 +271,7 @@ export function LocalCompany() {
     emptyLocalDocuments()
   );
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
 
   const [formData, setFormData] = useState({
@@ -374,6 +376,7 @@ export function LocalCompany() {
       }
 
       closeFormModal();
+      crudToast.onSaved(!!editingId);
       await loadCompanies();
     } catch (error: unknown) {
       console.error('Error saving local company:', error);
@@ -401,6 +404,7 @@ export function LocalCompany() {
       await deleteLocalCompany(deleteTarget.id);
       setDeleteTarget(null);
       setDeleteConfirmInput('');
+      crudToast.onDeleted();
       await loadCompanies();
     } catch (error: unknown) {
       console.error('Error deleting local company:', error);

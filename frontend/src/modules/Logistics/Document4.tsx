@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -37,6 +39,7 @@ interface Document4 {
 export function Document4() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [documents, setDocuments] = useState<Document4[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<Document4[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,11 +122,14 @@ export function Document4() {
         
       }
 
+      crudToast.onSaved(!!editingDocument);
+
       setShowModal(false);
       setEditingDocument(null);
       resetForm();
       fetchDocuments();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving document:', error);
     }
   };
@@ -157,14 +163,18 @@ export function Document4() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('document4.deleteConfirm'))) return;
+    if (!(await appConfirm(t('document4.deleteConfirm')))) return;
 
     try {
       await genericApi.delete('document_4', id);
 
       
+      crudToast.onDeleted();
+
+      
       fetchDocuments();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting document:', error);
     }
   };

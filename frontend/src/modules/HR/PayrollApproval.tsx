@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Check, X, Eye, DollarSign } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
@@ -31,6 +33,7 @@ interface Employee {
 export function PayrollApproval() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -65,7 +68,7 @@ export function PayrollApproval() {
   };
 
   const handleApprove = async (payrollId: string) => {
-    if (!confirm('Approve this payroll?')) return;
+    if (!(await appConfirm('Approve this payroll?'))) return;
 
     try {
       await genericApi.update('payroll', payrollId, {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { listPurchaseRequests, createPurchaseRequest, listLogisticsFilesBrief, listVendors } from '../../../api/transitDb';
@@ -6,6 +7,7 @@ import type { PurchaseRequest } from '../../../types/geosomTransit';
 
 export function PurchaseTransitModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<PurchaseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -43,6 +45,7 @@ export function PurchaseTransitModule() {
         logistics_file_id: form.logistics_file_id || null,
         job_number: f?.job_number || form.job_number || null,
       });
+      crudToast.onSaved(false);
       setOpen(false);
       setForm({ status: 'rfq', currency: 'DJF' });
       load();

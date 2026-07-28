@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -79,6 +81,7 @@ function SortIcon() {
 export function Carriers() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [modes, setModes] = useState<CarrierMode[]>([]);
@@ -221,19 +224,23 @@ export function Carriers() {
           )
         );
       }
+      crudToast.onSaved(!!editingCarrier);
       closeModal();
       void fetchData();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving carrier:', error);
     }
   };
 
   const handleDelete = async (carrier: Carrier) => {
-    if (!confirm(t('carriers.deleteConfirm'))) return;
+    if (!(await appConfirm(t('carriers.deleteConfirm')))) return;
     try {
       await genericApi.delete('carriers', rowId(carrier));
+      crudToast.onDeleted();
       void fetchData();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting carrier:', error);
     }
   };

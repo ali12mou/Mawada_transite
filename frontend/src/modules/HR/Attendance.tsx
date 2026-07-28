@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Pencil, Trash2, Calendar, Clock } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -23,6 +25,7 @@ interface Employee {
 
 export function Attendance() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,8 @@ export function Attendance() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchAttendances();
     } catch (error: any) {
@@ -117,13 +122,17 @@ export function Attendance() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this attendance record?')) {
+    if (await appConfirm('Are you sure you want to delete this attendance record?')) {
       try {
         await genericApi.delete('attendance', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchAttendances();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting attendance:', error);
       }
     }

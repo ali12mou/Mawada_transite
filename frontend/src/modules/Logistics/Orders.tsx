@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Plus, Printer, Eye, Edit2, Trash2, FileText } from 'lucide-react';
@@ -148,6 +150,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 export function Orders() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -294,20 +297,24 @@ export function Orders() {
         created_by: user?.nom || user?.id,
         order_date: formData.order_date,
       });
+      crudToast.onSaved(false);
       setShowModal(false);
       setFormData(emptyForm());
       await fetchOrders();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error creating order:', error);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t('common.confirmDelete') || 'Delete?')) return;
+    if (!(await appConfirm(t('common.confirmDelete') || 'Delete?'))) return;
     try {
       await deleteOrder(id);
+      crudToast.onDeleted();
       await fetchOrders();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting order:', error);
     }
   };

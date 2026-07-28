@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Pencil, Trash2, Users, X } from 'lucide-react';
@@ -28,6 +30,7 @@ function SortIcon() {
 
 export function ShippingLines() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [shippingLines, setShippingLines] = useState<ShippingLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -90,9 +93,11 @@ export function ShippingLines() {
       } else {
         await genericApi.create('shipping_lines', payload);
       }
+      crudToast.onSaved(!!editingLine);
       closeModal();
       void fetchShippingLines();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving shipping line:', error);
     }
   };
@@ -109,11 +114,13 @@ export function ShippingLines() {
   };
 
   const handleDelete = async (line: ShippingLine) => {
-    if (!confirm(t('shippingLines.deleteConfirm'))) return;
+    if (!(await appConfirm(t('shippingLines.deleteConfirm')))) return;
     try {
       await genericApi.delete('shipping_lines', rowId(line));
+      crudToast.onDeleted();
       void fetchShippingLines();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting shipping line:', error);
     }
   };

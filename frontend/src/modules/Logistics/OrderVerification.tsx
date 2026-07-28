@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -28,6 +29,7 @@ function isChecked(status: string): boolean {
 export function OrderVerification() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [verifications, setVerifications] = useState<OrderVerification[]>([]);
   const [filteredVerifications, setFilteredVerifications] = useState<OrderVerification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +107,7 @@ export function OrderVerification() {
       if (v.order_id) {
         await genericApi.update('orders', v.order_id, { status: 'CHECKED' });
       }
+      crudToast.onApproved();
       await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error approving verification:', error);
@@ -122,6 +125,7 @@ export function OrderVerification() {
       if (v.order_id) {
         await genericApi.update('orders', v.order_id, { status: 'PENDING' });
       }
+      crudToast.onRejected();
       await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error rejecting verification:', error);

@@ -1,7 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Download, Pencil, Trash2, X } from 'lucide-react';
+import { Download, Pencil, Trash2, Upload, X } from 'lucide-react';
+import {
+  downloadInventoriesExcelTemplate,
+  parseInventoriesExcelFile,
+  resolveNamedId,
+} from '../../lib/inventoriesExcel';
 
 interface Product {
   id: string;
@@ -44,6 +51,7 @@ function SortIcon() {
 
 export function Inventories() {
   const { t, language } = useLanguage();
+  const crudToast = useCrudToast();
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -55,6 +63,8 @@ export function Inventories() {
   const [editingInventory, setEditingInventory] = useState<Inventory | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('product');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     product_id: '',
@@ -166,6 +176,7 @@ export function Inventories() {
       } else {
         await genericApi.create('inventories', formData);
       }
+      crudToast.onSaved(!!editingInventory);
       closeModal();
       fetchData();
     } catch (error) {
@@ -185,11 +196,13 @@ export function Inventories() {
   };
 
   const handleDelete = async (inventory: Inventory) => {
-    if (!confirm(t('common.deleteConfirm'))) return;
+    if (!(await appConfirm(t('common.deleteConfirm')))) return;
     try {
       await genericApi.delete('inventories', rowId(inventory));
+      crudToast.onDeleted();
       fetchData();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting inventory:', error);
     }
   };
@@ -208,6 +221,65 @@ export function Inventories() {
     setEditingInventory(null);
     resetForm();
     setShowModal(true);
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadInventoriesExcelTemplate('modele-inventaire.xlsx');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const rows = await parseInventoriesExcelFile(file);
+      if (rows.length === 0) {
+        alert(t('inventories.importEmpty'));
+        return;
+      }
+
+      let ok = 0;
+      let fail = 0;
+      for (const row of rows) {
+        try {
+          const product_id = resolveNamedId(row.product, products);
+          const warehouse_id = resolveNamedId(row.warehouse, warehouses);
+          if (!product_id || !warehouse_id) {
+            fail += 1;
+            continue;
+          }
+          const quantity = Number(String(row.quantity).replace(',', '.')) || 0;
+          await genericApi.create('inventories', {
+            product_id,
+            warehouse_id,
+            quantity,
+            last_updated: new Date().toISOString(),
+          });
+          ok += 1;
+        } catch (err) {
+          console.error('Error importing inventory row:', row, err);
+          fail += 1;
+        }
+      }
+
+      await fetchData();
+      alert(
+        t('inventories.importResult')
+          .replace('{ok}', String(ok))
+          .replace('{fail}', String(fail))
+      );
+    } catch (error) {
+      console.error('Error importing inventories excel:', error);
+      alert(t('inventories.importError'));
+    } finally {
+      setImporting(false);
+    }
   };
 
   const fmtDate = (iso: string) => {
@@ -235,7 +307,7 @@ export function Inventories() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-800">{t('inventories.title')}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={openAddModal}
@@ -245,11 +317,28 @@ export function Inventories() {
           </button>
           <button
             type="button"
+            onClick={handleDownloadTemplate}
             className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
           >
             <Download size={16} />
-            {t('products.export')}
+            {t('inventories.exportExcel')}
           </button>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={importing}
+            className="inline-flex items-center gap-2 rounded bg-emerald-700 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60"
+          >
+            <Upload size={16} />
+            {importing ? t('inventories.importing') : t('inventories.importExcel')}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(ev) => void handleImportFile(ev)}
+          />
         </div>
       </div>
 

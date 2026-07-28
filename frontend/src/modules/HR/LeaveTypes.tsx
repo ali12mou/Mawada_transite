@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Pencil, Trash2, Calendar } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -16,6 +18,7 @@ interface LeaveType {
 
 export function LeaveTypes() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -59,9 +62,12 @@ export function LeaveTypes() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchLeaveTypes();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving leave type:', error);
     }
   };
@@ -80,13 +86,17 @@ export function LeaveTypes() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this leave type?')) {
+    if (await appConfirm('Are you sure you want to delete this leave type?')) {
       try {
         await genericApi.delete('leave_types', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchLeaveTypes();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting leave type:', error);
       }
     }

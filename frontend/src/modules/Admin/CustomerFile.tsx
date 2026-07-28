@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit, Trash2, Eye, FolderOpen } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
@@ -28,6 +30,7 @@ export function CustomerFile() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   const [formData, setFormData] = useState({
     file_number: '',
@@ -83,6 +86,8 @@ export function CustomerFile() {
         await genericApi.create('customer_files', formData);
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       resetForm();
       loadCustomerFiles();
@@ -93,11 +98,12 @@ export function CustomerFile() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this customer file?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this customer file?'))) return;
 
     try {
       if (!id) throw new Error('ID missing');
       await genericApi.delete('customer_files', id);
+      crudToast.onDeleted();
       loadCustomerFiles();
     } catch (error: any) {
       console.error('Error deleting customer file:', error);

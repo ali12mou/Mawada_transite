@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, Trash2, Building2, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -41,6 +43,7 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
 
 export function Banks() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -92,9 +95,11 @@ export function Banks() {
       } else {
         await genericApi.create('banks', payload);
       }
+      crudToast.onSaved(!!editingId);
       closeModal();
       void fetchBanks();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving bank:', error);
     }
   };
@@ -106,11 +111,13 @@ export function Banks() {
   };
 
   const handleDelete = async (bank: Bank) => {
-    if (!confirm(t('banks.deleteConfirm'))) return;
+    if (!(await appConfirm(t('banks.deleteConfirm')))) return;
     try {
       await genericApi.delete('banks', rowId(bank));
+      crudToast.onDeleted();
       void fetchBanks();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting bank:', error);
     }
   };

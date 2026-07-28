@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -50,6 +52,7 @@ const labelClass = 'mb-1 block text-sm font-bold text-gray-800';
 export function ExpenseAllocation() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [allocations, setAllocations] = useState<ExpenseAllocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,9 +144,12 @@ export function ExpenseAllocation() {
         await genericApi.create('expense_allocation', allocationData);
       }
 
+      crudToast.onSaved(false);
+
       closeModal();
       void fetchAllocations();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving expense allocation:', error);
     }
   };
@@ -164,12 +170,14 @@ export function ExpenseAllocation() {
 
   const handleDelete = async (allocation: ExpenseAllocation) => {
     if (allocation.is_locked) return;
-    if (!confirm(t('expenses.allocDeleteConfirm'))) return;
+    if (!(await appConfirm(t('expenses.allocDeleteConfirm')))) return;
 
     try {
       await genericApi.delete('expense_allocation', rowId(allocation));
+      crudToast.onDeleted();
       void fetchAllocations();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting expense allocation:', error);
     }
   };

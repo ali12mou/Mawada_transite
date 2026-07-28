@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Eye, Check, X, Calendar } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
@@ -32,6 +34,7 @@ interface LeaveType {
 export function LeaveRequest() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -121,7 +124,7 @@ export function LeaveRequest() {
   };
 
   const handleApprove = async (requestId: string) => {
-    if (!confirm('Approve this leave request?')) return;
+    if (!(await appConfirm('Approve this leave request?'))) return;
 
     try {
       await genericApi.update('leave_requests', editingId, formData);

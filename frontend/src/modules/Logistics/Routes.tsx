@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Navigation, Pencil, Trash2, X } from 'lucide-react';
@@ -30,6 +32,7 @@ function SortIcon() {
 
 export function Routes() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -86,9 +89,11 @@ export function Routes() {
       } else {
         await genericApi.create('routes', payload);
       }
+      crudToast.onSaved(!!editingRoute);
       closeModal();
       void fetchRoutes();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving route:', error);
     }
   };
@@ -103,11 +108,13 @@ export function Routes() {
   };
 
   const handleDelete = async (route: Route) => {
-    if (!confirm(t('routes.deleteConfirm'))) return;
+    if (!(await appConfirm(t('routes.deleteConfirm')))) return;
     try {
       await genericApi.delete('routes', rowId(route));
+      crudToast.onDeleted();
       void fetchRoutes();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting route:', error);
     }
   };

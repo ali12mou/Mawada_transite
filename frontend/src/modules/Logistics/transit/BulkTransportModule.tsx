@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { listBulkTransportRecords, createBulkTransportRecord, listLogisticsFilesBrief } from '../../../api/transitDb';
@@ -6,6 +7,7 @@ import type { BulkTransportRecord } from '../../../types/geosomTransit';
 
 export function BulkTransportModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<BulkTransportRecord[]>([]);
   const [files, setFiles] = useState<{ id: string; job_number: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export function BulkTransportModule() {
         state: form.state,
         transferred_date: form.transferred_date || null,
       });
+      crudToast.onSaved(false);
       setOpen(false);
       load();
     } catch (e: unknown) {

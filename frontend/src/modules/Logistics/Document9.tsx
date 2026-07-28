@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
@@ -288,6 +290,7 @@ export function Document9({
 }: Document9PageProps = {}) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const headingTitle = pageTitle ?? t('document9.title');
   const addLabel = addButtonLabel ?? t('document9.addNew');
 
@@ -420,12 +423,14 @@ export function Document9({
       } else {
         await createDocument9(payload);
       }
+      crudToast.onSaved(!!editingDocument);
       setShowModal(false);
       setEditingDocument(null);
       setFormData(emptyForm());
       setModalStep(1);
       await fetchDocuments();
     } catch (err) {
+      crudToast.onError(err);
       console.error(err);
       setSaveError(err instanceof Error ? err.message : 'Error saving document');
     }
@@ -439,9 +444,10 @@ export function Document9({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('common.confirmDelete'))) return;
+    if (!(await appConfirm(t('common.confirmDelete')))) return;
     try {
       await deleteDocument9(id);
+      crudToast.onDeleted();
       await fetchDocuments();
     } catch (err) {
       console.error(err);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { listTransportationRecords, createTransportationRecord, listLogisticsFilesBrief } from '../../../api/transitDb';
@@ -6,6 +7,7 @@ import type { TransportationRecord } from '../../../types/geosomTransit';
 
 export function TransportationModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<TransportationRecord[]>([]);
   const [files, setFiles] = useState<{ id: string; job_number: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,7 @@ export function TransportationModule() {
         vehicle_id: null,
         driver_id: null,
       });
+      crudToast.onSaved(false);
       setOpen(false);
       load();
     } catch (e: unknown) {

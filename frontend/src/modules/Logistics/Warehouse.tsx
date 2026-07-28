@@ -1,8 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Download, Pencil, Trash2, X } from 'lucide-react';
+import { Download, Pencil, Trash2, Upload, X } from 'lucide-react';
+import {
+  downloadWarehousesExcelTemplate,
+  parseWarehousesExcelFile,
+} from '../../lib/warehousesExcel';
 
 interface Warehouse {
   id: string;
@@ -34,6 +40,7 @@ function SortIcon() {
 export function Warehouse() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -43,6 +50,8 @@ export function Warehouse() {
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -123,9 +132,11 @@ export function Warehouse() {
           created_at: new Date().toISOString(),
         });
       }
+      crudToast.onSaved(!!editingWarehouse);
       closeModal();
       fetchWarehouses();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving warehouse:', error);
     }
   };
@@ -141,11 +152,13 @@ export function Warehouse() {
   };
 
   const handleDelete = async (warehouse: Warehouse) => {
-    if (!confirm(t('common.deleteConfirm'))) return;
+    if (!(await appConfirm(t('common.deleteConfirm')))) return;
     try {
       await genericApi.delete(COLLECTION, rowId(warehouse));
+      crudToast.onDeleted();
       fetchWarehouses();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting warehouse:', error);
     }
   };
@@ -166,6 +179,59 @@ export function Warehouse() {
     setShowModal(true);
   };
 
+  const handleDownloadTemplate = () => {
+    downloadWarehousesExcelTemplate('modele-entrepots.xlsx');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const rows = await parseWarehousesExcelFile(file);
+      if (rows.length === 0) {
+        alert(t('warehouse.importEmpty'));
+        return;
+      }
+
+      let ok = 0;
+      let fail = 0;
+      for (const row of rows) {
+        try {
+          await genericApi.create(COLLECTION, {
+            name: row.name,
+            location: row.location,
+            description: row.description,
+            created_by: user?.id,
+            created_at: new Date().toISOString(),
+          });
+          ok += 1;
+        } catch (err) {
+          console.error('Error importing warehouse row:', row, err);
+          fail += 1;
+        }
+      }
+
+      await fetchWarehouses();
+      alert(
+        t('warehouse.importResult')
+          .replace('{ok}', String(ok))
+          .replace('{fail}', String(fail))
+      );
+    } catch (error) {
+      console.error('Error importing warehouses excel:', error);
+      alert(t('warehouse.importError'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -181,7 +247,7 @@ export function Warehouse() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-800">{t('warehouse.title')}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={openAddModal}
@@ -191,11 +257,28 @@ export function Warehouse() {
           </button>
           <button
             type="button"
+            onClick={handleDownloadTemplate}
             className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
           >
             <Download size={16} />
-            {t('products.export')}
+            {t('warehouse.exportExcel')}
           </button>
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={importing}
+            className="inline-flex items-center gap-2 rounded bg-emerald-700 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60"
+          >
+            <Upload size={16} />
+            {importing ? t('warehouse.importing') : t('warehouse.importExcel')}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(ev) => void handleImportFile(ev)}
+          />
         </div>
       </div>
 

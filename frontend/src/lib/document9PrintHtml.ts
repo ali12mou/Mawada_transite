@@ -305,10 +305,10 @@ export function buildDocument9PrintHtml(
       table-layout: fixed;
       font-family: 'Times New Roman', Times, serif;
       font-size: 8.5pt;
-      border: 1px solid #000;
+      border: 1.5px solid #000 !important;
     }
     .grid-tbl td {
-      border: 1px solid #000;
+      border: 1px solid #000 !important;
       padding: 2.5mm 2mm;
       vertical-align: middle;
       height: 10mm;
@@ -376,7 +376,7 @@ export function buildDocument9PrintHtml(
     }
     .march-table th,
     .march-table td {
-      border: 1px solid #000;
+      border: 1px solid #000 !important;
       font-family: 'Times New Roman', Times, serif;
       color: #000;
       vertical-align: middle;
@@ -423,7 +423,7 @@ export function buildDocument9PrintHtml(
       border: none;
     }
     .foot > tbody > tr > td {
-      border: 1.5px solid #000;
+      border: 1.5px solid #000 !important;
       vertical-align: stretch;
       padding: 0;
     }
@@ -437,7 +437,7 @@ export function buildDocument9PrintHtml(
       table-layout: fixed;
     }
     .foot-inner td {
-      border: 1px solid #000;
+      border: 1px solid #000 !important;
       font-family: 'Times New Roman', Times, serif;
       vertical-align: top;
     }
@@ -487,7 +487,7 @@ export function buildDocument9PrintHtml(
       table-layout: fixed;
     }
     .route-grid td {
-      border: 1px solid #000;
+      border: 1px solid #000 !important;
       font-family: 'Times New Roman', Times, serif;
       padding: 2mm;
       text-align: center;

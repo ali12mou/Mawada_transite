@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit2, Trash2, RotateCw, Plus } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -18,6 +20,7 @@ export function Roles() {
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   useEffect(() => {
     loadRoles();
@@ -50,6 +53,8 @@ export function Roles() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       setFormData({ name: '', description: '' });
       setEditingRole(null);
@@ -67,10 +72,13 @@ export function Roles() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this role?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this role?'))) return;
 
     try {
       await genericApi.delete('roles', id);
+
+      
+      crudToast.onDeleted();
 
       
       loadRoles();

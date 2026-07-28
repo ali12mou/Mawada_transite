@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { listCarReservations, upsertCarReservation, listLogisticsFilesBrief, listVehicles } from '../../../api/transitDb';
 import type { CarReservation, TransitVehicle } from '../../../types/geosomTransit';
 
 export function CarReservationsModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<CarReservation[]>([]);
   const [vehicles, setVehicles] = useState<TransitVehicle[]>([]);
   const [files, setFiles] = useState<{ id: string; job_number: string }[]>([]);
@@ -48,6 +50,7 @@ export function CarReservationsModule() {
         logistics_file_id: form.logistics_file_id || null,
         vehicle_id: form.vehicle_id || null,
       });
+      crudToast.onSaved(!!form.id);
       setOpen(false);
       setForm({ job_number: '', status: 'draft' });
       load();

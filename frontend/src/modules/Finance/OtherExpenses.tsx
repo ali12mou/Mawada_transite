@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { fetchCategories } from '../../api/expensesApi';
@@ -25,8 +27,8 @@ interface OtherExpenseItem {
   id?: string;
   expense_category_id: string;
   expense_name: string;
-  amount: number;
-  quantity: number;
+  amount: string;
+  quantity: string;
   description: string;
   check_number: string;
 }
@@ -48,6 +50,14 @@ function rowId(row: { _id?: string; id?: string }): string {
 
 function catId(cat: ExpenseCategory): string {
   return cat._id || cat.id || '';
+}
+
+function parseExpenseNumber(value: string | number | undefined | null): number {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value).replace(/\s/g, '').replace(',', '.');
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function SortIcon() {
@@ -89,6 +99,7 @@ const labelClass = 'mb-1 block text-sm font-bold text-gray-800';
 export function OtherExpenses() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [expenses, setExpenses] = useState<OtherExpense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -107,8 +118,8 @@ export function OtherExpenses() {
     {
       expense_category_id: '',
       expense_name: '',
-      amount: 0,
-      quantity: 1,
+      amount: '',
+      quantity: '',
       description: '',
       check_number: '',
     },
@@ -164,7 +175,11 @@ export function OtherExpenses() {
   }, [searchTerm, entriesPerPage]);
 
   const calculateTotal = () =>
-    expenseItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    expenseItems.reduce(
+      (sum, item) =>
+        sum + parseExpenseNumber(item.amount) * (parseExpenseNumber(item.quantity) || 1),
+      0
+    );
 
   const totalAmount = calculateTotal();
 
@@ -179,13 +194,19 @@ export function OtherExpenses() {
         total_amount: totalAmount,
         status: 'Pending',
         created_by: user?.id,
-        items: expenseItems,
+        items: expenseItems.map((item) => ({
+          ...item,
+          amount: parseExpenseNumber(item.amount),
+          quantity: parseExpenseNumber(item.quantity) || 1,
+        })),
       };
 
       await genericApi.create('other_expenses', payload);
+      crudToast.onSaved(false);
       closeModal();
       void fetchExpenses();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving other expense:', error);
     }
   };
@@ -198,13 +219,21 @@ export function OtherExpenses() {
       });
       setExpenseItems(
         full.items?.length
-          ? full.items
+          ? full.items.map((item: Record<string, unknown>) => ({
+              expense_category_id: String(item.expense_category_id || ''),
+              expense_name: String(item.expense_name || ''),
+              amount: item.amount != null && item.amount !== '' ? String(item.amount) : '',
+              quantity: item.quantity != null && item.quantity !== '' ? String(item.quantity) : '',
+              description: String(item.description || ''),
+              check_number: String(item.check_number || ''),
+              id: item.id ? String(item.id) : undefined,
+            }))
           : [
               {
                 expense_category_id: '',
                 expense_name: '',
-                amount: 0,
-                quantity: 1,
+                amount: '',
+                quantity: '',
                 description: '',
                 check_number: '',
               },
@@ -218,21 +247,25 @@ export function OtherExpenses() {
   };
 
   const handleApprove = async (expense: OtherExpense) => {
-    if (!confirm(t('expenses.approveConfirm'))) return;
+    if (!(await appConfirm(t('expenses.approveConfirm')))) return;
     try {
       await genericApi.update('other_expenses', rowId(expense), { status: 'Approved' });
+      crudToast.onApproved();
       void fetchExpenses();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error approving expense:', error);
     }
   };
 
   const handleDelete = async (expense: OtherExpense) => {
-    if (!confirm(t('common.deleteConfirm'))) return;
+    if (!(await appConfirm(t('common.deleteConfirm')))) return;
     try {
       await genericApi.delete('other_expenses', rowId(expense));
+      crudToast.onDeleted();
       void fetchExpenses();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting other expense:', error);
     }
   };
@@ -244,8 +277,8 @@ export function OtherExpenses() {
       {
         expense_category_id: '',
         expense_name: '',
-        amount: 0,
-        quantity: 1,
+        amount: '',
+        quantity: '',
         description: '',
         check_number: '',
       },
@@ -274,8 +307,8 @@ export function OtherExpenses() {
       {
         expense_category_id: '',
         expense_name: '',
-        amount: 0,
-        quantity: 1,
+        amount: '',
+        quantity: '',
         description: '',
         check_number: '',
       },
@@ -619,28 +652,24 @@ export function OtherExpenses() {
                           </td>
                           <td className="px-3 py-2">
                             <input
-                              type="number"
-                              step="0.01"
+                              type="text"
                               disabled={isViewOnly}
                               value={item.amount}
                               onChange={(e) =>
-                                updateExpenseItem(index, 'amount', Number(e.target.value))
+                                updateExpenseItem(index, 'amount', e.target.value)
                               }
                               className={fieldClass}
-                              required
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
-                              type="number"
-                              step="1"
+                              type="text"
                               disabled={isViewOnly}
                               value={item.quantity}
                               onChange={(e) =>
-                                updateExpenseItem(index, 'quantity', Number(e.target.value))
+                                updateExpenseItem(index, 'quantity', e.target.value)
                               }
                               className={fieldClass}
-                              required
                             />
                           </td>
                           <td className="px-3 py-2">

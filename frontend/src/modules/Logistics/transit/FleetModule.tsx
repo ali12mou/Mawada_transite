@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { listVehicles, listDrivers, upsertVehicle, upsertDriver } from '../../../api/transitDb';
 import type { TransitVehicle, TransitDriver } from '../../../types/geosomTransit';
 
 export function FleetModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [vehicles, setVehicles] = useState<TransitVehicle[]>([]);
   const [drivers, setDrivers] = useState<TransitDriver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export function FleetModule() {
         ...vForm,
         driver_id: vForm.driver_id || null,
       });
+      crudToast.onSaved(!!vForm.id);
       setVOpen(false);
       setVForm({ status: 'available' });
       load();
@@ -56,6 +59,7 @@ export function FleetModule() {
     }
     try {
       await upsertDriver(dForm);
+      crudToast.onSaved(!!dForm.id);
       setDOpen(false);
       setDForm({ status: 'active' });
       load();

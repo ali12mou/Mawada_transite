@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Pencil, Settings2, Trash2, X } from 'lucide-react';
@@ -34,6 +36,7 @@ function SortIcon() {
 
 export function CarrierMode() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [modes, setModes] = useState<CarrierMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -82,9 +85,11 @@ export function CarrierMode() {
       } else {
         await genericApi.create('carrier_modes', payload);
       }
+      crudToast.onSaved(!!editingMode);
       closeModal();
       void fetchModes();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving carrier mode:', error);
     }
   };
@@ -96,11 +101,13 @@ export function CarrierMode() {
   };
 
   const handleDelete = async (mode: CarrierMode) => {
-    if (!confirm(t('carrierMode.deleteConfirm'))) return;
+    if (!(await appConfirm(t('carrierMode.deleteConfirm')))) return;
     try {
       await genericApi.delete('carrier_modes', rowId(mode));
+      crudToast.onDeleted();
       void fetchModes();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting carrier mode:', error);
     }
   };

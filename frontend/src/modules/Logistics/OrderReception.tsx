@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -35,6 +36,7 @@ interface Order {
 export function OrderReception() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [receptions, setReceptions] = useState<OrderReception[]>([]);
   const [filteredReceptions, setFilteredReceptions] = useState<OrderReception[]>([]);
@@ -125,11 +127,13 @@ export function OrderReception() {
 
       await genericApi.update('orders', formData.order_id, { status: 'COMPLETED' });
 
+      crudToast.onSaved(false);
       setShowModal(false);
       resetForm();
       fetchReceptions();
       fetchOrders();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error creating reception:', error);
     }
   };

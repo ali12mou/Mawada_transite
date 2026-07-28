@@ -22,7 +22,6 @@ import { Orders } from './modules/Logistics/Orders';
 import { Suppliers } from './modules/Admin/Suppliers';
 import { OrderVerification } from './modules/Logistics/OrderVerification';
 import { OrderReception } from './modules/Logistics/OrderReception';
-import { DeliveredOrders } from './modules/Logistics/DeliveredOrders';
 import { Document9 } from './modules/Logistics/Document9';
 import { Document4 } from './modules/Logistics/Document4';
 import { Clearance } from './modules/Logistics/Clearance';
@@ -37,8 +36,6 @@ import { Routes } from './modules/Logistics/Routes';
 import { ShippingLines } from './modules/Logistics/ShippingLines';
 import { ExpenseCategories } from './modules/Finance/ExpenseCategories';
 import { Expense } from './modules/Finance/Expense';
-import { ExpenseAllocation } from './modules/Finance/ExpenseAllocation';
-import { OtherExpenses } from './modules/Finance/OtherExpenses';
 import { Employees } from './modules/HR/Employees';
 import { ContractTypes } from './modules/HR/ContractTypes';
 import { EmployeeProfessions } from './modules/HR/EmployeeProfessions';
@@ -117,8 +114,6 @@ function AppContent() {
         return <OrderVerification />;
       case 'order-reception':
         return <OrderReception />;
-      case 'delivered-orders':
-        return <DeliveredOrders />;
       case 'document-9':
         return <Document9 />;
       case 'document-4':
@@ -147,10 +142,6 @@ function AppContent() {
         return <ExpenseCategories />;
       case 'expense':
         return <Expense />;
-      case 'expense-allocation':
-        return <ExpenseAllocation />;
-      case 'other-expenses':
-        return <OtherExpenses />;
       case 'employees':
         return <Employees />;
       case 'contract-types':

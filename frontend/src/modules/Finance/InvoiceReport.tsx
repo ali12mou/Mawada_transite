@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -6,18 +8,27 @@ import { Plus, Edit2, Trash2, Printer, Download, Eye, FileText, Search, UploadCl
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import Modal from '../Shared/common/Modal';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { ApplicantInvoice } from './ApplicantInvoice';
+import {
+  COMMERCIAL_CHAMBER_DJF_RATE,
+  parseLocalizedNumber,
+} from '../../lib/commercialChamberCalculations';
+import { openInvoiceReportPrint } from '../../lib/invoiceReportPrintHtml';
+import { fetchClients, type ClientRecord } from '../../api/clientsApi';
+import { formatClientLabel } from '../../lib/clientLabel';
 
 interface InvoiceReportItem {
   id?: string;
   description: string;
   quantity: string;
   unit: string;
-  amount: number;
-  amount_usd: number;
+  amount: string;
+  amount_usd: string;
 }
 
 interface InvoiceReport {
-  id: string;
+  id?: string;
+  _id?: string;
   invoice_no: string;
   consignee: string;
   phone_number: string;
@@ -34,12 +45,26 @@ interface InvoiceReport {
   status: string;
   total_amount: number;
   total_amount_usd: number;
-  created_at: string;
+  items?: InvoiceReportItem[];
+  created_at?: string;
+  created_by?: string;
+}
+
+function invoiceId(invoice: InvoiceReport | null | undefined): string {
+  if (!invoice) return '';
+  const raw = invoice.id || invoice._id;
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object' && raw !== null && '$oid' in raw) {
+    return String((raw as { $oid: string }).$oid);
+  }
+  return String(raw);
 }
 
 export function InvoiceReport() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [invoices, setInvoices] = useState<InvoiceReport[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<InvoiceReport[]>([]);
@@ -54,6 +79,7 @@ export function InvoiceReport() {
   const [selectedConsignee, setSelectedConsignee] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceReport | null>(null);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
 
   const [formData, setFormData] = useState({
     consignee: '',
@@ -73,12 +99,28 @@ export function InvoiceReport() {
   });
 
   const [items, setItems] = useState<InvoiceReportItem[]>([
-    { description: 'Electronics', quantity: '', unit: '', amount: 0, amount_usd: 0 }
+    { description: '', quantity: '', unit: '', amount: '', amount_usd: '' }
   ]);
 
   useEffect(() => {
     fetchInvoices();
+    fetchClients()
+      .then(setClients)
+      .catch((error) => {
+        console.error('Error loading clients:', error);
+        setClients([]);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!showModal || clients.length > 0) return;
+    fetchClients()
+      .then(setClients)
+      .catch((error) => {
+        console.error('Error loading clients:', error);
+        setClients([]);
+      });
+  }, [showModal, clients.length]);
 
   useEffect(() => {
     filterInvoices();
@@ -87,12 +129,16 @@ export function InvoiceReport() {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const data = await genericApi.list('invoice_reports');
-
-      
-      setInvoices(data || []);
+      const data = await genericApi.list<InvoiceReport>('invoice_reports');
+      setInvoices(
+        (data || []).map((inv) => ({
+          ...inv,
+          id: invoiceId(inv),
+        }))
+      );
     } catch (error) {
       console.error('Error fetching invoices:', error);
+      setInvoices([]);
     } finally {
       setLoading(false);
     }
@@ -102,25 +148,27 @@ export function InvoiceReport() {
     let filtered = [...invoices];
 
     if (selectedConsignee !== 'All') {
-      filtered = filtered.filter(inv => inv.consignee === selectedConsignee);
+      filtered = filtered.filter((inv) => inv.consignee === selectedConsignee);
     }
 
     if (selectedStatus !== 'All') {
-      filtered = filtered.filter(inv => inv.status === selectedStatus);
+      filtered = filtered.filter((inv) => inv.status === selectedStatus);
     }
 
     if (dateRange.start && dateRange.end) {
-      filtered = filtered.filter(inv => {
+      filtered = filtered.filter((inv) => {
         const invDate = new Date(inv.invoice_date);
         return invDate >= new Date(dateRange.start) && invDate <= new Date(dateRange.end);
       });
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(inv =>
-        inv.invoice_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.consignee?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.freight_forwarder?.toLowerCase().includes(searchTerm.toLowerCase())
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (inv) =>
+          inv.invoice_no?.toLowerCase().includes(q) ||
+          inv.consignee?.toLowerCase().includes(q) ||
+          inv.freight_forwarder?.toLowerCase().includes(q)
       );
     }
 
@@ -132,57 +180,47 @@ export function InvoiceReport() {
     e.preventDefault();
 
     try {
-      const totalAmount = items.reduce((sum, item) => sum + Number(item.amount), 0);
-      const totalAmountUsd = items.reduce((sum, item) => sum + Number(item.amount_usd), 0);
+      const totalAmount = items.reduce((sum, item) => sum + parseLocalizedNumber(item.amount), 0);
+      const totalAmountUsd = items.reduce((sum, item) => sum + parseLocalizedNumber(item.amount_usd), 0);
+      const payload = {
+        ...formData,
+        items: items.map((item) => ({
+          description: item.description || '',
+          quantity: item.quantity || '',
+          unit: item.unit || '',
+          amount: item.amount || '',
+          amount_usd: item.amount_usd || '',
+        })),
+        total_amount: totalAmount,
+        total_amount_usd: totalAmountUsd,
+        created_by: user?.id || '',
+        updated_at: new Date().toISOString(),
+      };
 
-      if (editingInvoice) {
-        await genericApi.update('invoice_reports', editingId, formData);
-
-        
-
-        await supabase
-          .from('invoice_report_items')
-          .delete()
-          .eq('invoice_report_id', editingInvoice.id);
-
-        for (const item of items) {
-          await supabase.from('invoice_report_items').insert([{
-            invoice_report_id: editingInvoice.id,
-            ...item
-          }]);
-        }
+      const editId = invoiceId(editingInvoice);
+      if (editId) {
+        await genericApi.update('invoice_reports', editId, payload);
       } else {
-        const { data: invoiceData, error } = await supabase
-          .from('invoice_reports')
-          .insert([{
-            ...formData,
-            total_amount: totalAmount,
-            total_amount_usd: totalAmountUsd,
-            created_by: user?.id
-          }])
-          .select()
-          .single();
-
-        
-
-        for (const item of items) {
-          await supabase.from('invoice_report_items').insert([{
-            invoice_report_id: invoiceData.id,
-            ...item
-          }]);
-        }
+        await genericApi.create('invoice_reports', {
+          ...payload,
+          created_at: new Date().toISOString(),
+        });
       }
+
+      crudToast.onSaved(!!editId);
 
       setShowModal(false);
       setEditingInvoice(null);
       resetForm();
-      fetchInvoices();
+      await fetchInvoices();
     } catch (error) {
       console.error('Error saving invoice:', error);
+      const msg = error instanceof Error ? error.message : 'Erreur lors de l’enregistrement';
+      alert(msg);
     }
   };
 
-  const handleEdit = async (invoice: InvoiceReport) => {
+  const handleEdit = (invoice: InvoiceReport) => {
     setEditingInvoice(invoice);
     setFormData({
       consignee: invoice.consignee || '',
@@ -198,30 +236,54 @@ export function InvoiceReport() {
       freight_forwarder: invoice.freight_forwarder || '',
       no_declaration: invoice.no_declaration || '',
       responsible: invoice.responsible || '',
-      status: invoice.status || 'unpaid'
+      status: invoice.status || 'unpaid',
     });
 
-    const { data: itemsData } = await genericApi.list('invoice_report_items')
-      .eq('invoice_report_id', invoice.id);
-
-    if (itemsData && itemsData.length > 0) {
-      setItems(itemsData);
+    const loadedItems = Array.isArray(invoice.items) ? invoice.items : [];
+    if (loadedItems.length > 0) {
+      setItems(
+        loadedItems.map((item) => ({
+          description: item.description ?? '',
+          quantity: String(item.quantity ?? ''),
+          unit: item.unit ?? '',
+          amount: String(item.amount ?? ''),
+          amount_usd: String(item.amount_usd ?? ''),
+        }))
+      );
+    } else {
+      setItems([{ description: '', quantity: '', unit: '', amount: '', amount_usd: '' }]);
     }
 
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette facture ?')) return;
+    if (!(await appConfirm(t('invoiceReport.deleteConfirm')))) return;
 
     try {
       await genericApi.delete('invoice_reports', id);
-
-      
-      fetchInvoices();
+      crudToast.onDeleted();
+      await fetchInvoices();
     } catch (error) {
       console.error('Error deleting invoice:', error);
+      const msg = error instanceof Error ? error.message : 'Erreur lors de la suppression';
+      alert(msg);
     }
+  };
+
+  const handlePrint = (invoice: InvoiceReport) => {
+    void openInvoiceReportPrint({
+      invoice_no: invoice.invoice_no,
+      operation_no: invoice.operation_no,
+      consignee: invoice.consignee,
+      invoice_date: invoice.invoice_date,
+      freight_forwarder: invoice.freight_forwarder,
+      status: invoice.status,
+      responsible: invoice.responsible,
+      total_amount: invoice.total_amount,
+      total_amount_usd: invoice.total_amount_usd,
+      items: invoice.items || [],
+    });
   };
 
   const resetForm = () => {
@@ -241,31 +303,43 @@ export function InvoiceReport() {
       responsible: '',
       status: 'unpaid'
     });
-    setItems([{ description: 'Electronics', quantity: '', unit: '', amount: 0, amount_usd: 0 }]);
+    setItems([{ description: '', quantity: '', unit: '', amount: '', amount_usd: '' }]);
   };
 
   const addItem = () => {
-    setItems([...items, { description: '', quantity: '', unit: '', amount: 0, amount_usd: 0 }]);
+    setItems([...items, { description: '', quantity: '', unit: '', amount: '', amount_usd: '' }]);
   };
 
-  const updateItem = (index: number, field: keyof InvoiceReportItem, value: any) => {
+  const updateItem = (index: number, field: keyof InvoiceReportItem, value: string) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
+    if (field === 'amount') {
+      const fdj = parseLocalizedNumber(value);
+      if (!value.trim() || !fdj) {
+        newItems[index].amount_usd = '';
+      } else {
+        const usd = Math.round((fdj / COMMERCIAL_CHAMBER_DJF_RATE) * 100) / 100;
+        newItems[index].amount_usd = String(usd);
+      }
+    }
     setItems(newItems);
   };
 
-  const uniqueConsignees = ['All', ...Array.from(new Set(invoices?.map(i => i.consignee).filter(Boolean)))];
+  const clientConsigneeLabels = clients
+    .map((c) => formatClientLabel(c))
+    .filter(Boolean);
+  const invoiceConsignees = Array.from(
+    new Set(invoices?.map((i) => i.consignee).filter(Boolean) as string[])
+  );
+  const filterConsignees = [
+    'All',
+    ...clientConsigneeLabels,
+    ...invoiceConsignees.filter((name) => !clientConsigneeLabels.includes(name)),
+  ];
+
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / entriesPerPage));
   const startIndex = (currentPage - 1) * entriesPerPage;
   const currentItems = filteredInvoices.slice(startIndex, startIndex + entriesPerPage);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 animate-pulse font-medium">{t('common.loading')}</div>
-      </div>
-    );
-  }
 
   // Common Header Style
   const thClass = "px-4 py-4 text-left text-[11px] font-bold uppercase tracking-wider whitespace-nowrap text-white";
@@ -273,36 +347,48 @@ export function InvoiceReport() {
   return (
     <div className="p-6 bg-gray-50/30 min-h-screen animate-fadeIn">
       {/* Dynamic Tabs */}
-      <div className="flex gap-2 p-1 bg-gray-100/80 rounded-xl w-fit items-center mb-6 border border-gray-200">
-        <button
-          onClick={() => setActiveTab('invoice')}
-          className={`px-6 py-2.5 font-bold text-sm rounded-lg transition-all ${activeTab === 'invoice'
-            ? 'bg-white text-[#0F3C66] shadow-md shadow-gray-200/50'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex w-fit items-center gap-0 overflow-hidden rounded-md border border-gray-300">
+          <button
+            type="button"
+            onClick={() => setActiveTab('invoice')}
+            className={`px-5 py-2.5 text-sm font-bold transition-all ${
+              activeTab === 'invoice'
+                ? 'bg-[#0F3C66] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
-        >
-          {t('invoiceReport.invoiceTab') || 'Invoice Report'}
-        </button>
-        <button
-          onClick={() => setActiveTab('applicant')}
-          className={`px-6 py-2.5 font-bold text-sm rounded-lg transition-all ${activeTab === 'applicant'
-            ? 'bg-white text-[#0F3C66] shadow-md shadow-gray-200/50'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+          >
+            {t('invoiceReport.invoiceTab')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('applicant')}
+            className={`px-5 py-2.5 text-sm font-bold transition-all ${
+              activeTab === 'applicant'
+                ? 'bg-[#0F3C66] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
-        >
-          {t('invoiceReport.applicantTab') || 'Applicant Invoice'}
-        </button>
+          >
+            {t('invoiceReport.applicantTab')}
+          </button>
+        </div>
+        <div className="text-xs font-medium text-gray-500">{t('common.version')}</div>
       </div>
 
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+      {activeTab === 'applicant' ? (
+        <ApplicantInvoice />
+      ) : loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="animate-pulse font-medium text-gray-500">{t('common.loading')}</div>
+        </div>
+      ) : (
+      <>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#0F3C66] rounded-xl text-white shadow-lg shadow-blue-900/20">
+          <div className="rounded-xl bg-[#0F3C66] p-2.5 text-white shadow-lg shadow-blue-900/20">
             <FileText size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{t('invoiceReport.title')}</h1>
-        </div>
-        <div className="hidden md:block text-sm font-semibold px-3 py-1 bg-orange-50 text-[#EE964C] border border-orange-100 rounded-full">
-          {t('common.version')}
+          <h1 className="text-2xl font-bold tracking-tight text-gray-800">{t('invoiceReport.title')}</h1>
         </div>
       </div>
 
@@ -335,7 +421,7 @@ export function InvoiceReport() {
                 onChange={(e) => setSelectedConsignee(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-gray-50/50"
               >
-                {uniqueConsignees?.map((consignee) => (
+                {filterConsignees.map((consignee) => (
                   <option key={consignee} value={consignee}>
                     {consignee === 'All' ? t('financial.all') : consignee}
                   </option>
@@ -349,9 +435,11 @@ export function InvoiceReport() {
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-gray-50/50"
               >
-                <option value="All">{t('financial.all')}</option>
-                <option value="paid">{t('invoiceReport.statusPaid') || 'Paid'}</option>
-                <option value="unpaid">{t('invoiceReport.statusUnpaid') || 'Unpaid'}</option>
+                <option value="All">{t('invoiceReport.statusAll')}</option>
+                <option value="paid">{t('invoiceReport.statusPaid')}</option>
+                <option value="unpaid">{t('invoiceReport.statusUnpaid')}</option>
+                <option value="partial">{t('invoiceReport.statusPartial')}</option>
+                <option value="posted">{t('invoiceReport.statusPosted')}</option>
               </select>
             </div>
           </div>
@@ -436,25 +524,48 @@ export function InvoiceReport() {
                   </td>
                 </tr>
               ) : (
-                currentItems.map((invoice, index) => (
-                  <tr key={invoice.id} className="hover:bg-blue-50/40 transition group">
+                currentItems.map((invoice, index) => {
+                  const id = invoiceId(invoice);
+                  const qtyDisplay =
+                    invoice.items
+                      ?.map((it) => it.quantity)
+                      .filter(Boolean)
+                      .join(', ') || '-';
+                  const descDisplay =
+                    invoice.items
+                      ?.map((it) => it.description)
+                      .filter(Boolean)
+                      .join(', ') || '-';
+                  return (
+                  <tr key={id || index} className="hover:bg-blue-50/40 transition group">
                     <td className="px-4 py-3 text-sm text-gray-400 font-mono">#{startIndex + index + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium">{invoice.invoice_no || '-'}</td>
                     <td className="px-4 py-3 text-sm">{invoice.no_declaration || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                       {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{qtyDisplay}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{invoice.consignee || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{invoice.freight_forwarder || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500">{invoice.truck_number || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[180px] truncate" title={descDisplay}>{descDisplay}</td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${invoice.status === 'paid'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-[#EE964C]/10 text-orange-800 border border-orange-200'
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        invoice.status === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : invoice.status === 'partial'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : invoice.status === 'posted'
+                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                              : 'bg-[#EE964C]/10 text-orange-800 border border-orange-200'
                         }`}>
-                        {invoice.status === 'paid' ? (t('invoiceReport.statusPaid') || 'Paid') : (t('invoiceReport.statusUnpaid') || 'Unpaid')}
+                        {invoice.status === 'paid'
+                          ? t('invoiceReport.statusPaid')
+                          : invoice.status === 'partial'
+                            ? t('invoiceReport.statusPartial')
+                            : invoice.status === 'posted'
+                              ? t('invoiceReport.statusPosted')
+                              : t('invoiceReport.statusUnpaid')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-[#0F3C66]">{formatAmount(invoice.total_amount)}</td>
@@ -466,7 +577,7 @@ export function InvoiceReport() {
                             {
                               label: t('common.view'),
                               icon: <Eye size={16} />,
-                              onClick: () => console.log('View Invoice', invoice.id),
+                              onClick: () => handleEdit(invoice),
                             },
                             {
                               label: t('common.edit'),
@@ -476,20 +587,21 @@ export function InvoiceReport() {
                             {
                               label: t('common.delete'),
                               icon: <Trash2 size={16} />,
-                              onClick: () => handleDelete(invoice.id),
+                              onClick: () => void handleDelete(id),
                               variant: 'danger',
                             },
                             {
                               label: t('commercial.print') || 'Print',
                               icon: <Printer size={16} />,
-                              onClick: () => console.log('Print Invoice', invoice.id),
+                              onClick: () => handlePrint(invoice),
                             },
                           ]}
                         />
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -551,13 +663,32 @@ export function InvoiceReport() {
               <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('invoiceReport.colConsignee')}</label>
               <select
                 value={formData.consignee}
-                onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
+                onChange={(e) => {
+                  const label = e.target.value;
+                  const client = clients.find((c) => formatClientLabel(c) === label);
+                  setFormData((prev) => ({
+                    ...prev,
+                    consignee: label,
+                    phone_number: client?.phone || prev.phone_number,
+                    email: client?.email || prev.email,
+                  }));
+                }}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
               >
                 <option value="">{t('invoiceReport.consignee') || 'Select Consignee'}</option>
-                <option value="GUTU ABDUKERIM MUSA">GUTU ABDUKERIM MUSA</option>
-                <option value="Client A">Client A</option>
-                <option value="Client B">Client B</option>
+                {clients.map((c) => {
+                  const label = formatClientLabel(c);
+                  if (!label) return null;
+                  return (
+                    <option key={c.id} value={label}>
+                      {label}
+                    </option>
+                  );
+                })}
+                {formData.consignee &&
+                !clients.some((c) => formatClientLabel(c) === formData.consignee) ? (
+                  <option value={formData.consignee}>{formData.consignee}</option>
+                ) : null}
               </select>
             </div>
             <div>
@@ -573,7 +704,7 @@ export function InvoiceReport() {
             <div>
               <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wide">{t('clients.fieldEmail')}</label>
               <input
-                type="email"
+                type="text"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
@@ -661,20 +792,21 @@ export function InvoiceReport() {
                       </td>
                       <td className="px-2 py-2 border-r border-gray-100">
                         <input
-                          type="number"
+                          type="text"
                           value={item.amount}
-                          onChange={(e) => updateItem(index, 'amount', Number(e.target.value))}
+                          onChange={(e) => updateItem(index, 'amount', e.target.value)}
                           className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm font-semibold text-[#0F3C66] focus:border-[#0F3C66] focus:ring-2 focus:ring-[#0F3C66]/20 bg-white shadow-sm outline-none transition"
                           placeholder="0.00"
                         />
                       </td>
                       <td className="px-2 py-2 border-r border-gray-100">
                         <input
-                          type="number"
+                          type="text"
                           value={item.amount_usd}
-                          onChange={(e) => updateItem(index, 'amount_usd', Number(e.target.value))}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm font-semibold text-[#0F3C66] focus:border-[#0F3C66] focus:ring-2 focus:ring-[#0F3C66]/20 bg-white shadow-sm outline-none transition"
+                          readOnly
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm font-semibold text-[#0F3C66] bg-gray-50 shadow-sm outline-none"
                           placeholder="0.00"
+                          title={`1 USD = ${COMMERCIAL_CHAMBER_DJF_RATE} FDJ`}
                         />
                       </td>
                       <td className="px-2 py-2 text-center">
@@ -780,9 +912,11 @@ export function InvoiceReport() {
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
               >
-                <option value="">{t('deliveredOrders.selectStatus') || 'Select Status'}</option>
-                <option value="paid">{t('invoiceReport.statusPaid') || 'Paid'}</option>
-                <option value="unpaid">{t('invoiceReport.statusUnpaid') || 'Unpaid'}</option>
+                <option value="">{t('invoiceReport.selectStatus')}</option>
+                <option value="paid">{t('invoiceReport.statusPaid')}</option>
+                <option value="unpaid">{t('invoiceReport.statusUnpaid')}</option>
+                <option value="partial">{t('invoiceReport.statusPartial')}</option>
+                <option value="posted">{t('invoiceReport.statusPosted')}</option>
               </select>
             </div>
           </div>
@@ -836,6 +970,8 @@ export function InvoiceReport() {
           </div>
         </div>
       </Modal>
+      </>
+      )}
     </div>
   );
 }

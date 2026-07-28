@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { listSalesOrders, createSalesOrder, listLogisticsFilesBrief } from '../../../api/transitDb';
@@ -6,6 +7,7 @@ import type { SalesOrder } from '../../../types/geosomTransit';
 
 export function SalesTransitModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<SalesOrder[]>([]);
   const [files, setFiles] = useState<{ id: string; job_number: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,7 @@ export function SalesTransitModule() {
         logistics_file_id: form.logistics_file_id || null,
         job_number: lf?.job_number || form.job_number || null,
       });
+      crudToast.onSaved(false);
       setOpen(false);
       setForm({ status: 'quotation' });
       load();

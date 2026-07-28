@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -24,6 +26,7 @@ interface CNSSSettings {
 
 export function TaxRates() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [activeTab, setActiveTab] = useState<'tax' | 'cnss'>('tax');
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
@@ -90,9 +93,11 @@ export function TaxRates() {
       } else {
         await genericApi.create('tax_rates', formData);
       }
+      crudToast.onSaved(!!editingId);
       resetForm();
       fetchTaxRates();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving tax rate:', error);
     }
   };
@@ -110,11 +115,13 @@ export function TaxRates() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this tax rate?')) {
+    if (await appConfirm('Are you sure you want to delete this tax rate?')) {
       try {
         await genericApi.delete('tax_rates', id);
+        crudToast.onDeleted();
         fetchTaxRates();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting tax rate:', error);
       }
     }
@@ -128,9 +135,11 @@ export function TaxRates() {
       } else {
         await genericApi.create('cnss_settings', cnssFormData);
       }
+      crudToast.onSaved(!!cnssSettings);
       setShowCnssForm(false);
       fetchCnssSettings();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving CNSS settings:', error);
     }
   };

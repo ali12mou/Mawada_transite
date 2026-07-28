@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -32,6 +34,7 @@ function SortIcon() {
 export function Associations() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -100,9 +103,11 @@ export function Associations() {
       } else {
         await genericApi.create('owners', payload);
       }
+      crudToast.onSaved(!!editingOwner);
       closeModal();
       void fetchOwners();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving owner:', error);
     }
   };
@@ -119,11 +124,13 @@ export function Associations() {
   };
 
   const handleDelete = async (owner: Owner) => {
-    if (!confirm(t('associations.deleteConfirm'))) return;
+    if (!(await appConfirm(t('associations.deleteConfirm')))) return;
     try {
       await genericApi.delete('owners', rowId(owner));
+      crudToast.onDeleted();
       void fetchOwners();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting owner:', error);
     }
   };

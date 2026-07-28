@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -14,6 +16,7 @@ interface ContractType {
 
 export function ContractTypes() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [contractTypes, setContractTypes] = useState<ContractType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -55,9 +58,12 @@ export function ContractTypes() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchContractTypes();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving contract type:', error);
     }
   };
@@ -74,13 +80,17 @@ export function ContractTypes() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm(t('contractTypes.deleteConfirm'))) {
+    if (await appConfirm(t('contractTypes.deleteConfirm'))) {
       try {
         await genericApi.delete('contract_types', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchContractTypes();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting contract type:', error);
       }
     }

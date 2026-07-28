@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit, Trash2, Plus, Eye, FileText, Printer } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 
@@ -125,6 +127,7 @@ export function ChamberInvoice() {
   const [viewData, setViewData] = useState<ChamberInvoiceViewData | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   const [formData, setFormData] = useState({
     consignee_name: '',
@@ -258,6 +261,8 @@ export function ChamberInvoice() {
         await createChamberInvoice(payload);
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       resetForm();
       loadInvoices();
@@ -268,10 +273,11 @@ export function ChamberInvoice() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this chamber invoice?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this chamber invoice?'))) return;
 
     try {
       await deleteChamberInvoice(id);
+      crudToast.onDeleted();
       loadInvoices();
     } catch (error: unknown) {
       console.error('Error deleting chamber invoice:', error);

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -14,6 +16,7 @@ interface Profession {
 
 export function EmployeeProfessions() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [professions, setProfessions] = useState<Profession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -55,9 +58,12 @@ export function EmployeeProfessions() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchProfessions();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving profession:', error);
     }
   };
@@ -74,13 +80,17 @@ export function EmployeeProfessions() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm(t('professions.deleteConfirm'))) {
+    if (await appConfirm(t('professions.deleteConfirm'))) {
       try {
         await genericApi.delete('employee_professions', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchProfessions();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting profession:', error);
       }
     }

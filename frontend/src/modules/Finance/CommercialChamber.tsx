@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit2, Trash2, Plus, Eye, FileText, Printer, Search, Upload, Briefcase } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -151,6 +153,7 @@ export function CommercialChamber() {
   const [formClientId, setFormClientId] = useState('');
   const [djfRate] = useState(getCommercialChamberDjfRate());
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
 
   const [documents, setDocuments] = useState<Record<CommercialDocSlot, File | null>>(() =>
@@ -289,6 +292,8 @@ export function CommercialChamber() {
         await createCommercialChamber(payload);
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       setCurrentStep(1);
       setEditingId(null);
@@ -306,13 +311,14 @@ export function CommercialChamber() {
       total > 0
         ? `Le dossier ${record.commercial_no} a un total de ${formatAmount(total)}. La suppression est définitive et irréversible.`
         : `Supprimer définitivement le dossier ${record.commercial_no} ?`;
-    if (!confirm(`${baseMsg}\n\nConfirmer la suppression ?`)) return;
+    if (!(await appConfirm(`${baseMsg}\n\nConfirmer la suppression ?`))) return;
     if (total > 0) {
-      if (!confirm('Dernière confirmation : voulez-vous vraiment supprimer cet enregistrement ?')) return;
+      if (!(await appConfirm('Dernière confirmation : voulez-vous vraiment supprimer cet enregistrement ?'))) return;
     }
 
     try {
       await deleteCommercialChamber(record.id);
+      crudToast.onDeleted();
       await loadCommercials();
     } catch (error: unknown) {
       console.error('Error deleting commercial:', error);

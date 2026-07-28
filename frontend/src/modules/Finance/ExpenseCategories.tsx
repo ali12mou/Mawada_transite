@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { fetchCategories, createCategory, updateCategory, deleteCategory } from '../../api/expensesApi';
@@ -38,6 +40,7 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
 
 export function ExpenseCategories() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -96,9 +99,11 @@ export function ExpenseCategories() {
       } else {
         await createCategory(payload);
       }
+      crudToast.onSaved(!!editingCategory);
       closeModal();
       void fetchCategoriesList();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving expense category:', error);
     }
   };
@@ -113,11 +118,13 @@ export function ExpenseCategories() {
   };
 
   const handleDelete = async (category: ExpenseCategory) => {
-    if (!confirm(t('expenses.deleteConfirm'))) return;
+    if (!(await appConfirm(t('expenses.deleteConfirm')))) return;
     try {
       await deleteCategory(rowId(category));
+      crudToast.onDeleted();
       void fetchCategoriesList();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting expense category:', error);
     }
   };

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import { Plus } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { listExpenseRequests, createExpenseRequest, listLogisticsFilesBrief, listVendors, listVehicles } from '../../../api/transitDb';
@@ -6,6 +7,7 @@ import type { ExpenseRequest } from '../../../types/geosomTransit';
 
 export function ExpenseRequestsTransitModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [rows, setRows] = useState<ExpenseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -46,6 +48,7 @@ export function ExpenseRequestsTransitModule() {
         vehicle_id: form.vehicle_id || null,
         total_amount: form.total_amount ?? 0,
       });
+      crudToast.onSaved(false);
       setOpen(false);
       setForm({ status: 'draft', payment_status: 'not_paid' });
       load();

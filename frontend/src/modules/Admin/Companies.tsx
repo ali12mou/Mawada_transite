@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, Plus, Building2, Trash2, X } from 'lucide-react';
 import {
   fetchCompanies as fetchCompaniesApi,
@@ -36,6 +38,7 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
 
 export function Companies() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [companies, setCompanies] = useState<CompanyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,6 +109,7 @@ export function Companies() {
       } else {
         await createCompany(payload);
       }
+      crudToast.onSaved(!!editingId);
       closeModal();
       await loadCompanies();
     } catch (error) {
@@ -126,9 +130,10 @@ export function Companies() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('companies.deleteConfirm'))) return;
+    if (!(await appConfirm(t('companies.deleteConfirm')))) return;
     try {
       await deleteCompany(id);
+      crudToast.onDeleted();
       await loadCompanies();
     } catch (error) {
       console.error('Error deleting company:', error);

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, Plus, Tag, Trash2, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -48,6 +50,7 @@ function displayPrice(value: number | string | undefined): string {
 
 export function ProductPrices() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [prices, setPrices] = useState<ItemPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -106,9 +109,11 @@ export function ProductPrices() {
       } else {
         await genericApi.create('item_prices', payload);
       }
+      crudToast.onSaved(!!editingId);
       closeModal();
       void fetchPrices();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving item price:', error);
     }
   };
@@ -123,11 +128,13 @@ export function ProductPrices() {
   };
 
   const handleDelete = async (item: ItemPrice) => {
-    if (!confirm(t('itemPrices.deleteConfirm'))) return;
+    if (!(await appConfirm(t('itemPrices.deleteConfirm')))) return;
     try {
       await genericApi.delete('item_prices', rowId(item));
+      crudToast.onDeleted();
       void fetchPrices();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting item price:', error);
     }
   };

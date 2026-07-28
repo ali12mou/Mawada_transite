@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, FileText, X, FolderKanban, UserRound, Building2 } from 'lucide-react';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { useCrudToast } from '../../../hooks/useCrudToast';
 import {
   listLogisticsFiles,
   getLogisticsFile,
@@ -53,6 +54,7 @@ const labelClass = 'text-xs font-semibold uppercase tracking-wide text-gray-500'
 
 export function LogisticsFilesModule() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const contactLabels = GENERAL_CONTACT_LABELS(t);
   const [files, setFiles] = useState<LogisticsFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +124,7 @@ export function LogisticsFilesModule() {
       if (prev && prev.status !== saved.status) {
         await logStatusChange('logistics_file', saved.id, prev.status, saved.status);
       }
+      crudToast.onSaved(!!editingId);
       setModalOpen(false);
       load();
     } catch (e: unknown) {

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Trash2, Plus, Eye, Award, Edit, X, Printer } from 'lucide-react';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { genericApi } from '../../api/genericApi';
@@ -29,6 +31,7 @@ export function CertificateOrigin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   const [formData, setFormData] = useState({
     certificate_number: '',
@@ -89,6 +92,8 @@ export function CertificateOrigin() {
         await genericApi.create('certificate_origin', formData);
       }
 
+      crudToast.onSaved(!!editingId);
+
       setShowModal(false);
       resetForm();
       loadCertificates();
@@ -99,11 +104,12 @@ export function CertificateOrigin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this certificate?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this certificate?'))) return;
 
     try {
       if (!id) throw new Error('ID missing');
       await genericApi.delete('certificate_origin', id);
+      crudToast.onDeleted();
       loadCertificates();
     } catch (error: any) {
       console.error('Error deleting certificate:', error);

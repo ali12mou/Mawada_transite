@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Plus, Edit2, Trash2, Box, Search } from 'lucide-react';
@@ -9,6 +11,7 @@ import { ActionMenu } from '../Shared/common/ActionMenu';
 export function Suppliers() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<SupplierRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,10 +61,12 @@ export function Suppliers() {
       } else {
         await createSupplier({ ...formData, created_by: user?.id });
       }
+      crudToast.onSaved(!!editingId);
       setShowModal(false);
       resetForm();
       loadSuppliers();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving supplier:', error);
     }
   };
@@ -82,11 +87,13 @@ export function Suppliers() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('suppliers.deleteConfirm'))) return;
+    if (!(await appConfirm(t('suppliers.deleteConfirm')))) return;
     try {
       await deleteSupplier(id);
+      crudToast.onDeleted();
       loadSuppliers();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting supplier:', error);
     }
   };

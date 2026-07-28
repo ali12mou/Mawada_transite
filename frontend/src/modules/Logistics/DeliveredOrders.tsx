@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -33,6 +34,7 @@ interface Order {
 export function DeliveredOrders() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [deliveredOrders, setDeliveredOrders] = useState<DeliveredOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<DeliveredOrder[]>([]);
@@ -121,11 +123,13 @@ export function DeliveredOrders() {
 
       await genericApi.update('orders', formData.order_id, { delivery_status: 'DELIVERED' });
 
+      crudToast.onSaved(false);
       setShowModal(false);
       resetForm();
       fetchDeliveredOrders();
       fetchCompletedOrders();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error creating delivered order:', error);
     }
   };

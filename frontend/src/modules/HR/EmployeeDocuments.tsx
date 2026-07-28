@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Pencil, Trash2, FileText, Download } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -22,6 +24,7 @@ interface Employee {
 
 export function EmployeeDocuments() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,9 +84,12 @@ export function EmployeeDocuments() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchDocuments();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving document:', error);
     }
   };
@@ -102,13 +108,17 @@ export function EmployeeDocuments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm(t('documents.deleteConfirm'))) {
+    if (await appConfirm(t('documents.deleteConfirm'))) {
       try {
         await genericApi.delete('employee_documents', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchDocuments();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting document:', error);
       }
     }

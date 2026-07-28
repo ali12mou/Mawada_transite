@@ -103,16 +103,20 @@ export function buildDemurragePrintHtml(
       padding: 10px 12px;
       font-size: 10pt;
       font-weight: 700;
-      border: 1px solid #ccc;
+      border: 1px solid #000 !important;
     }
     .tbl td {
-      border: 1px solid #ccc;
+      border: 1px solid #000 !important;
       padding: 10px 12px;
       font-size: 10.5pt;
       color: #333;
     }
     .tbl tr.total-row { background-color: ${esc(green)}; }
-    .tbl tr.total-row td { color: white; font-weight: 700; }
+    .tbl tr.total-row td {
+      color: white;
+      font-weight: 700;
+      border: 1px solid #000 !important;
+    }
     .signature-area {
       margin-bottom: 20px;
       display: flex;

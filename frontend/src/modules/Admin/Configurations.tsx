@@ -137,8 +137,8 @@ export function Configurations() {
   }
 
   return (
-    <div className="flex h-full">
-      <aside className="w-64 bg-white border-r border-gray-200 p-4">
+    <div className="flex min-h-0">
+      <aside className="w-64 shrink-0 border-r border-gray-200 bg-white p-4">
         <div className="space-y-1">
           <button
             onClick={() => setActiveTab('base_settings')}

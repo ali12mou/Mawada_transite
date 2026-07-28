@@ -71,7 +71,7 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
       'other-profit',
     ],
   },
-  { id: 'imports', label: t('menu.imports'), icon: Import, children: ['suppliers', 'orders', 'order-verification', 'order-reception', 'delivered-orders', 'document-9', 'document-4', 'clearance', 'invoice-report'] },
+  { id: 'imports', label: t('menu.imports'), icon: Import, children: ['suppliers', 'orders', 'order-verification', 'order-reception', 'document-9', 'document-4', 'clearance', 'invoice-report'] },
   { id: 'warehouses', label: t('menu.warehouses'), icon: Warehouse, children: ['products', 'inventories', 'warehouse'] },
   {
     id: TRANSPORT_MANAGEMENT_MENU_ID,
@@ -85,7 +85,7 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
     icon: Route,
     children: [...TRANSPORT_SIDEBAR_CHILDREN],
   },
-  { id: 'expenses', label: t('menu.expenses'), icon: DollarSign, children: ['expense-categories', 'expense', 'expense-allocation', 'other-expenses'] },
+  { id: 'expenses', label: t('menu.expenses'), icon: DollarSign, children: ['expense-categories', 'expense'] },
   {
     id: 'hr',
     label: t('menu.hr'),
@@ -302,8 +302,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <aside className="flex w-[260px] shrink-0 flex-col bg-[#0F3C66] text-white shadow-xl">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      <aside className="flex h-full w-[260px] shrink-0 flex-col bg-[#0F3C66] text-white shadow-xl">
         <button
           type="button"
           onClick={() => onNavigate && onNavigate('dashboard')}
@@ -426,8 +426,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
       </aside>
 
-      <main className="flex-1 overflow-auto flex flex-col">
-        <div className="sticky top-0 z-10 bg-white shadow-sm">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="z-10 shrink-0 bg-white shadow-sm">
           <header className="border-b border-gray-200 bg-white px-8 py-4">
             <div className="flex items-center justify-end gap-3">
               <button
@@ -478,7 +478,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           {/* Top navigation tabs have been removed to eliminate redundancy with the sidebar children. */}
         </div>
 
-        <div className="p-8 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto p-8">
           {children}
         </div>
 

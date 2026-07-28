@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, Trash2, X, Package } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -11,6 +13,7 @@ interface ProductCategory {
 
 export function ProductCategories() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -52,9 +55,12 @@ export function ProductCategories() {
         
       }
 
+      crudToast.onSaved(!!editingId);
+
       resetForm();
       fetchCategories();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving category:', error);
     }
   };
@@ -68,13 +74,17 @@ export function ProductCategories() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm(t('products.categoryDeleteConfirm'))) {
+    if (await appConfirm(t('products.categoryDeleteConfirm'))) {
       try {
         await genericApi.delete('product_categories', id);
 
         
+        crudToast.onDeleted();
+
+        
         fetchCategories();
       } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
         console.error('Error deleting category:', error);
       }
     }

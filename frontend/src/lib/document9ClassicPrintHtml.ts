@@ -276,7 +276,7 @@ export function buildDocument9ClassicPrintHtml(doc: Document9Record): string {
       font-family: Arial, Helvetica, sans-serif;
     }
     .goods th, .goods td {
-      border: 1.2px solid #000;
+      border: 1.5px solid #000 !important;
       padding: 1.8mm 1.5mm;
       vertical-align: middle;
       text-align: center;
@@ -313,11 +313,11 @@ export function buildDocument9ClassicPrintHtml(doc: Document9Record): string {
       border-collapse: collapse;
       margin-top: 3mm;
       table-layout: fixed;
-      border: 1px solid #000;
+      border: 1.5px solid #000 !important;
       height: auto;
     }
     .foot > tbody > tr > td {
-      border: 1px solid #000;
+      border: 1px solid #000 !important;
       vertical-align: top;
       padding: 0;
       height: 1px;
@@ -369,9 +369,7 @@ export function buildDocument9ClassicPrintHtml(doc: Document9Record): string {
       table-layout: fixed;
     }
     .route-inner td {
-      border: 1px solid #000;
-      border-top: none;
-      border-right: none;
+      border: 1px solid #000 !important;
       height: 7mm;
       padding: 0.8mm 2.2mm;
       font-family: 'Times New Roman', Times, serif;
@@ -380,7 +378,7 @@ export function buildDocument9ClassicPrintHtml(doc: Document9Record): string {
       vertical-align: middle;
       line-height: 1.15;
     }
-    .route-inner tr:first-child td { border-top: none; }
+    .route-inner tr:first-child td { border-top: 1px solid #000 !important; }
     .route-inner .rk { font-weight: 700; }
     .route-inner .rv { font-weight: 700; }
 

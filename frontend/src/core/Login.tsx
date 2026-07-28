@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { toastError } from '../lib/appToast';
 import geosomLogoVertical from '../assets/branding/geosom-logo-vertical.png';
 
 const logoAlt =
@@ -33,7 +34,9 @@ export function Login() {
       await signIn(email, password);
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
-      setError(message || t('login.invalidCredentials'));
+      const text = message || t('login.invalidCredentials');
+      setError(text);
+      toastError(text);
     } finally {
       setLoading(false);
     }

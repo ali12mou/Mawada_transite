@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Edit2, Trash2, Printer, Plus, Search } from 'lucide-react';
@@ -8,20 +10,27 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { fetchClients, type ClientRecord } from '../../api/clientsApi';
 import { formatClientLabel } from '../../lib/clientLabel';
 import { openDemurragePrintWindow } from '../../lib/demurragePrintHtml';
+import { parseLocalizedNumber } from '../../lib/commercialChamberCalculations';
 
 interface ClearanceDemurrage {
   id: string;
   client_name: string;
   bill_of_lading: string;
-  container_count: number;
-  expedition_demurrage: number;
-  sgtd_demurrage: number;
-  total: number;
+  container_count: number | string;
+  expedition_demurrage: number | string;
+  sgtd_demurrage: number | string;
+  total: number | string;
   created_at: string;
+}
+
+function numStr(v: string | number | undefined | null): string {
+  if (v == null || v === '') return '';
+  return String(v);
 }
 
 export function Clearance() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [entries, setEntries] = useState<ClearanceDemurrage[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<ClearanceDemurrage[]>([]);
@@ -37,9 +46,9 @@ export function Clearance() {
   const [formData, setFormData] = useState({
     client_name: '',
     bill_of_lading: '',
-    container_count: 0,
-    expedition_demurrage: 0,
-    sgtd_demurrage: 0
+    container_count: '',
+    expedition_demurrage: '',
+    sgtd_demurrage: '',
   });
 
   useEffect(() => {
@@ -54,8 +63,6 @@ export function Clearance() {
   const fetchEntries = async () => {
     try {
       const data = await genericApi.list('clearance');
-
-      
       setEntries(data || []);
     } catch (error) {
       console.error('Error fetching entries:', error);
@@ -85,8 +92,16 @@ export function Clearance() {
     e.preventDefault();
 
     try {
-      const total = Number(formData.expedition_demurrage) + Number(formData.sgtd_demurrage);
-      const payload = { ...formData, total };
+      const expedition = parseLocalizedNumber(formData.expedition_demurrage);
+      const sgtd = parseLocalizedNumber(formData.sgtd_demurrage);
+      const payload = {
+        client_name: formData.client_name,
+        bill_of_lading: formData.bill_of_lading,
+        container_count: parseLocalizedNumber(formData.container_count),
+        expedition_demurrage: expedition,
+        sgtd_demurrage: sgtd,
+        total: expedition + sgtd,
+      };
 
       if (editingEntry) {
         await genericApi.update('clearance', editingEntry.id, payload);
@@ -94,11 +109,14 @@ export function Clearance() {
         await genericApi.create('clearance', payload);
       }
 
+      crudToast.onSaved(!!editingEntry);
+
       setShowModal(false);
       setEditingEntry(null);
       resetForm();
       fetchEntries();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving entry:', error);
     }
   };
@@ -108,22 +126,22 @@ export function Clearance() {
     setFormData({
       client_name: entry.client_name,
       bill_of_lading: entry.bill_of_lading,
-      container_count: entry.container_count,
-      expedition_demurrage: entry.expedition_demurrage,
-      sgtd_demurrage: entry.sgtd_demurrage
+      container_count: numStr(entry.container_count),
+      expedition_demurrage: numStr(entry.expedition_demurrage),
+      sgtd_demurrage: numStr(entry.sgtd_demurrage),
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette entrée ?')) return;
+    if (!(await appConfirm('Êtes-vous sûr de vouloir supprimer cette entrée ?'))) return;
 
     try {
       await genericApi.delete('clearance', id);
-
-      
+      crudToast.onDeleted();
       fetchEntries();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting entry:', error);
     }
   };
@@ -132,13 +150,16 @@ export function Clearance() {
     setFormData({
       client_name: '',
       bill_of_lading: '',
-      container_count: 0,
-      expedition_demurrage: 0,
-      sgtd_demurrage: 0
+      container_count: '',
+      expedition_demurrage: '',
+      sgtd_demurrage: '',
     });
   };
 
-  const formatCurrency = (amount: number) => formatAmount(amount);
+  const formatCurrency = (amount: number | string) => formatAmount(parseLocalizedNumber(amount));
+  const formTotal =
+    parseLocalizedNumber(formData.expedition_demurrage) +
+    parseLocalizedNumber(formData.sgtd_demurrage);
 
   const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
   const startIndex = (currentPage - 1) * entriesPerPage;
@@ -277,10 +298,10 @@ export function Clearance() {
                               onClick: () => openDemurragePrintWindow({
                                 client_name: entry.client_name,
                                 bill_of_lading: entry.bill_of_lading,
-                                container_count: entry.container_count,
-                                expedition_demurrage: entry.expedition_demurrage,
-                                sgtd_demurrage: entry.sgtd_demurrage,
-                                total: entry.total
+                                container_count: parseLocalizedNumber(entry.container_count),
+                                expedition_demurrage: parseLocalizedNumber(entry.expedition_demurrage),
+                                sgtd_demurrage: parseLocalizedNumber(entry.sgtd_demurrage),
+                                total: parseLocalizedNumber(entry.total),
                               }),
                             },
                           ]}
@@ -385,9 +406,9 @@ export function Clearance() {
                   {t('clearance.colContainerCount') || 'Container Count'}
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.container_count}
-                  onChange={(e) => setFormData({ ...formData, container_count: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, container_count: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
                 />
               </div>
@@ -399,9 +420,9 @@ export function Clearance() {
                   {t('clearance.colExpeditionDemurrage') || 'Expedition Demurrage'}
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.expedition_demurrage}
-                  onChange={(e) => setFormData({ ...formData, expedition_demurrage: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, expedition_demurrage: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
                 />
               </div>
@@ -411,10 +432,10 @@ export function Clearance() {
                   {t('clearance.colSgtdDemurrage') || 'SGTD Demurrage'} *
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   required
                   value={formData.sgtd_demurrage}
-                  onChange={(e) => setFormData({ ...formData, sgtd_demurrage: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, sgtd_demurrage: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#0F3C66]/10 focus:border-[#0F3C66] outline-none transition bg-white"
                 />
               </div>
@@ -425,9 +446,9 @@ export function Clearance() {
                 {t('financial.total') || 'Total'}
               </label>
               <input
-                type="number"
+                type="text"
                 disabled
-                value={Number(formData.expedition_demurrage) + Number(formData.sgtd_demurrage)}
+                value={formTotal.toFixed(2)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-gray-100 font-bold text-[#0F3C66]"
               />
             </div>
@@ -453,6 +474,3 @@ export function Clearance() {
     </div>
   );
 }
-
-
-

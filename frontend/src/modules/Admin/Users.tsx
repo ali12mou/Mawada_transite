@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Edit2, Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import Modal from '../Shared/common/Modal';
 import { FormLabel, FormInput, FormSelect, ModalFormFooter, PrimaryButton, SecondaryButton } from '../Shared/common/FormComponents';
@@ -12,6 +14,7 @@ export function Users() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -44,6 +47,7 @@ export function Users() {
     e.preventDefault();
     try {
       await createUser(newUser);
+      crudToast.onSaved(false);
       resetForm();
       await loadUsers();
     } catch (error: any) {
@@ -69,10 +73,11 @@ export function Users() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!(await appConfirm('Are you sure you want to delete this user?'))) return;
 
     try {
       await deleteUser(id);
+      crudToast.onDeleted();
       loadUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);

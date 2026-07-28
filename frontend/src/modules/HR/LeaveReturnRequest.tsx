@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Plus, Eye, Check, X, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
@@ -34,6 +36,7 @@ interface LeaveRequest {
 export function LeaveReturnRequest() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [returnRequests, setReturnRequests] = useState<LeaveReturnRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -119,7 +122,7 @@ export function LeaveReturnRequest() {
   };
 
   const handleApprove = async (requestId: string) => {
-    if (!confirm('Approve this return request?')) return;
+    if (!(await appConfirm('Approve this return request?'))) return;
 
     try {
       await genericApi.update('leave_return_requests', editingId, formData);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
 import { DollarSign, Calculator, Save, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
@@ -85,7 +86,7 @@ export function GeneratePayroll() {
   };
 
   const handleGeneratePayroll = async () => {
-    if (!confirm(`Generate payroll for ${selectedMonth}/${selectedYear}?`)) return;
+    if (!(await appConfirm(`Generate payroll for ${selectedMonth}/${selectedYear}?`))) return;
 
     setSaving(true);
     try {

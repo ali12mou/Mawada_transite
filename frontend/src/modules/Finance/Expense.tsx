@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   CheckCircle,
   Eye,
+  FileText,
   Pencil,
   Plus,
+  Printer,
   Receipt,
   Trash2,
   Trash,
@@ -20,6 +25,12 @@ import {
   deleteExpense,
   fetchExpense,
 } from '../../api/expensesApi';
+import {
+  openExpenseServicePrint,
+  openExpenseServicePrintMany,
+  type ExpensePrintRecord,
+} from '../../lib/expenseServicePrintHtml';
+import { toastError } from '../../lib/appToast';
 
 interface ExpenseCategory {
   id: string;
@@ -31,7 +42,8 @@ interface ExpenseItem {
   id?: string;
   expense_category_id: string;
   name: string;
-  amount: number;
+  amount: string;
+  quantity: string;
   description: string;
   check_number: string;
 }
@@ -55,6 +67,14 @@ function rowId(row: { _id?: string; id?: string }): string {
 
 function catId(cat: ExpenseCategory): string {
   return cat._id || cat.id || '';
+}
+
+function parseExpenseNumber(value: string | number | undefined | null): number {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value).replace(/\s/g, '').replace(',', '.');
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function SortIcon() {
@@ -84,6 +104,8 @@ const labelClass = 'mb-1 block text-sm font-bold text-gray-800';
 
 export function Expense() {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
+  const crudToast = useCrudToast();
   const { formatAmount } = useCurrency();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -97,11 +119,10 @@ export function Expense() {
 
   const [formData, setFormData] = useState({
     expense_date: new Date().toISOString().split('T')[0],
-    initial_balance: 0,
   });
 
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([
-    { expense_category_id: '', name: '', amount: 0, description: '', check_number: '' },
+    { expense_category_id: '', name: '', amount: '', quantity: '', description: '', check_number: '' },
   ]);
 
   useEffect(() => {
@@ -154,12 +175,15 @@ export function Expense() {
   }, [searchTerm, entriesPerPage]);
 
   const calculateTotals = () => {
-    const totalAmount = expenseItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    const finalBalance = (Number(formData.initial_balance) || 0) - totalAmount;
-    return { totalAmount, finalBalance };
+    const totalAmount = expenseItems.reduce(
+      (sum, item) =>
+        sum + parseExpenseNumber(item.amount) * (parseExpenseNumber(item.quantity) || 1),
+      0
+    );
+    return { totalAmount };
   };
 
-  const { totalAmount, finalBalance } = calculateTotals();
+  const { totalAmount } = calculateTotals();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,10 +192,14 @@ export function Expense() {
     try {
       const payload = {
         expense_date: formData.expense_date,
-        initial_balance: formData.initial_balance,
+        initial_balance: 0,
         total_amount: totalAmount,
-        final_balance: finalBalance,
-        items: expenseItems,
+        final_balance: 0,
+        items: expenseItems.map((item) => ({
+          ...item,
+          amount: parseExpenseNumber(item.amount),
+          quantity: parseExpenseNumber(item.quantity) || 1,
+        })),
       };
 
       if (editingId) {
@@ -180,9 +208,12 @@ export function Expense() {
         await createExpense(payload);
       }
 
+      crudToast.onSaved(!!editingId);
+
       closeModal();
       void fetchExpensesList();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error saving expense:', error);
     }
   };
@@ -193,9 +224,18 @@ export function Expense() {
       const fullExpense = (await fetchExpense(id)) as Expense;
       setFormData({
         expense_date: fullExpense.expense_date.split('T')[0],
-        initial_balance: fullExpense.initial_balance,
       });
-      setExpenseItems(fullExpense.items || []);
+      setExpenseItems(
+        (fullExpense.items || []).map((item: Record<string, unknown>) => ({
+          expense_category_id: String(item.expense_category_id || ''),
+          name: String(item.name || ''),
+          amount: item.amount != null && item.amount !== '' ? String(item.amount) : '',
+          quantity: item.quantity != null && item.quantity !== '' ? String(item.quantity) : '',
+          description: String(item.description || ''),
+          check_number: String(item.check_number || ''),
+          id: item.id ? String(item.id) : undefined,
+        }))
+      );
       setEditingId(id);
       setIsViewOnly(viewOnly);
       setShowModal(true);
@@ -205,22 +245,66 @@ export function Expense() {
   };
 
   const handleApprove = async (expense: Expense) => {
-    if (!confirm(t('expenses.approveConfirm') || 'Approve this expense?')) return;
+    if (!(await appConfirm(t('expenses.approveConfirm') || 'Approve this expense?'))) return;
     try {
       await approveExpense(rowId(expense));
+      crudToast.onApproved();
       void fetchExpensesList();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error approving expense:', error);
     }
   };
 
   const handleDelete = async (expense: Expense) => {
-    if (!confirm(t('common.deleteConfirm'))) return;
+    if (!(await appConfirm(t('common.deleteConfirm')))) return;
     try {
       await deleteExpense(rowId(expense));
+      crudToast.onDeleted();
       void fetchExpensesList();
     } catch (error) {
+      crudToast.onError(error, 'common.errorDeleting');
       console.error('Error deleting expense:', error);
+    }
+  };
+
+  const toPrintRecord = (
+    full: Expense,
+    generatedBy: string
+  ): ExpensePrintRecord => ({
+    reference: full.reference_number || rowId(full),
+    expense_date: full.expense_date || new Date().toISOString().slice(0, 10),
+    generated_by: generatedBy,
+    status: full.status || '—',
+    total_amount: Number(full.total_amount) || 0,
+  });
+
+  const handlePrintOne = async (expense: Expense) => {
+    try {
+      const full = (await fetchExpense(rowId(expense))) as Expense;
+      const generatedBy = user?.nom || user?.email || '—';
+      await openExpenseServicePrint(toPrintRecord(full, generatedBy));
+    } catch (error) {
+      console.error('Error printing expense:', error);
+      toastError(error instanceof Error ? error.message : t('common.errorLoading') || 'Erreur');
+    }
+  };
+
+  const handlePrintService = async () => {
+    const list = currentExpenses.length ? currentExpenses : filteredExpenses;
+    if (!list.length) {
+      toastError(t('expenses.emptyExpenses') || 'Aucune dépense à imprimer.');
+      return;
+    }
+    try {
+      const generatedBy = user?.nom || user?.email || '—';
+      const records = list.map((expense) =>
+        toPrintRecord(expense, generatedBy)
+      );
+      await openExpenseServicePrintMany(records);
+    } catch (error) {
+      console.error('Error printing expenses:', error);
+      toastError(error instanceof Error ? error.message : t('common.errorLoading') || 'Erreur');
     }
   };
 
@@ -228,7 +312,7 @@ export function Expense() {
     if (isViewOnly) return;
     setExpenseItems([
       ...expenseItems,
-      { expense_category_id: '', name: '', amount: 0, description: '', check_number: '' },
+      { expense_category_id: '', name: '', amount: '', quantity: '', description: '', check_number: '' },
     ]);
   };
 
@@ -247,15 +331,11 @@ export function Expense() {
   };
 
   const resetForm = () => {
-    const lastExpense = expenses.length > 0 ? expenses[0] : null;
-    const defaultBalance = lastExpense ? lastExpense.final_balance : 0;
-
     setFormData({
       expense_date: new Date().toISOString().split('T')[0],
-      initial_balance: defaultBalance,
     });
     setExpenseItems([
-      { expense_category_id: '', name: '', amount: 0, description: '', check_number: '' },
+      { expense_category_id: '', name: '', amount: '', quantity: '', description: '', check_number: '' },
     ]);
     setEditingId(null);
     setIsViewOnly(false);
@@ -273,9 +353,7 @@ export function Expense() {
 
   const modalTitle = isViewOnly
     ? t('common.view')
-    : editingId
-      ? t('expenses.addExpensesModalTitle')
-      : t('expenses.addExpensesModalTitle');
+    : t('expenses.addOtherModalTitle');
 
   if (loading) {
     return (
@@ -295,14 +373,24 @@ export function Expense() {
           <h2 className="text-2xl font-bold text-gray-800">{t('expenses.expenseTitle')}</h2>
           <Receipt size={24} className="text-gray-600" />
         </div>
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
-        >
-          <Plus size={16} />
-          {t('expenses.addExpense')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handlePrintService()}
+            className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
+          >
+            <Printer size={16} />
+            {t('expenses.printService')}
+          </button>
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
+          >
+            <Plus size={16} />
+            {t('expenses.addExpense')}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -347,15 +435,15 @@ export function Expense() {
                   <SortIcon />
                 </th>
                 <th className={thClass}>
-                  {t('expenses.colRef')}
-                  <SortIcon />
-                </th>
-                <th className={thClass}>
-                  {t('expenses.colTotalAmount')}
+                  {t('expenses.colExpenseId')}
                   <SortIcon />
                 </th>
                 <th className={thClass}>
                   {t('expenses.colExpenseDate')}
+                  <SortIcon />
+                </th>
+                <th className={thClass}>
+                  {t('expenses.colAmount')}
                   <SortIcon />
                 </th>
                 <th className={thClass}>
@@ -385,7 +473,6 @@ export function Expense() {
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {expense.reference_number}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{formatAmount(expense.total_amount)}</td>
                     <td className="px-4 py-3 text-gray-700">
                       {expense.expense_date
                         ? new Date(expense.expense_date).toLocaleDateString(
@@ -393,27 +480,20 @@ export function Expense() {
                           )
                         : '—'}
                     </td>
+                    <td className="px-4 py-3 text-gray-700">{formatAmount(expense.total_amount)}</td>
                     <td className="px-4 py-3">
                       {expense.status === 'Approved' ? (
-                        <span className="inline-flex rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        <span className="inline-flex rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white">
                           {t('expenses.statusApproved') || 'Approved'}
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                        <span className="inline-flex rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white">
                           {t('expenses.statusPending') || 'Pending'}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => void handleEdit(expense, true)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 transition hover:bg-gray-100"
-                          title={t('common.view')}
-                        >
-                          <Eye size={14} />
-                        </button>
                         {expense.status !== 'Approved' && (
                           <button
                             type="button"
@@ -424,16 +504,14 @@ export function Expense() {
                             <Pencil size={14} />
                           </button>
                         )}
-                        {expense.status === 'Pending' && (
-                          <button
-                            type="button"
-                            onClick={() => void handleApprove(expense)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-600 transition hover:bg-sky-100"
-                            title={t('expenses.approve')}
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleEdit(expense, true)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-600 transition hover:bg-sky-100"
+                          title={t('common.view')}
+                        >
+                          <Eye size={14} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => void handleDelete(expense)}
@@ -442,6 +520,24 @@ export function Expense() {
                         >
                           <Trash2 size={14} />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => void handlePrintOne(expense)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-700 transition hover:bg-gray-100"
+                          title={t('expenses.printService')}
+                        >
+                          <FileText size={14} />
+                        </button>
+                        {expense.status === 'Pending' && (
+                          <button
+                            type="button"
+                            onClick={() => void handleApprove(expense)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100"
+                            title={t('expenses.approve')}
+                          >
+                            <CheckCircle size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -500,7 +596,7 @@ export function Expense() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[95vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+          <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-lg bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
               <h3 className="text-lg font-bold text-gray-900">{modalTitle}</h3>
               <button
@@ -513,176 +609,160 @@ export function Expense() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={labelClass}>{t('expenses.fieldDate')}</label>
-                  <input
-                    type="date"
-                    disabled={isViewOnly}
-                    value={formData.expense_date}
-                    onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
-                    className={fieldClass}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>{t('expenses.fieldBalance')}</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    disabled={isViewOnly}
-                    value={formData.initial_balance}
-                    onChange={(e) =>
-                      setFormData({ ...formData, initial_balance: Number(e.target.value) })
-                    }
-                    className={fieldClass}
-                    required
-                  />
-                </div>
+              <div className="max-w-xs">
+                <label className={labelClass}>{t('expenses.fieldDate')}</label>
+                <input
+                  type="date"
+                  disabled={isViewOnly}
+                  value={formData.expense_date}
+                  onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
+                  className={fieldClass}
+                  required
+                />
+              </div>
+
+              <div className="overflow-x-auto rounded-md border border-gray-200">
+                <table className="w-full min-w-[900px] text-sm">
+                  <thead className="border-b border-gray-200 bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">#</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('expenses.colCat')}
+                      </th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('menu.expense')}
+                      </th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('expenses.colAmount')}
+                      </th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('expenses.colQuantity')}
+                      </th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('expenses.fieldDescription')}
+                      </th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-700">
+                        {t('expenses.colCheckNumber')}
+                      </th>
+                      {!isViewOnly && (
+                        <th className="px-3 py-2.5 text-center font-medium text-gray-700">
+                          {t('common.action')}
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {expenseItems.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-2 text-gray-500">{index + 1}</td>
+                        <td className="px-3 py-2">
+                          <select
+                            disabled={isViewOnly}
+                            value={item.expense_category_id}
+                            onChange={(e) =>
+                              updateExpenseItem(index, 'expense_category_id', e.target.value)
+                            }
+                            className={fieldClass}
+                            required
+                          >
+                            <option value="">{t('expenses.selectType')}</option>
+                            {categories.map((cat) => (
+                              <option key={catId(cat)} value={catId(cat)}>
+                                {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isViewOnly}
+                            value={item.name}
+                            onChange={(e) => updateExpenseItem(index, 'name', e.target.value)}
+                            className={fieldClass}
+                            required
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isViewOnly}
+                            value={item.amount}
+                            onChange={(e) => updateExpenseItem(index, 'amount', e.target.value)}
+                            className={fieldClass}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isViewOnly}
+                            value={item.quantity}
+                            onChange={(e) => updateExpenseItem(index, 'quantity', e.target.value)}
+                            className={fieldClass}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isViewOnly}
+                            value={item.description}
+                            onChange={(e) =>
+                              updateExpenseItem(index, 'description', e.target.value)
+                            }
+                            className={fieldClass}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            disabled={isViewOnly}
+                            value={item.check_number}
+                            onChange={(e) =>
+                              updateExpenseItem(index, 'check_number', e.target.value)
+                            }
+                            className={fieldClass}
+                          />
+                        </td>
+                        {!isViewOnly && (
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {index === expenseItems.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={addExpenseItem}
+                                  className="flex h-8 w-8 items-center justify-center rounded bg-[#0F3C66] text-white transition hover:bg-[#154b8a]"
+                                  title={t('expenses.addItem')}
+                                >
+                                  <Plus size={16} />
+                                </button>
+                              )}
+                              {expenseItems.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeExpenseItem(index)}
+                                  className="flex h-8 w-8 items-center justify-center rounded border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                  title={t('common.delete')}
+                                >
+                                  <Trash size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-gray-800">{t('expenses.itemsTitle')}</h4>
-                  {!isViewOnly && (
-                    <button
-                      type="button"
-                      onClick={addExpenseItem}
-                      className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-[#0F3C66] transition hover:bg-gray-50"
-                    >
-                      <Plus size={14} />
-                      {t('expenses.addItem')}
-                    </button>
-                  )}
-                </div>
-
-                <div className="overflow-x-auto rounded-md border border-gray-200">
-                  <table className="w-full min-w-[720px] text-sm">
-                    <thead className="border-b border-gray-200 bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">#</th>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">
-                          {t('expenses.fieldName')}
-                        </th>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">
-                          {t('common.name')}
-                        </th>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">
-                          {t('expenses.colAmount')}
-                        </th>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">
-                          {t('expenses.fieldDescription')}
-                        </th>
-                        <th className="px-3 py-2.5 text-left font-medium text-gray-700">
-                          {t('expenses.colCheckNumber')}
-                        </th>
-                        {!isViewOnly && (
-                          <th className="px-3 py-2.5 text-center font-medium text-gray-700" />
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {expenseItems.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-3 py-2 text-gray-500">{index + 1}</td>
-                          <td className="px-3 py-2">
-                            <select
-                              disabled={isViewOnly}
-                              value={item.expense_category_id}
-                              onChange={(e) =>
-                                updateExpenseItem(index, 'expense_category_id', e.target.value)
-                              }
-                              className={fieldClass}
-                              required
-                            >
-                              <option value="">{t('expenses.selectType')}</option>
-                              {categories.map((cat) => (
-                                <option key={catId(cat)} value={catId(cat)}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              disabled={isViewOnly}
-                              value={item.name}
-                              onChange={(e) => updateExpenseItem(index, 'name', e.target.value)}
-                              className={fieldClass}
-                              required
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              disabled={isViewOnly}
-                              value={item.amount}
-                              onChange={(e) =>
-                                updateExpenseItem(index, 'amount', Number(e.target.value))
-                              }
-                              className={fieldClass}
-                              required
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              disabled={isViewOnly}
-                              value={item.description}
-                              onChange={(e) =>
-                                updateExpenseItem(index, 'description', e.target.value)
-                              }
-                              className={fieldClass}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              disabled={isViewOnly}
-                              value={item.check_number}
-                              onChange={(e) =>
-                                updateExpenseItem(index, 'check_number', e.target.value)
-                              }
-                              className={fieldClass}
-                            />
-                          </td>
-                          {!isViewOnly && (
-                            <td className="px-3 py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeExpenseItem(index)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
-                              >
-                                <Trash size={14} />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 rounded-md border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
-                <div>
-                  <span className="text-xs font-medium uppercase text-gray-500">
-                    {t('expenses.colTotalAmount')}
-                  </span>
-                  <p className="text-lg font-bold text-[#0F3C66]">{formatAmount(totalAmount)}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-medium uppercase text-gray-500">
-                    {t('expenses.fieldFinalBalance')}
-                  </span>
-                  <p
-                    className={`text-lg font-bold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                  >
-                    {formatAmount(finalBalance)}
-                  </p>
-                </div>
+                <label className={labelClass}>{t('expenses.colTotalAmount')}</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={formatAmount(totalAmount)}
+                  className={`${fieldClass} font-semibold text-[#0F3C66]`}
+                />
               </div>
 
               {!isViewOnly && (

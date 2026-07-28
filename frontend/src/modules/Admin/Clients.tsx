@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { appConfirm } from '../../lib/appConfirm';
+import { useCrudToast } from '../../hooks/useCrudToast';
 import { Pencil, Trash2, Users, X } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import {
@@ -36,6 +38,7 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
 
 export function Clients() {
   const { t } = useLanguage();
+  const crudToast = useCrudToast();
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,9 +105,11 @@ export function Clients() {
       } else {
         await createClient(formData);
       }
+      crudToast.onSaved(!!editingId);
       closeModal();
       await load();
     } catch (err) {
+      crudToast.onError(err);
       console.error(err);
       setError((err as Error).message || t('clients.errorSave'));
     }
@@ -123,12 +128,14 @@ export function Clients() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('clients.deleteConfirm'))) return;
+    if (!(await appConfirm(t('clients.deleteConfirm')))) return;
     setError(null);
     try {
       await deleteClient(id);
+      crudToast.onDeleted();
       await load();
     } catch (err) {
+      crudToast.onError(err, 'common.errorDeleting');
       console.error(err);
       setError((err as Error).message || t('clients.errorDelete'));
     }
