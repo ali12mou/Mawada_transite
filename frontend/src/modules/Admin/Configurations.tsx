@@ -22,6 +22,7 @@ const CONFIG_KEYS = [
   'signature_logo_image',
   'payroll_start_day',
   'payroll_end_day',
+  'payroll_contributions_enabled',
   'absence_threshold',
 ] as const;
 
@@ -354,12 +355,13 @@ export function Configurations() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Préfixe d'ID de génération d'employé (par défaut FRS)
+                    Préfixe d'ID de génération d'employé (par défaut MWDA)
                   </label>
                   <input
                     type="text"
-                    value={getConfigValue('employee_id_prefix')}
+                    value={getConfigValue('employee_id_prefix') || 'MWDA'}
                     onChange={(e) => setConfigValue('employee_id_prefix', e.target.value)}
+                    placeholder="MWDA"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
@@ -471,7 +473,7 @@ export function Configurations() {
 
         {activeTab === 'payroll' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold text-gray-800">Relatif à la paie</h2>
+            <h2 className="text-2xl font-semibold text-gray-800">{t('config.payrollTitle')}</h2>
             <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -496,6 +498,31 @@ export function Configurations() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between py-3 border-t border-gray-100 pt-5">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    {t('config.payrollContributions')}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('config.payrollContributionsHint')}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={getConfigValue('payroll_contributions_enabled') === 'true'}
+                    onChange={(e) =>
+                      setConfigValue(
+                        'payroll_contributions_enabled',
+                        e.target.checked ? 'true' : 'false'
+                      )
+                    }
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EE964C]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F3C66]"></div>
+                </label>
               </div>
             </div>
           </div>

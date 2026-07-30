@@ -1,19 +1,48 @@
 import { useState, useEffect } from 'react';
 import { appConfirm } from '../../lib/appConfirm';
 import { useCrudToast } from '../../hooks/useCrudToast';
-import { Plus, Pencil, Trash2, Calendar } from 'lucide-react';
+import { Pencil, Trash2, X } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface LeaveType {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  description: string;
-  max_days_per_year: number;
-  is_paid: boolean;
-  requires_approval: boolean;
+  days: number;
+  period_type: string;
+  has_documents: boolean;
   is_active: boolean;
-  created_at: string;
+  created_at?: string;
+}
+
+function rowId(row: { id?: string; _id?: string }): string {
+  return row._id || row.id || '';
+}
+
+const PERIOD_TYPES = ['Mensuel', 'Annuel'] as const;
+
+function Toggle({
+  checked,
+  onChange,
+  id,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  id: string;
+}) {
+  return (
+    <label htmlFor={id} className="relative inline-flex items-center cursor-pointer">
+      <input
+        id={id}
+        type="checkbox"
+        className="sr-only peer"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#0F3C66]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F3C66]" />
+    </label>
+  );
 }
 
 export function LeaveTypes() {
@@ -25,22 +54,19 @@ export function LeaveTypes() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    max_days_per_year: 0,
-    is_paid: true,
-    requires_approval: true,
+    days: '',
+    period_type: 'Mensuel',
+    has_documents: false,
     is_active: true,
   });
 
   useEffect(() => {
-    fetchLeaveTypes();
+    void fetchLeaveTypes();
   }, []);
 
   const fetchLeaveTypes = async () => {
     try {
-      const data = await genericApi.list('leave_types');
-
-      
+      const data = await genericApi.list<LeaveType>('leave_types', 500);
       setLeaveTypes(data || []);
     } catch (error) {
       console.error('Error fetching leave types:', error);
@@ -49,23 +75,40 @@ export function LeaveTypes() {
     }
   };
 
+  const openAdd = () => {
+    setFormData({
+      name: '',
+      days: '',
+      period_type: 'Mensuel',
+      has_documents: false,
+      is_active: true,
+    });
+    setEditingId(null);
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      name: formData.name.trim(),
+      days: Number(formData.days) || 0,
+      period_type: formData.period_type,
+      has_documents: formData.has_documents,
+      is_active: formData.is_active,
+      // Compatibilité avec l’ancien schéma / filtre LeaveRequest
+      max_days_per_year: Number(formData.days) || 0,
+    };
+    if (!payload.name) return;
+
     try {
       if (editingId) {
-        await genericApi.update('leave_types', editingId, formData);
-
-        
+        await genericApi.update('leave_types', editingId, payload);
       } else {
-        await genericApi.create('leave_types', formData);
-
-        
+        await genericApi.create('leave_types', payload);
       }
-
       crudToast.onSaved(!!editingId);
-
       resetForm();
-      fetchLeaveTypes();
+      await fetchLeaveTypes();
     } catch (error) {
       crudToast.onError(error);
       console.error('Error saving leave type:', error);
@@ -73,46 +116,56 @@ export function LeaveTypes() {
   };
 
   const handleEdit = (leaveType: LeaveType) => {
+    const days =
+      leaveType.days != null
+        ? leaveType.days
+        : (leaveType as LeaveType & { max_days_per_year?: number }).max_days_per_year || 0;
     setFormData({
-      name: leaveType.name,
-      description: leaveType.description,
-      max_days_per_year: leaveType.max_days_per_year,
-      is_paid: leaveType.is_paid,
-      requires_approval: leaveType.requires_approval,
-      is_active: leaveType.is_active,
+      name: leaveType.name || '',
+      days: days ? String(days) : '',
+      period_type: leaveType.period_type || 'Mensuel',
+      has_documents: !!leaveType.has_documents,
+      is_active: leaveType.is_active !== false,
     });
-    setEditingId(leaveType.id);
+    setEditingId(rowId(leaveType));
     setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (await appConfirm('Are you sure you want to delete this leave type?')) {
-      try {
-        await genericApi.delete('leave_types', id);
-
-        
-        crudToast.onDeleted();
-
-        
-        fetchLeaveTypes();
-      } catch (error) {
+    if (
+      !(await appConfirm(t('leaveTypes.deleteConfirm'), {
+        title: t('leaveTypes.confirmTitle'),
+        variant: 'danger',
+      }))
+    ) {
+      return;
+    }
+    try {
+      await genericApi.delete('leave_types', id);
+      crudToast.onDeleted();
+      await fetchLeaveTypes();
+    } catch (error) {
       crudToast.onError(error, 'common.errorDeleting');
-        console.error('Error deleting leave type:', error);
-      }
+      console.error('Error deleting leave type:', error);
     }
   };
 
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
-      max_days_per_year: 0,
-      is_paid: true,
-      requires_approval: true,
+      days: '',
+      period_type: 'Mensuel',
+      has_documents: false,
       is_active: true,
     });
     setEditingId(null);
     setShowForm(false);
+  };
+
+  const displayDays = (leaveType: LeaveType) => {
+    if (leaveType.days != null && leaveType.days !== undefined) return leaveType.days;
+    const legacy = (leaveType as LeaveType & { max_days_per_year?: number }).max_days_per_year;
+    return legacy ?? '—';
   };
 
   if (loading) {
@@ -124,119 +177,111 @@ export function LeaveTypes() {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Leave Types</h2>
-          <p className="text-gray-600 mt-1">Manage types of employee leave</p>
-        </div>
+    <div className="p-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-2xl font-semibold text-gray-800">{t('leaveTypes.title')}</h2>
         <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition"
+          type="button"
+          onClick={openAdd}
+          className="rounded bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#154b8a]"
         >
-          <Plus size={20} />
-          Add Leave Type
+          {t('common.add')}
         </button>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-            <h3 className="text-xl font-bold mb-4">
-              {editingId ? 'Edit Leave Type' : 'Add New Leave Type'}
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingId ? t('common.edit') : t('common.add')}
+              </h3>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4 px-5 pb-4 pt-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Leave Type Name *
+                  <label className="mb-1 block text-sm font-semibold text-gray-800">
+                    {t('leaveTypes.fieldName')}
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., Annual Leave, Sick Leave"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#0F3C66] focus:ring-2 focus:ring-[#0F3C66]/20"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="has_documents" className="text-sm font-semibold text-gray-800">
+                      {t('leaveTypes.fieldHasDocuments')}
+                    </label>
+                    <Toggle
+                      id="has_documents"
+                      checked={formData.has_documents}
+                      onChange={(value) => setFormData({ ...formData, has_documents: value })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="is_active" className="text-sm font-semibold text-gray-800">
+                      {t('leaveTypes.fieldActivate')}
+                    </label>
+                    <Toggle
+                      id="is_active"
+                      checked={formData.is_active}
+                      onChange={(value) => setFormData({ ...formData, is_active: value })}
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Max Days Per Year
+                  <label className="mb-1 block text-sm font-semibold text-gray-800">
+                    {t('leaveTypes.fieldType')}
+                  </label>
+                  <select
+                    value={formData.period_type}
+                    onChange={(e) => setFormData({ ...formData, period_type: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F3C66] focus:ring-2 focus:ring-[#0F3C66]/20"
+                  >
+                    {PERIOD_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type === 'Mensuel'
+                          ? t('leaveTypes.typeMonthly')
+                          : t('leaveTypes.typeYearly')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-800">
+                    {t('leaveTypes.fieldDays')}
                   </label>
                   <input
                     type="number"
-                    value={formData.max_days_per_year}
-                    onChange={(e) => setFormData({ ...formData, max_days_per_year: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
+                    min={0}
+                    value={formData.days}
+                    onChange={(e) => setFormData({ ...formData, days: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#0F3C66] focus:ring-2 focus:ring-[#0F3C66]/20"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_paid"
-                    checked={formData.is_paid}
-                    onChange={(e) => setFormData({ ...formData, is_paid: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="is_paid" className="text-sm text-gray-700">
-                    Paid Leave
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="requires_approval"
-                    checked={formData.requires_approval}
-                    onChange={(e) => setFormData({ ...formData, requires_approval: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="requires_approval" className="text-sm text-gray-700">
-                    Requires Approval
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_active"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="is_active" className="text-sm text-gray-700">
-                    Active
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              <div className="flex justify-end border-t border-gray-100 px-5 py-4">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a]"
+                  className="rounded-md bg-[#0F3C66] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#154b8a]"
                 >
-                  {editingId ? 'Update' : 'Create'}
+                  {t('common.save')}
                 </button>
               </div>
             </form>
@@ -244,97 +289,66 @@ export function LeaveTypes() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Leave Type
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-white">
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                  {t('leaveTypes.colSqn')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                  {t('leaveTypes.colName')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Max Days/Year
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                  {t('leaveTypes.colDays')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                  {t('leaveTypes.colType')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                  {t('common.action')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {leaveTypes?.map((leaveType) => (
-                <tr key={leaveType.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#0F3C66] rounded-lg flex items-center justify-center">
-                        <Calendar className="text-white" size={20} />
-                      </div>
-                      <div className="font-medium text-gray-900">{leaveType.name}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600">{leaveType.description || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {leaveType.max_days_per_year || 'Unlimited'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col gap-1">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${leaveType.is_paid ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {leaveType.is_paid ? 'Paid' : 'Unpaid'}
-                      </span>
-                      {leaveType.requires_approval && (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                          Approval Required
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${leaveType.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                        }`}
-                    >
-                      {leaveType.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(leaveType)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(leaveType.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {leaveTypes.length === 0 && (
+            <tbody>
+              {leaveTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No leave types found. Add your first leave type to get started.
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
+                    {t('common.noData')}
                   </td>
                 </tr>
+              ) : (
+                leaveTypes.map((leaveType, index) => (
+                  <tr key={rowId(leaveType)} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-700">{index + 1}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{leaveType.name}</td>
+                    <td className="px-4 py-3 text-gray-700">{displayDays(leaveType)}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {leaveType.period_type || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(leaveType)}
+                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                          title={t('common.edit')}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(rowId(leaveType))}
+                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -343,6 +357,3 @@ export function LeaveTypes() {
     </div>
   );
 }
-
-
-

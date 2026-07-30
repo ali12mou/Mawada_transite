@@ -23,7 +23,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ actions }) => {
   const updateCoords = useCallback(() => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 160; // w-40 = 10rem = 160px
+      const menuWidth = 200;
       
       // Ensure menu doesn't go off screen horizontally
       let left = rect.right - menuWidth;
@@ -80,7 +80,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ actions }) => {
         position: 'absolute',
         top: coords.top,
         left: coords.left,
-        width: '160px',
+        width: '200px',
       }}
       className="z-[9999] origin-top-right rounded-lg bg-white shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden animate-in fade-in zoom-in duration-100"
       onClick={(e) => e.stopPropagation()}

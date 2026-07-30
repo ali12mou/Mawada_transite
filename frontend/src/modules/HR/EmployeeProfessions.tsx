@@ -8,7 +8,6 @@ import { useLanguage } from '../../contexts/LanguageContext';
 interface Profession {
   id: string;
   name: string;
-  department: string;
   description: string;
   is_active: boolean;
   created_at: string;
@@ -23,7 +22,6 @@ export function EmployeeProfessions() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    department: '',
     description: '',
     is_active: true,
   });
@@ -71,7 +69,6 @@ export function EmployeeProfessions() {
   const handleEdit = (profession: Profession) => {
     setFormData({
       name: profession.name,
-      department: profession.department,
       description: profession.description,
       is_active: profession.is_active,
     });
@@ -99,7 +96,6 @@ export function EmployeeProfessions() {
   const resetForm = () => {
     setFormData({
       name: '',
-      department: '',
       description: '',
       is_active: true,
     });
@@ -138,31 +134,17 @@ export function EmployeeProfessions() {
               {editingId ? t('professions.modalTitleEdit') : t('professions.modalTitleAdd')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('professions.fieldName')} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('professions.fieldDepartment')} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('professions.fieldName')} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
+                />
               </div>
 
               <div>
@@ -219,9 +201,6 @@ export function EmployeeProfessions() {
                   {t('professions.colName')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('professions.colDepartment')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {t('professions.colDescription')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -239,9 +218,6 @@ export function EmployeeProfessions() {
                     <div className="flex items-center gap-3">
                       <div className="font-medium text-gray-900">{profession.name}</div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{profession.department}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-600">{profession.description || '-'}</div>
@@ -276,7 +252,7 @@ export function EmployeeProfessions() {
               ))}
               {professions.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     {t('professions.emptyMessage')}
                   </td>
                 </tr>

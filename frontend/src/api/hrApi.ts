@@ -29,6 +29,10 @@ export interface Employee {
   status?: string;
   absent_days?: number;
   leave_days_remaining?: number;
+  salary?: number;
+  base_salary?: number;
+  contract_document?: string;
+  contract_document_name?: string;
   created_at: string;
 }
 

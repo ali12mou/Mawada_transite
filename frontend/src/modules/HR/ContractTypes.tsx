@@ -9,7 +9,6 @@ interface ContractType {
   id: string;
   name: string;
   description: string;
-  duration_months: number;
   is_active: boolean;
   created_at: string;
 }
@@ -24,7 +23,6 @@ export function ContractTypes() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    duration_months: 0,
     is_active: true,
   });
 
@@ -72,7 +70,6 @@ export function ContractTypes() {
     setFormData({
       name: contractType.name,
       description: contractType.description,
-      duration_months: contractType.duration_months,
       is_active: contractType.is_active,
     });
     setEditingId(contractType.id);
@@ -100,7 +97,6 @@ export function ContractTypes() {
     setFormData({
       name: '',
       description: '',
-      duration_months: 0,
       is_active: true,
     });
     setEditingId(null);
@@ -138,30 +134,17 @@ export function ContractTypes() {
               {editingId ? t('contractTypes.modalTitleEdit') : t('contractTypes.modalTitleAdd')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('contractTypes.fieldName')} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('contractTypes.fieldDuration')}
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.duration_months}
-                    onChange={(e) => setFormData({ ...formData, duration_months: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('contractTypes.fieldName')} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
+                />
               </div>
 
               <div>
@@ -221,9 +204,6 @@ export function ContractTypes() {
                   {t('contractTypes.colDescription')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('contractTypes.colDuration')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {t('contractTypes.colStatus')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -241,11 +221,6 @@ export function ContractTypes() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-600">{contractType.description || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {contractType.duration_months ? `${contractType.duration_months} ${t('contractTypes.months')}` : '-'}
-                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -277,7 +252,7 @@ export function ContractTypes() {
               ))}
               {contractTypes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     {t('contractTypes.emptyMessage')}
                   </td>
                 </tr>

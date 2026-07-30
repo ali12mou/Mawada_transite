@@ -1,128 +1,208 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Ban, Check, Eye, FileCheck, X } from 'lucide-react';
 import { appConfirm } from '../../lib/appConfirm';
 import { useCrudToast } from '../../hooks/useCrudToast';
-import { Check, X, Eye, DollarSign } from 'lucide-react';
+import { toastError, toastSuccess } from '../../lib/appToast';
 import { useAuth } from '../../contexts/AuthContext';
-import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useCurrency } from '../../contexts/CurrencyContext';
+import { genericApi } from '../../api/genericApi';
 
-interface Payroll {
-  id: string;
-  employee_id: string;
-  period_month: number;
-  period_year: number;
-  base_salary: number;
-  bonuses: number;
-  deductions: number;
-  tax_amount: number;
-  net_salary: number;
-  status: string;
-  generated_by: string;
-  approved_by: string;
-  approved_at: string;
-  notes: string;
-  created_at: string;
+const MONTH_KEYS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+interface PayrollReportItem {
+  matricule?: string;
+  employee_name?: string;
+  base_salary?: number;
+  retraite?: number;
+  amu?: number;
+  deduction?: number;
+  cnss?: number;
+  taxable_salary?: number;
+  its?: number;
+  net_salary?: number;
 }
 
-interface Employee {
-  id: string;
-  full_name: string;
+interface PayrollReport {
+  id?: string;
+  _id?: string;
+  period_month: number;
+  period_year: number;
+  period_label?: string;
+  employee_count?: number;
+  status?: string;
+  items?: PayrollReportItem[];
+  totals?: {
+    base_salary?: number;
+    retraite?: number;
+    amu?: number;
+    deduction?: number;
+    cnss?: number;
+    taxable_salary?: number;
+    its?: number;
+    net_salary?: number;
+  };
+  generated_at?: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  notes?: string;
+}
+
+function reportId(report: PayrollReport): string {
+  return String(report.id || report._id || '');
+}
+
+function formatFdj(amount: number): string {
+  const formatted = Number(amount || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `Fdj${formatted}`;
+}
+
+function periodLabel(report: PayrollReport): string {
+  if (report.period_label) {
+    const parts = String(report.period_label).split('-');
+    if (parts.length === 2) return `${parts[1]}-${parts[0]}`;
+    return report.period_label;
+  }
+  const month = MONTH_KEYS[(Number(report.period_month) || 1) - 1] || 'Jan';
+  return `${month}-${report.period_year}`;
+}
+
+function totalDeductions(report: PayrollReport): number {
+  const totals = report.totals || {};
+  return (
+    Number(totals.retraite || 0) +
+    Number(totals.amu || 0) +
+    Number(totals.deduction || 0) +
+    Number(totals.its || 0)
+  );
+}
+
+function totalNet(report: PayrollReport): number {
+  if (report.totals?.net_salary != null) return Number(report.totals.net_salary);
+  return (report.items || []).reduce((sum, item) => sum + Number(item.net_salary || 0), 0);
+}
+
+function employeeCount(report: PayrollReport): number {
+  if (report.employee_count != null) return Number(report.employee_count);
+  return (report.items || []).length;
 }
 
 export function PayrollApproval() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const crudToast = useCrudToast();
-  const { formatAmount } = useCurrency();
-  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [reports, setReports] = useState<PayrollReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
+  const [selectedReport, setSelectedReport] = useState<PayrollReport | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
-    fetchPayrolls();
-    fetchEmployees();
+    void fetchReports();
   }, []);
 
-  const fetchPayrolls = async () => {
+  const fetchReports = async () => {
     try {
-      const data = await genericApi.list<Payroll>('payroll');
-      const filtered = data.filter(p => ['draft', 'pending_approval'].includes(p.status));
-      setPayrolls(filtered || []);
+      const data = await genericApi.list<PayrollReport>('payroll_reports', 500);
+      const pending = (data || [])
+        .filter((r) => ['generated', 'pending_approval', 'draft'].includes(String(r.status || 'generated')))
+        .sort((a, b) => {
+          const ya = Number(a.period_year) * 100 + Number(a.period_month);
+          const yb = Number(b.period_year) * 100 + Number(b.period_month);
+          return yb - ya;
+        });
+      setReports(pending);
     } catch (error) {
-      console.error('Error fetching payrolls:', error);
+      console.error('Error fetching payroll reports:', error);
+      toastError(t('payrollApproval.loadError'));
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      const data = await genericApi.list<Employee>('employees');
-      setEmployees(data || []);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-    }
+  const syncPayrollRowsStatus = async (
+    report: PayrollReport,
+    status: 'approved' | 'rejected',
+    extra: Record<string, unknown> = {}
+  ) => {
+    const rows = await genericApi.list<any>('payroll', 1000);
+    const year = Number(report.period_year);
+    const month = Number(report.period_month);
+    await Promise.all(
+      (rows || [])
+        .filter((row) => Number(row.period_year) === year && Number(row.period_month) === month)
+        .map((row) => {
+          const id = row.id || row._id;
+          if (!id) return Promise.resolve();
+          return genericApi.update('payroll', String(id), { status, ...extra });
+        })
+    );
   };
 
-  const handleApprove = async (payrollId: string) => {
-    if (!(await appConfirm('Approve this payroll?'))) return;
+  const handleApprove = async (report: PayrollReport) => {
+    const id = reportId(report);
+    if (!id) return;
+
+    if (
+      !(await appConfirm(t('payrollApproval.confirmApproveMessage'), {
+        title: t('payrollApproval.confirmApproveTitle'),
+        variant: 'warning',
+      }))
+    ) {
+      return;
+    }
 
     try {
-      await genericApi.update('payroll', payrollId, {
+      await genericApi.update('payroll_reports', id, {
         status: 'approved',
-        approved_by: user?.id,
-        approved_at: new Date().toISOString()
+        approved_by: user?.id || null,
+        approved_at: new Date().toISOString(),
       });
-
-      fetchPayrolls();
+      await syncPayrollRowsStatus(report, 'approved', {
+        approved_by: user?.id || null,
+        approved_at: new Date().toISOString(),
+      });
+      crudToast.onApproved();
       setShowDetails(false);
-      alert('Payroll approved successfully!');
+      setSelectedReport(null);
+      await fetchReports();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error approving payroll:', error);
-      alert('Error approving payroll. Please try again.');
     }
   };
 
-  const handleReject = async (payrollId: string) => {
-    const reason = prompt('Enter reason for rejection:');
-    if (!reason) return;
+  const handleReject = async (report: PayrollReport) => {
+    const id = reportId(report);
+    if (!id) return;
+
+    if (
+      !(await appConfirm(t('payrollApproval.confirmRejectMessage'), {
+        title: t('payrollApproval.confirmRejectTitle'),
+        variant: 'danger',
+      }))
+    ) {
+      return;
+    }
 
     try {
-      await genericApi.update('payroll', payrollId, {
+      await genericApi.update('payroll_reports', id, {
         status: 'rejected',
-        notes: reason
+        approved_by: user?.id || null,
+        approved_at: new Date().toISOString(),
       });
-
-      fetchPayrolls();
+      await syncPayrollRowsStatus(report, 'rejected');
+      crudToast.onRejected();
       setShowDetails(false);
-      alert('Payroll rejected.');
+      setSelectedReport(null);
+      await fetchReports();
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error rejecting payroll:', error);
-      alert('Error rejecting payroll. Please try again.');
-    }
-  };
-
-  const getEmployeeName = (employeeId: string) => {
-    const employee = employees.find(e => e.id === employeeId);
-    return employee ? employee.full_name : 'Unknown';
-  };
-
-  const formatCurrency = (amount: number) => formatAmount(amount);
-
-  const getMonthName = (month: number) => {
-    return new Date(2000, month - 1).toLocaleString('default', { month: 'long' });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'pending_approval': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -135,187 +215,200 @@ export function PayrollApproval() {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Payroll Approval</h2>
-          <p className="text-gray-600 mt-1">Review and approve employee payrolls</p>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-[#0F3C66]">{t('payrollApproval.title')}</h2>
+          <FileCheck size={22} className="text-[#0F3C66]" />
         </div>
+        <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
       </div>
 
-      {showDetails && selectedPayroll && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-            <h3 className="text-xl font-bold mb-4">Payroll Details</h3>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-600">Employee</label>
-                  <div className="font-semibold">{getEmployeeName(selectedPayroll.employee_id)}</div>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-600">Period</label>
-                  <div className="font-semibold">
-                    {getMonthName(selectedPayroll.period_month)} {selectedPayroll.period_year}
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-600">Base Salary</label>
-                    <div className="text-lg font-semibold">{formatCurrency(selectedPayroll.base_salary)}</div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Bonuses</label>
-                    <div className="text-lg font-semibold text-green-600">{formatCurrency(selectedPayroll.bonuses)}</div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Deductions</label>
-                    <div className="text-lg font-semibold text-red-600">{formatCurrency(selectedPayroll.deductions)}</div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Tax</label>
-                    <div className="text-lg font-semibold text-red-600">{formatCurrency(selectedPayroll.tax_amount)}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <label className="text-sm text-gray-600">Net Salary</label>
-                <div className="text-2xl font-bold text-[#0F3C66]">{formatCurrency(selectedPayroll.net_salary)}</div>
-              </div>
-
-              {selectedPayroll.notes && (
-                <div className="border-t pt-4">
-                  <label className="text-sm text-gray-600">Notes</label>
-                  <div className="text-sm text-gray-800">{selectedPayroll.notes}</div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 justify-end mt-6">
-              <button
-                onClick={() => setShowDetails(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => handleReject(selectedPayroll.id)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                <X size={20} />
-                Reject
-              </button>
-              <button
-                onClick={() => handleApprove(selectedPayroll.id)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Check size={20} />
-                Approve
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <thead>
+              <tr className="bg-[#F3F4F6]">
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">#</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                  {t('payrollApproval.colPeriod')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Period
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                  {t('payrollApproval.colEmployees')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Base Salary
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                  {t('payrollApproval.colDeductions')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Net Salary
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                  {t('payrollApproval.colNet')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                  {t('common.action')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payrolls?.map((payroll) => (
-                <tr key={payroll.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">
-                      {getEmployeeName(payroll.employee_id)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {getMonthName(payroll.period_month)} {payroll.period_year}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(payroll.base_salary)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-[#0F3C66]">
-                      {formatCurrency(payroll.net_salary)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(payroll.status)}`}>
-                      {payroll.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedPayroll(payroll);
-                          setShowDetails(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleApprove(payroll.id)}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
-                      >
-                        <Check size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleReject(payroll.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {payrolls.length === 0 && (
+            <tbody>
+              {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No payrolls pending approval.
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-500 border border-gray-200">
+                    {t('payrollApproval.empty')}
                   </td>
                 </tr>
+              ) : (
+                reports.map((report, index) => (
+                  <tr key={reportId(report)} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-600 border border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 text-gray-700 border border-gray-200">{periodLabel(report)}</td>
+                    <td className="px-4 py-3 text-gray-700 border border-gray-200">{employeeCount(report)}</td>
+                    <td className="px-4 py-3 text-gray-700 border border-gray-200">
+                      {formatFdj(totalDeductions(report))}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 border border-gray-200">
+                      {formatFdj(totalNet(report))}
+                    </td>
+                    <td className="px-4 py-3 border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          title={t('common.view')}
+                          onClick={() => {
+                            setSelectedReport(report);
+                            setShowDetails(true);
+                          }}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] transition"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          title={t('payrollApproval.approve')}
+                          onClick={() => void handleApprove(report)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#22C55E] text-white hover:bg-[#16A34A] transition"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          title={t('payrollApproval.reject')}
+                          onClick={() => void handleReject(report)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#EF4444] text-white hover:bg-[#DC2626] transition"
+                        >
+                          <Ban size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {showDetails && selectedReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h3 className="text-lg font-semibold text-[#0F3C66]">
+                {t('payrollApproval.detailsTitle')} — {periodLabel(selectedReport)}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDetails(false);
+                  setSelectedReport(null);
+                }}
+                className="rounded p-1 text-gray-500 hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-auto p-5">
+              <div className="mb-4 grid grid-cols-3 gap-4 text-sm">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="text-xs text-gray-500">{t('payrollApproval.colEmployees')}</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-800">{employeeCount(selectedReport)}</div>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="text-xs text-gray-500">{t('payrollApproval.colDeductions')}</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-800">{formatFdj(totalDeductions(selectedReport))}</div>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="text-xs text-gray-500">{t('payrollApproval.colNet')}</div>
+                  <div className="mt-1 text-lg font-semibold text-[#0F3C66]">{formatFdj(totalNet(selectedReport))}</div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full min-w-[800px] border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-[#F3F4F6]">
+                      <th className="px-3 py-2 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                        {t('generatePayroll.colMatricule')}
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-[#0F3C66] border border-gray-200">
+                        {t('generatePayroll.colName')}
+                      </th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-[#0F3C66] border border-gray-200">
+                        {t('generatePayroll.colBase')}
+                      </th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-[#0F3C66] border border-gray-200">
+                        {t('generatePayroll.colNet')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedReport.items || []).map((item, index) => (
+                      <tr key={`${item.matricule}-${index}`}>
+                        <td className="px-3 py-2 border border-gray-200 text-gray-600">{index + 1}</td>
+                        <td className="px-3 py-2 border border-gray-200 text-gray-700">{item.matricule || '-'}</td>
+                        <td className="px-3 py-2 border border-gray-200 text-gray-700">{item.employee_name || '-'}</td>
+                        <td className="px-3 py-2 border border-gray-200 text-right text-gray-700">
+                          {formatFdj(Number(item.base_salary || 0))}
+                        </td>
+                        <td className="px-3 py-2 border border-gray-200 text-right text-gray-700">
+                          {formatFdj(Number(item.net_salary || 0))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDetails(false);
+                  setSelectedReport(null);
+                }}
+                className="px-4 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReject(selectedReport)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                <Ban size={16} />
+                {t('payrollApproval.reject')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApprove(selectedReport)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 text-white text-sm hover:bg-green-700"
+              >
+                <Check size={16} />
+                {t('payrollApproval.approve')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-

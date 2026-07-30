@@ -1,13 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { appConfirm } from '../../lib/appConfirm';
 import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Edit2, Trash2, User, CreditCard, Banknote, FileText, Plus, Search, Users } from 'lucide-react';
+import { toastError } from '../../lib/appToast';
+import {
+  Edit2,
+  Trash2,
+  User,
+  CreditCard,
+  Banknote,
+  FileText,
+  Plus,
+  Search,
+  Users,
+  Eye,
+  Phone,
+  Mail,
+  MapPin,
+  Building2,
+  Contact,
+  DollarSign,
+} from 'lucide-react';
 import { FormLabel, FormInput, FormSelect, PrimaryButton, SecondaryButton } from '../Shared/common/FormComponents';
 import Modal from '../Shared/common/Modal';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee } from '../../api/hrApi';
+import { genericApi } from '../../api/genericApi';
+
+const MAX_CONTRACT_FILE_BYTES = 5 * 1024 * 1024;
 
 interface Employee {
   id: string;
@@ -35,10 +56,93 @@ interface Employee {
   contract_end_date?: string;
   employment_date?: string;
   allow_end_date: boolean;
+  status?: string;
+  salary?: number;
+  base_salary?: number;
+  contract_document?: string;
+  contract_document_name?: string;
   created_at: string;
 }
 
+function displayOrNA(value?: string | null): string {
+  const v = String(value ?? '').trim();
+  return v || 'N/A';
+}
+
+function maskAccountNumber(value?: string | null): string {
+  const digits = String(value ?? '').replace(/\s+/g, '');
+  if (!digits) return 'N/A';
+  if (digits.length <= 4) return digits;
+  return `****${digits.slice(-4)}`;
+}
+
+function employeeInitial(name?: string): string {
+  const n = String(name ?? '').trim();
+  return n ? n.charAt(0).toUpperCase() : '?';
+}
+
+function formatSalaryInput(value?: number | null): string {
+  if (value == null || Number.isNaN(Number(value))) return '';
+  return Number(value).toFixed(2);
+}
+
+function readLocalFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Impossible de lire le fichier.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+interface ProfessionOption {
+  id?: string;
+  _id?: string;
+  name: string;
+  is_active?: boolean;
+}
+
+interface ContractTypeOption {
+  id?: string;
+  _id?: string;
+  name: string;
+  is_active?: boolean;
+}
+
+interface BankOption {
+  id?: string;
+  _id?: string;
+  name: string;
+}
+
+function optionId(row: { id?: string; _id?: string }): string {
+  return row._id || row.id || '';
+}
+
 type ModalStep = 'personal' | 'contact' | 'banking' | 'contract';
+
+const STEP_ORDER: ModalStep[] = ['personal', 'contact', 'banking', 'contract'];
+
+type FormFieldKey =
+  | 'full_name'
+  | 'profession'
+  | 'address'
+  | 'phone_number'
+  | 'emergency_contact'
+  | 'bank_name'
+  | 'account_name'
+  | 'account_number'
+  | 'contract_type'
+  | 'contract_start_date'
+  | 'contract_end_date'
+  | 'employment_date';
+
+const REQUIRED_BY_STEP: Record<ModalStep, FormFieldKey[]> = {
+  personal: ['full_name', 'profession'],
+  contact: ['address', 'phone_number', 'emergency_contact'],
+  banking: ['bank_name', 'account_name', 'account_number'],
+  contract: ['contract_type', 'contract_start_date', 'employment_date'],
+};
 
 export function Employees() {
   const { user } = useAuth();
@@ -46,13 +150,24 @@ export function Employees() {
   const crudToast = useCrudToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [professions, setProfessions] = useState<ProfessionOption[]>([]);
+  const [contractTypes, setContractTypes] = useState<ContractTypeOption[]>([]);
+  const [banks, setBanks] = useState<BankOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
+  const [salaryEmployee, setSalaryEmployee] = useState<Employee | null>(null);
+  const [salaryValue, setSalaryValue] = useState('');
+  const [salaryDocument, setSalaryDocument] = useState('');
+  const [salaryDocumentName, setSalaryDocumentName] = useState('');
+  const [savingSalary, setSavingSalary] = useState(false);
+  const salaryFileRef = useRef<HTMLInputElement>(null);
   const [modalStep, setModalStep] = useState<ModalStep>('personal');
+  const [stepErrors, setStepErrors] = useState<Partial<Record<FormFieldKey, boolean>>>({});
   const [residenceFilter, setResidenceFilter] = useState('all');
 
   const [formData, setFormData] = useState({
@@ -73,7 +188,7 @@ export function Employees() {
     account_name: '',
     account_number: '',
     employee_type: 'Taxable',
-    profession: 'Project Manager',
+    profession: '',
     contract_type: '',
     contract_start_date: '',
     contract_end_date: '',
@@ -82,12 +197,36 @@ export function Employees() {
   });
 
   useEffect(() => {
-    fetchEmployeesList();
+    void fetchEmployeesList();
+    void fetchLookupLists();
   }, []);
 
   useEffect(() => {
     filterEmployees();
   }, [employees, searchTerm, residenceFilter]);
+
+  const fetchLookupLists = async () => {
+    try {
+      const [profData, contractData, banksData] = await Promise.all([
+        genericApi.list<ProfessionOption>('employee_professions'),
+        genericApi.list<ContractTypeOption>('contract_types'),
+        genericApi.list<BankOption>('banks'),
+      ]);
+      setProfessions(
+        (profData || []).filter((p) => p.is_active !== false && String(p.name || '').trim())
+      );
+      setContractTypes(
+        (contractData || []).filter((c) => c.is_active !== false && String(c.name || '').trim())
+      );
+      setBanks(
+        (banksData || [])
+          .filter((b) => String(b.name || '').trim())
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      );
+    } catch (error) {
+      console.error('Error fetching professions / contract types / banks:', error);
+    }
+  };
 
   const fetchEmployeesList = async () => {
     try {
@@ -124,6 +263,8 @@ export function Employees() {
 
 
   const handleSubmit = async () => {
+    if (!validateStep('contract')) return;
+
     try {
       const employeeData: any = {
         ...formData,
@@ -144,6 +285,138 @@ export function Employees() {
     } catch (error) {
       crudToast.onError(error);
       console.error('Error saving employee:', error);
+    }
+  };
+
+  const isFieldFilled = (key: FormFieldKey): boolean => {
+    return String(formData[key] ?? '').trim().length > 0;
+  };
+
+  const getRequiredFieldsForStep = (step: ModalStep): FormFieldKey[] => {
+    const fields = [...REQUIRED_BY_STEP[step]];
+    if (step === 'contract' && formData.allow_end_date) {
+      fields.push('contract_end_date');
+    }
+    return fields;
+  };
+
+  const validateStep = (step: ModalStep): boolean => {
+    const missing = getRequiredFieldsForStep(step).filter((key) => !isFieldFilled(key));
+    if (missing.length === 0) {
+      setStepErrors({});
+      return true;
+    }
+
+    const errors: Partial<Record<FormFieldKey, boolean>> = {};
+    missing.forEach((key) => {
+      errors[key] = true;
+    });
+    setStepErrors(errors);
+    toastError(t('employees.stepRequiredError'));
+    return false;
+  };
+
+  const clearFieldError = (key: FormFieldKey) => {
+    setStepErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const fieldClass = (key: FormFieldKey, extra = '') =>
+    `${extra} ${stepErrors[key] ? 'border-red-500 ring-2 ring-red-200' : ''}`.trim();
+
+  const goToNextStep = (next: ModalStep) => {
+    if (!validateStep(modalStep)) return;
+    setModalStep(next);
+  };
+
+  const tryGoToStep = (target: ModalStep) => {
+    const currentIndex = STEP_ORDER.indexOf(modalStep);
+    const targetIndex = STEP_ORDER.indexOf(target);
+    if (targetIndex <= currentIndex) {
+      setStepErrors({});
+      setModalStep(target);
+      return;
+    }
+    for (let i = currentIndex; i < targetIndex; i++) {
+      if (!validateStep(STEP_ORDER[i])) {
+        setModalStep(STEP_ORDER[i]);
+        return;
+      }
+    }
+    setModalStep(target);
+  };
+
+  const handleViewDetails = (employee: Employee) => {
+    setViewingEmployee(employee);
+  };
+
+  const openSalarySetup = (employee: Employee) => {
+    setSalaryEmployee(employee);
+    setSalaryValue(formatSalaryInput(employee.salary ?? employee.base_salary ?? 0));
+    setSalaryDocument(employee.contract_document || '');
+    setSalaryDocumentName(employee.contract_document_name || '');
+    if (salaryFileRef.current) salaryFileRef.current.value = '';
+  };
+
+  const closeSalarySetup = () => {
+    setSalaryEmployee(null);
+    setSalaryValue('');
+    setSalaryDocument('');
+    setSalaryDocumentName('');
+    setSavingSalary(false);
+    if (salaryFileRef.current) salaryFileRef.current.value = '';
+  };
+
+  const handleSalaryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_CONTRACT_FILE_BYTES) {
+      toastError(t('employees.salaryFileTooLarge'));
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const dataUrl = await readLocalFile(file);
+      setSalaryDocument(dataUrl);
+      setSalaryDocumentName(file.name);
+    } catch (error) {
+      console.error(error);
+      toastError(t('employees.salaryFileReadError'));
+      e.target.value = '';
+    }
+  };
+
+  const handleSaveSalary = async () => {
+    if (!salaryEmployee) return;
+
+    const parsed = Number(String(salaryValue).replace(',', '.').trim());
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toastError(t('employees.salaryRequired'));
+      return;
+    }
+
+    setSavingSalary(true);
+    try {
+      await updateEmployee(salaryEmployee.id, {
+        salary: parsed,
+        base_salary: parsed,
+        contract_document: salaryDocument || undefined,
+        contract_document_name: salaryDocumentName || undefined,
+      });
+      crudToast.onSaved(true);
+      closeSalarySetup();
+      fetchEmployeesList();
+    } catch (error) {
+      crudToast.onError(error);
+      console.error('Error saving salary:', error);
+    } finally {
+      setSavingSalary(false);
     }
   };
 
@@ -175,6 +448,7 @@ export function Employees() {
       allow_end_date: employee.allow_end_date || false
     });
     setModalStep('personal');
+    setStepErrors({});
     setShowModal(true);
   };
 
@@ -210,7 +484,7 @@ export function Employees() {
       account_name: '',
       account_number: '',
       employee_type: 'Taxable',
-      profession: 'Project Manager',
+      profession: '',
       contract_type: '',
       contract_start_date: '',
       contract_end_date: '',
@@ -218,6 +492,7 @@ export function Employees() {
       allow_end_date: false
     });
     setModalStep('personal');
+    setStepErrors({});
   };
 
   const totalPages = Math.ceil(filteredEmployees.length / entriesPerPage);
@@ -233,11 +508,15 @@ export function Employees() {
             <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepPersonal')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>{t('employees.fieldFullName')}</FormLabel>
+                <FormLabel>{t('employees.fieldFullName')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, full_name: e.target.value });
+                    clearFieldError('full_name');
+                  }}
+                  className={fieldClass('full_name')}
                   required
                 />
               </div>
@@ -320,23 +599,33 @@ export function Employees() {
                 </FormSelect>
               </div>
               <div className="col-span-2">
-                <FormLabel>{t('employees.fieldProfession')}</FormLabel>
+                <FormLabel>{t('employees.fieldProfession')} *</FormLabel>
                 <FormSelect
                   value={formData.profession}
-                  onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
-                  className="border-blue-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, profession: e.target.value });
+                    clearFieldError('profession');
+                  }}
+                  className={fieldClass('profession')}
+                  required
                 >
-                  <option value="Project Manager">Project Manager</option>
-                  <option value="Developer">Developer</option>
-                  <option value="Designer">Designer</option>
-                  <option value="Manager">Manager</option>
+                  <option value="">{t('employees.selectProfession') || 'Sélectionner une profession'}</option>
+                  {professions.map((p) => (
+                    <option key={optionId(p)} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                  {formData.profession &&
+                    !professions.some((p) => p.name === formData.profession) && (
+                      <option value={formData.profession}>{formData.profession}</option>
+                    )}
                 </FormSelect>
               </div>
             </div>
             <div className="flex justify-end pt-4">
               <PrimaryButton
                 type="button"
-                onClick={() => setModalStep('contact')}
+                onClick={() => goToNextStep('contact')}
               >
                 {t('employees.next')}
               </PrimaryButton>
@@ -350,19 +639,29 @@ export function Employees() {
             <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepContact')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>{t('employees.fieldAddress')}</FormLabel>
+                <FormLabel>{t('employees.fieldAddress')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, address: e.target.value });
+                    clearFieldError('address');
+                  }}
+                  className={fieldClass('address')}
+                  required
                 />
               </div>
               <div>
-                <FormLabel>{t('employees.fieldPhone')}</FormLabel>
+                <FormLabel>{t('employees.fieldPhone')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, phone_number: e.target.value });
+                    clearFieldError('phone_number');
+                  }}
+                  className={fieldClass('phone_number')}
+                  required
                 />
               </div>
               <div>
@@ -374,24 +673,32 @@ export function Employees() {
                 />
               </div>
               <div>
-                <FormLabel>{t('employees.fieldEmergency')}</FormLabel>
+                <FormLabel>{t('employees.fieldEmergency')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.emergency_contact}
-                  onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, emergency_contact: e.target.value });
+                    clearFieldError('emergency_contact');
+                  }}
+                  className={fieldClass('emergency_contact')}
+                  required
                 />
               </div>
             </div>
             <div className="flex justify-between pt-4">
               <SecondaryButton
                 type="button"
-                onClick={() => setModalStep('personal')}
+                onClick={() => {
+                  setStepErrors({});
+                  setModalStep('personal');
+                }}
               >
                 {t('employees.previous')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
-                onClick={() => setModalStep('banking')}
+                onClick={() => goToNextStep('banking')}
               >
                 {t('employees.next')}
               </PrimaryButton>
@@ -405,45 +712,68 @@ export function Employees() {
             <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepBanking')}</h3>
             <div className="grid grid-cols-3 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>{t('employees.fieldBank')}</FormLabel>
+                <FormLabel>{t('employees.fieldBank')} *</FormLabel>
                 <FormSelect
                   value={formData.bank_name}
-                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  className="border-blue-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, bank_name: e.target.value });
+                    clearFieldError('bank_name');
+                  }}
+                  className={fieldClass('bank_name', 'border-blue-500')}
+                  required
                 >
-                  <option value="">Select Bank</option>
-                  <option value="East African Bank">East African Bank</option>
-                  <option value="Bank A">Bank A</option>
-                  <option value="Bank B">Bank B</option>
+                  <option value="">{t('employees.selectBank')}</option>
+                  {banks.map((bank) => (
+                    <option key={optionId(bank)} value={bank.name}>
+                      {bank.name}
+                    </option>
+                  ))}
+                  {formData.bank_name &&
+                    !banks.some((b) => b.name === formData.bank_name) && (
+                      <option value={formData.bank_name}>{formData.bank_name}</option>
+                    )}
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>{t('employees.fieldAccountName')}</FormLabel>
+                <FormLabel>{t('employees.fieldAccountName')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.account_name}
-                  onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, account_name: e.target.value });
+                    clearFieldError('account_name');
+                  }}
+                  className={fieldClass('account_name')}
+                  required
                 />
               </div>
               <div>
-                <FormLabel>{t('employees.fieldAccountNumber')}</FormLabel>
+                <FormLabel>{t('employees.fieldAccountNumber')} *</FormLabel>
                 <FormInput
                   type="text"
                   value={formData.account_number}
-                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, account_number: e.target.value });
+                    clearFieldError('account_number');
+                  }}
+                  className={fieldClass('account_number')}
+                  required
                 />
               </div>
             </div>
             <div className="flex justify-between pt-4">
               <SecondaryButton
                 type="button"
-                onClick={() => setModalStep('contact')}
+                onClick={() => {
+                  setStepErrors({});
+                  setModalStep('contact');
+                }}
               >
                 {t('employees.previous')}
               </SecondaryButton>
               <PrimaryButton
                 type="button"
-                onClick={() => setModalStep('contract')}
+                onClick={() => goToNextStep('contract')}
               >
                 {t('employees.next')}
               </PrimaryButton>
@@ -457,41 +787,69 @@ export function Employees() {
             <h3 className="text-lg font-medium text-gray-800 mb-4">{t('employees.stepContract')}</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div>
-                <FormLabel>{t('employees.fieldContractType')}</FormLabel>
+                <FormLabel>{t('employees.fieldContractType')} *</FormLabel>
                 <FormSelect
                   value={formData.contract_type}
-                  onChange={(e) => setFormData({ ...formData, contract_type: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, contract_type: e.target.value });
+                    clearFieldError('contract_type');
+                  }}
+                  className={fieldClass('contract_type')}
+                  required
                 >
-                  <option value="">Select Contract Type</option>
-                  <option value="CDD">CDD</option>
-                  <option value="CDI">CDI</option>
-                  <option value="Temporary">Temporary</option>
+                  <option value="">{t('employees.selectContractType') || 'Sélectionner un type de contrat'}</option>
+                  {contractTypes.map((c) => (
+                    <option key={optionId(c)} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                  {formData.contract_type &&
+                    !contractTypes.some((c) => c.name === formData.contract_type) && (
+                      <option value={formData.contract_type}>{formData.contract_type}</option>
+                    )}
                 </FormSelect>
               </div>
               <div>
-                <FormLabel>{t('employees.fieldStartDate')}</FormLabel>
+                <FormLabel>{t('employees.fieldStartDate')} *</FormLabel>
                 <FormInput
                   type="date"
                   value={formData.contract_start_date}
-                  onChange={(e) => setFormData({ ...formData, contract_start_date: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, contract_start_date: e.target.value });
+                    clearFieldError('contract_start_date');
+                  }}
+                  className={fieldClass('contract_start_date')}
+                  required
                 />
               </div>
               <div>
-                <FormLabel>{t('employees.fieldEndDate')}</FormLabel>
+                <FormLabel>
+                  {t('employees.fieldEndDate')}
+                  {formData.allow_end_date ? ' *' : ''}
+                </FormLabel>
                 <FormInput
                   type="date"
                   value={formData.contract_end_date}
-                  onChange={(e) => setFormData({ ...formData, contract_end_date: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, contract_end_date: e.target.value });
+                    clearFieldError('contract_end_date');
+                  }}
                   disabled={!formData.allow_end_date}
-                  className="disabled:bg-gray-100 disabled:opacity-75"
+                  className={fieldClass('contract_end_date', 'disabled:bg-gray-100 disabled:opacity-75')}
+                  required={formData.allow_end_date}
                 />
               </div>
               <div>
-                <FormLabel>{t('employees.fieldEmploymentDate')}</FormLabel>
+                <FormLabel>{t('employees.fieldEmploymentDate')} *</FormLabel>
                 <FormInput
                   type="date"
                   value={formData.employment_date}
-                  onChange={(e) => setFormData({ ...formData, employment_date: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, employment_date: e.target.value });
+                    clearFieldError('employment_date');
+                  }}
+                  className={fieldClass('employment_date')}
+                  required
                 />
               </div>
               <div className="col-span-2 flex items-center gap-2">
@@ -499,7 +857,15 @@ export function Employees() {
                   type="checkbox"
                   id="allow_end_date"
                   checked={formData.allow_end_date}
-                  onChange={(e) => setFormData({ ...formData, allow_end_date: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData({
+                      ...formData,
+                      allow_end_date: checked,
+                      contract_end_date: checked ? formData.contract_end_date : '',
+                    });
+                    if (!checked) clearFieldError('contract_end_date');
+                  }}
                   className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="allow_end_date" className="text-sm font-medium text-slate-700">
@@ -510,7 +876,10 @@ export function Employees() {
             <div className="flex justify-between pt-4">
               <SecondaryButton
                 type="button"
-                onClick={() => setModalStep('banking')}
+                onClick={() => {
+                  setStepErrors({});
+                  setModalStep('banking');
+                }}
               >
                 {t('employees.previous')}
               </SecondaryButton>
@@ -640,6 +1009,16 @@ export function Employees() {
                       <ActionMenu
                         actions={[
                           {
+                            label: t('employees.viewDetails'),
+                            icon: <Eye size={16} />,
+                            onClick: () => handleViewDetails(employee),
+                          },
+                          {
+                            label: t('employees.setupSalary'),
+                            icon: <DollarSign size={16} />,
+                            onClick: () => openSalarySetup(employee),
+                          },
+                          {
                             label: t('common.edit'),
                             icon: <Edit2 size={16} />,
                             onClick: () => handleEdit(employee),
@@ -697,6 +1076,251 @@ export function Employees() {
       </div>
 
       <Modal
+        isOpen={!!salaryEmployee}
+        onClose={closeSalarySetup}
+        title={t('employees.setupSalaryTitle')}
+        size="md"
+      >
+        {salaryEmployee && (
+          <div className="space-y-5">
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 bg-[#3d4f5f] px-4 py-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+                  {t('employees.salaryEmployeeId')}
+                </div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-200">
+                  {t('employees.salaryFullName')}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 bg-white px-4 py-3">
+                <div className="text-sm text-slate-600">{salaryEmployee.employee_id}</div>
+                <div className="text-sm text-slate-600">{salaryEmployee.full_name}</div>
+              </div>
+            </div>
+
+            <div>
+              <FormLabel>{t('employees.fieldSalary')} (Fdj)</FormLabel>
+              <FormInput
+                type="text"
+                inputMode="decimal"
+                value={salaryValue}
+                onChange={(e) => setSalaryValue(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <FormLabel>{t('employees.fieldContractDocument')}</FormLabel>
+              <div className="flex overflow-hidden rounded-md border border-slate-300">
+                <button
+                  type="button"
+                  onClick={() => salaryFileRef.current?.click()}
+                  className="shrink-0 bg-[#3d4f5f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#2f3d4a] transition"
+                >
+                  {t('employees.chooseFile')}
+                </button>
+                <div className="flex min-w-0 flex-1 items-center bg-slate-100 px-3 text-sm text-slate-600 truncate">
+                  {salaryDocumentName || t('employees.noFileChosen')}
+                </div>
+              </div>
+              <input
+                ref={salaryFileRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xls,.xlsx"
+                className="hidden"
+                onChange={handleSalaryFileChange}
+              />
+              {salaryDocument && salaryDocumentName && (
+                <a
+                  href={salaryDocument}
+                  download={salaryDocumentName}
+                  className="mt-2 inline-flex items-center gap-1 text-sm text-[#0F3C66] hover:underline"
+                >
+                  <FileText size={14} />
+                  {salaryDocumentName}
+                </a>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <PrimaryButton type="button" onClick={handleSaveSalary} disabled={savingSalary}>
+                {savingSalary ? t('common.loading') : t('employees.saveSalaryChanges')}
+              </PrimaryButton>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!viewingEmployee}
+        onClose={() => setViewingEmployee(null)}
+        title={t('employees.viewDetailsTitle')}
+        size="xl"
+      >
+        {viewingEmployee && (
+          <div className="max-h-[75vh] overflow-y-auto space-y-4 pr-1">
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-slate-200 text-2xl font-bold text-slate-600">
+                  {employeeInitial(viewingEmployee.full_name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-xl font-bold text-slate-800 truncate">
+                    {displayOrNA(viewingEmployee.full_name)}
+                  </h4>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {displayOrNA(viewingEmployee.profession)} | {displayOrNA(viewingEmployee.employee_id)}
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Phone size={15} className="text-slate-400 shrink-0" />
+                      <span>{displayOrNA(viewingEmployee.phone_number)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail size={15} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{displayOrNA(viewingEmployee.email)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin size={15} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{displayOrNA(viewingEmployee.address)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <User size={15} className="text-slate-400 shrink-0" />
+                      <span>
+                        {t('employees.detailStatus')}{' '}
+                        {displayOrNA(
+                          viewingEmployee.status
+                            ? viewingEmployee.status.charAt(0).toUpperCase() +
+                                viewingEmployee.status.slice(1)
+                            : 'Active'
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <User size={18} className="text-slate-500" />
+                <h5 className="font-semibold text-slate-800">{t('employees.stepPersonal')}</h5>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.detailEmploymentDate')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.employment_date)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldProfession')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.profession)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldEmployeeType')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.employee_type)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldGender')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.gender)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldCivilStatus')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.civil_status)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldBirthPlace')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.birth_place)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldNationality')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.nationality)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldResidenceStatus')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.residence_status)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldIdType')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.identification_type)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.detailIdNumber')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.identification_number)}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="font-semibold text-slate-800">{t('employees.detailJudicialRecord')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.judicial_record)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText size={18} className="text-slate-500" />
+                <h5 className="font-semibold text-slate-800">{t('employees.stepContract')}</h5>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldContractType')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.contract_type)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldStartDate')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.contract_start_date)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldEndDate')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.contract_end_date)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 size={18} className="text-slate-500" />
+                <h5 className="font-semibold text-slate-800">{t('employees.stepBanking')}</h5>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div className="sm:col-span-2">
+                  <span className="font-semibold text-slate-800">{t('employees.detailBankName')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.bank_name)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.detailAccountName')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.account_name)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.detailAccountNumber')}: </span>
+                  <span className="text-slate-600">{maskAccountNumber(viewingEmployee.account_number)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Contact size={18} className="text-slate-500" />
+                <h5 className="font-semibold text-slate-800">{t('employees.detailContacts')}</h5>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.fieldEmergency')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.emergency_contact)}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">{t('employees.detailEmployeePhone')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.phone_number)}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="font-semibold text-slate-800">{t('employees.fieldAddress')}: </span>
+                  <span className="text-slate-600">{displayOrNA(viewingEmployee.address)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
@@ -708,7 +1332,8 @@ export function Employees() {
       >
         <div className="flex border-b border-gray-100 overflow-x-auto bg-gray-50/50 p-2 gap-2 rounded-t-xl mb-4">
           <button
-            onClick={() => setModalStep('personal')}
+            type="button"
+            onClick={() => tryGoToStep('personal')}
             className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'personal' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
               }`}
           >
@@ -716,7 +1341,8 @@ export function Employees() {
             <span>{t('employees.stepPersonal')}</span>
           </button>
           <button
-            onClick={() => setModalStep('contact')}
+            type="button"
+            onClick={() => tryGoToStep('contact')}
             className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'contact' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
               }`}
           >
@@ -724,7 +1350,8 @@ export function Employees() {
             <span>{t('employees.stepContact')}</span>
           </button>
           <button
-            onClick={() => setModalStep('banking')}
+            type="button"
+            onClick={() => tryGoToStep('banking')}
             className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'banking' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
               }`}
           >
@@ -732,7 +1359,8 @@ export function Employees() {
             <span>{t('employees.stepBanking')}</span>
           </button>
           <button
-            onClick={() => setModalStep('contract')}
+            type="button"
+            onClick={() => tryGoToStep('contract')}
             className={`flex items-center gap-2 px-6 py-2.5 font-bold text-sm transition-all rounded-xl whitespace-nowrap ${modalStep === 'contract' ? 'bg-[#0F3C66] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200'
               }`}
           >

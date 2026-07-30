@@ -1,298 +1,540 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { appConfirm } from '../../lib/appConfirm';
-import { DollarSign, Calculator, Save, Users } from 'lucide-react';
+import { useCrudToast } from '../../hooks/useCrudToast';
+import { toastError, toastSuccess } from '../../lib/appToast';
 import { useAuth } from '../../contexts/AuthContext';
-import { genericApi } from '../../api/genericApi';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useCurrency } from '../../contexts/CurrencyContext';
+import { fetchEmployees } from '../../api/hrApi';
+import { genericApi } from '../../api/genericApi';
+import { fetchAppConfig } from '../../api/appConfigApi';
 
-interface Employee {
+interface EmployeeRow {
   id: string;
+  employee_id: string;
   full_name: string;
-  base_salary: number;
+  employee_type?: string;
+  salary?: number;
+  base_salary?: number;
+  account_number?: string;
 }
 
 interface PayrollItem {
-  employee_id: string;
+  employee_ref: string;
+  matricule: string;
   employee_name: string;
+  employee_type: string;
   base_salary: number;
-  bonuses: number;
-  deductions: number;
-  tax_amount: number;
+  retraite: number;
+  amu: number;
+  deduction: number;
+  cnss: number;
+  taxable_salary: number;
+  its: number;
   net_salary: number;
+}
+
+const MONTH_KEYS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function getEmployeeSalary(emp: EmployeeRow): number {
+  const value = emp.salary ?? emp.base_salary ?? 0;
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function calculateIts(taxable: number): number {
+  if (taxable <= 30000) return 0;
+  if (taxable <= 50000) return round2((taxable - 30000) * 0.02);
+  if (taxable <= 150000) return round2(400 + (taxable - 50000) * 0.1);
+  if (taxable <= 600000) return round2(10400 + (taxable - 150000) * 0.15);
+  return round2(77900 + (taxable - 600000) * 0.2);
+}
+
+function buildPayrollItem(emp: EmployeeRow, contributionsEnabled: boolean): PayrollItem {
+  const base = round2(getEmployeeSalary(emp));
+
+  if (!contributionsEnabled) {
+    return {
+      employee_ref: emp.id,
+      matricule: emp.employee_id,
+      employee_name: emp.full_name,
+      employee_type: emp.employee_type || 'Taxable',
+      base_salary: base,
+      retraite: 0,
+      amu: 0,
+      deduction: 0,
+      cnss: 0,
+      taxable_salary: base,
+      its: 0,
+      net_salary: base,
+    };
+  }
+
+  const retraite = round2(base * 0.04);
+  const amu = round2(base * 0.02);
+  const deduction = round2(base * 0.157);
+  const cnss = round2(base * 0.217);
+  const taxable_salary = round2(Math.max(0, base - retraite - amu));
+  const its = calculateIts(taxable_salary);
+  const net_salary = round2(Math.max(0, base - retraite - amu - deduction - its));
+
+  return {
+    employee_ref: emp.id,
+    matricule: emp.employee_id,
+    employee_name: emp.full_name,
+    employee_type: emp.employee_type || 'Taxable',
+    base_salary: base,
+    retraite,
+    amu,
+    deduction,
+    cnss,
+    taxable_salary,
+    its,
+    net_salary,
+  };
+}
+
+function emptyTotals() {
+  return {
+    base_salary: 0,
+    retraite: 0,
+    amu: 0,
+    deduction: 0,
+    cnss: 0,
+    taxable_salary: 0,
+    its: 0,
+    net_salary: 0,
+  };
 }
 
 export function GeneratePayroll() {
   const { user } = useAuth();
-  const { t } = useLanguage();
-  const { formatAmount } = useCurrency();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const { t, language } = useLanguage();
+  const crudToast = useCrudToast();
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [payrollItems, setPayrollItems] = useState<PayrollItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
+  const yearOptions = useMemo(() => {
+    const years: number[] = [];
+    for (let y = currentYear; y >= currentYear - 5; y -= 1) {
+      years.push(y);
+    }
+    return years;
+  }, [currentYear]);
 
-  const fetchEmployees = async () => {
+  const monthOptions = useMemo(() => {
+    const maxMonth = selectedYear === currentYear ? currentMonth : 12;
+    return MONTH_KEYS.slice(0, maxMonth).map((key, index) => ({
+      value: index + 1,
+      key,
+      label:
+        language === 'fr'
+          ? [
+              'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+              'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+            ][index]
+          : key,
+    }));
+  }, [selectedYear, currentYear, currentMonth, language]);
+
+  const selectedPeriodLabel = `${selectedYear}-${MONTH_KEYS[selectedMonth - 1]}`;
+
+  const resetPayrollView = () => {
+    setDataLoaded(false);
+    setPayrollItems([]);
+  };
+
+  const formatMoney = (amount: number) => {
+    const formatted = Number(amount || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `Fdj ${formatted}`;
+  };
+
+  const totals = useMemo(() => {
+    return payrollItems.reduce((acc, item) => {
+      acc.base_salary += item.base_salary;
+      acc.retraite += item.retraite;
+      acc.amu += item.amu;
+      acc.deduction += item.deduction;
+      acc.cnss += item.cnss;
+      acc.taxable_salary += item.taxable_salary;
+      acc.its += item.its;
+      acc.net_salary += item.net_salary;
+      return acc;
+    }, emptyTotals());
+  }, [payrollItems]);
+
+  const handleViewPayrollData = async () => {
+    if (!selectedYear || !selectedMonth) {
+      toastError(t('generatePayroll.selectPeriodError'));
+      return;
+    }
+
+    if (
+      selectedYear > currentYear ||
+      (selectedYear === currentYear && selectedMonth > currentMonth)
+    ) {
+      toastError(t('generatePayroll.futurePeriodError'));
+      return;
+    }
+
+    setLoadingData(true);
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, full_name, base_salary')
-        .order('full_name');
+      const [employees, appConfig] = await Promise.all([
+        fetchEmployees(),
+        fetchAppConfig({ force: true }),
+      ]);
+      const contributionsEnabled = appConfig.payroll_contributions_enabled === 'true';
 
-      
+      const withSalary = (employees || [])
+        .map((emp) => emp as unknown as EmployeeRow)
+        .filter((emp) => getEmployeeSalary(emp) > 0)
+        .sort((a, b) =>
+          String(a.employee_id || '').localeCompare(String(b.employee_id || ''), undefined, {
+            numeric: true,
+          })
+        );
 
-      const items: PayrollItem[] = (data || [])?.map(emp => ({
-        employee_id: emp.id,
-        employee_name: emp.full_name,
-        base_salary: emp.base_salary || 0,
-        bonuses: 0,
-        deductions: 0,
-        tax_amount: 0,
-        net_salary: emp.base_salary || 0,
-      }));
-
-      setEmployees(data || []);
+      const items = withSalary.map((emp) => buildPayrollItem(emp, contributionsEnabled));
       setPayrollItems(items);
+      setDataLoaded(true);
+
+      if (items.length === 0) {
+        toastError(t('generatePayroll.noSalaryData'));
+      }
     } catch (error) {
-      console.error('Error fetching employees:', error);
+      console.error('Error loading payroll data:', error);
+      toastError(t('generatePayroll.loadError'));
+      setPayrollItems([]);
+      setDataLoaded(false);
     } finally {
-      setLoading(false);
+      setLoadingData(false);
     }
   };
 
-  const calculateTax = (grossSalary: number) => {
-    if (grossSalary <= 1000) return 0;
-    if (grossSalary <= 3000) return grossSalary * 0.10;
-    if (grossSalary <= 5000) return grossSalary * 0.15;
-    return grossSalary * 0.20;
-  };
+  const handleGenerate = async () => {
+    if (!dataLoaded || payrollItems.length === 0) {
+      toastError(t('generatePayroll.viewDataFirst'));
+      return;
+    }
 
-  const updatePayrollItem = (employeeId: string, field: string, value: number) => {
-    setPayrollItems(prev => prev?.map(item => {
-      if (item.employee_id === employeeId) {
-        const updated = { ...item, [field]: value };
-        const grossSalary = updated.base_salary + updated.bonuses - updated.deductions;
-        updated.tax_amount = calculateTax(grossSalary);
-        updated.net_salary = grossSalary - updated.tax_amount;
-        return updated;
-      }
-      return item;
-    }));
-  };
+    if (
+      selectedYear > currentYear ||
+      (selectedYear === currentYear && selectedMonth > currentMonth)
+    ) {
+      toastError(t('generatePayroll.futurePeriodError'));
+      return;
+    }
 
-  const handleGeneratePayroll = async () => {
-    if (!(await appConfirm(`Generate payroll for ${selectedMonth}/${selectedYear}?`))) return;
+    const year = selectedYear;
+    const month = selectedMonth;
+    const label = selectedPeriodLabel;
+    if (
+      !(await appConfirm(t('generatePayroll.confirmGenerateMessage'), {
+        title: t('generatePayroll.confirmGenerateTitle'),
+        variant: 'warning',
+      }))
+    ) {
+      return;
+    }
 
     setSaving(true);
     try {
-      const payrollData = payrollItems?.map(item => ({
-        employee_id: item.employee_id,
-        period_month: selectedMonth,
-        period_year: selectedYear,
-        base_salary: item.base_salary,
-        bonuses: item.bonuses,
-        deductions: item.deductions,
-        tax_amount: item.tax_amount,
-        net_salary: item.net_salary,
-        status: 'draft',
-        generated_by: user?.id,
-      }));
+      const existing = await genericApi.list<any>('payroll_reports', 500);
+      const duplicate = (existing || []).find(
+        (r) => Number(r.period_year) === year && Number(r.period_month) === month
+      );
 
-      await genericApi.create('payroll', formData);
+      if (duplicate) {
+        const overwrite =
+          language === 'fr'
+            ? `Un rapport existe déjà pour ${label}. Le remplacer ?`
+            : `A report already exists for ${label}. Replace it?`;
+        if (!(await appConfirm(overwrite))) {
+          setSaving(false);
+          return;
+        }
+        const dupId = duplicate.id || duplicate._id;
+        if (dupId) await genericApi.delete('payroll_reports', String(dupId));
+      }
 
-      
+      const existingPayrollRows = await genericApi.list<any>('payroll', 1000);
+      await Promise.all(
+        (existingPayrollRows || [])
+          .filter(
+            (row) => Number(row.period_year) === year && Number(row.period_month) === month
+          )
+          .map((row) => {
+            const rowId = row.id || row._id;
+            return rowId ? genericApi.delete('payroll', String(rowId)) : Promise.resolve();
+          })
+      );
 
-      alert('Payroll generated successfully!');
+      const reportPayload = {
+        period_month: month,
+        period_year: year,
+        period_label: label,
+        status: 'generated',
+        generated_by: user?.id || null,
+        generated_at: new Date().toISOString(),
+        items: payrollItems,
+        totals: {
+          base_salary: round2(totals.base_salary),
+          retraite: round2(totals.retraite),
+          amu: round2(totals.amu),
+          deduction: round2(totals.deduction),
+          cnss: round2(totals.cnss),
+          taxable_salary: round2(totals.taxable_salary),
+          its: round2(totals.its),
+          net_salary: round2(totals.net_salary),
+        },
+        employee_count: payrollItems.length,
+      };
+
+      await genericApi.create('payroll_reports', reportPayload);
+
+      await Promise.all(
+        payrollItems.map((item) =>
+          genericApi.create('payroll', {
+            employee_id: item.employee_ref,
+            employee_matricule: item.matricule,
+            employee_name: item.employee_name,
+            period_month: month,
+            period_year: year,
+            period_label: label,
+            base_salary: item.base_salary,
+            retraite: item.retraite,
+            amu: item.amu,
+            deductions: item.deduction,
+            cnss: item.cnss,
+            taxable_salary: item.taxable_salary,
+            tax_amount: item.its,
+            bonuses: 0,
+            net_salary: item.net_salary,
+            employee_type: item.employee_type,
+            status: 'pending_approval',
+            generated_by: user?.id || null,
+          })
+        )
+      );
+
+      toastSuccess(t('generatePayroll.generatedSuccess'));
     } catch (error) {
+      crudToast.onError(error);
       console.error('Error generating payroll:', error);
-      alert('Error generating payroll. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const formatCurrency = (amount: number) => formatAmount(amount);
-
-  const totalPayroll = payrollItems.reduce((sum, item) => sum + item.net_salary, 0);
-  const totalTax = payrollItems.reduce((sum, item) => sum + item.tax_amount, 0);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">{t('common.loading')}</div>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Generate Payroll</h2>
-          <p className="text-gray-600 mt-1">Calculate and generate employee payroll</p>
-        </div>
+    <div className="p-6">
+      <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
+        <h2 className="text-2xl font-semibold text-gray-700">
+          {t('generatePayroll.title')}
+        </h2>
+        <div className="text-sm font-medium text-[#EE964C]">{t('common.version')}</div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-5 pt-5 pb-4">
+          <label className="block text-sm font-semibold text-[#0F3C66] mb-2">
+            {t('generatePayroll.periodLabel')}
+          </label>
+          <div className="flex flex-wrap items-end gap-3">
             <div>
-              <p className="text-sm text-gray-600">Total Employees</p>
-              <p className="text-2xl font-bold text-gray-900">{employees.length}</p>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {t('generatePayroll.selectYear')}
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => {
+                  const year = Number(e.target.value);
+                  setSelectedYear(year);
+                  const maxMonth = year === currentYear ? currentMonth : 12;
+                  if (selectedMonth > maxMonth) setSelectedMonth(maxMonth);
+                  resetPayrollView();
+                }}
+                className="min-w-[110px] px-3 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66]/15 focus:border-[#0F3C66] outline-none text-sm"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Users className="text-blue-600" size={24} />
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Gross Payroll</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(payrollItems.reduce((sum, item) => sum + item.base_salary + item.bonuses - item.deductions, 0))}
-              </p>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {t('generatePayroll.selectMonth')}
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => {
+                  setSelectedMonth(Number(e.target.value));
+                  resetPayrollView();
+                }}
+                className="min-w-[140px] px-3 py-2 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F3C66]/15 focus:border-[#0F3C66] outline-none text-sm"
+              >
+                {monthOptions.map((month) => (
+                  <option key={month.value} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="text-green-600" size={24} />
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Tax</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalTax)}</p>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <Calculator className="text-red-600" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Net Payroll</p>
-              <p className="text-2xl font-bold text-[#0F3C66]">{formatCurrency(totalPayroll)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#0F3C66] rounded-lg flex items-center justify-center">
-              <DollarSign className="text-white" size={24} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
+            <button
+              type="button"
+              onClick={handleViewPayrollData}
+              disabled={loadingData}
+              className="px-4 py-2 bg-[#3B82F6] text-white rounded-md font-medium text-sm hover:bg-[#2563EB] transition disabled:opacity-50"
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]?.map(month => (
-                <option key={month} value={month}>
-                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-            <input
-              type="number"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-            />
-          </div>
-          <div className="flex-1"></div>
-          <button
-            onClick={handleGeneratePayroll}
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-[#0F3C66] text-white rounded-lg hover:bg-[#154b8a] transition disabled:opacity-50 mt-6"
-          >
-            <Save size={20} />
-            {saving ? 'Generating...' : 'Generate Payroll'}
-          </button>
-        </div>
-      </div>
+              {loadingData ? t('common.loading') : t('generatePayroll.viewData')}
+            </button>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={saving || !dataLoaded || payrollItems.length === 0}
+              className="px-4 py-2 bg-[#0F3C66] text-white rounded-md font-medium text-sm hover:bg-[#154b8a] transition disabled:opacity-50"
+            >
+              {saving ? t('generatePayroll.generating') : t('generatePayroll.generate')}
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto border-t border-gray-200">
+          <table className="w-full min-w-[1100px] border-collapse text-sm">
+            <thead>
+              <tr className="bg-[#F3F4F6]">
+                <th className="px-3 py-2.5 text-left text-xs font-bold text-[#374151] border border-gray-200">#</th>
+                <th className="px-3 py-2.5 text-left text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colMatricule')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Base Salary
+                <th className="px-3 py-2.5 text-left text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colName')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bonuses
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colBase')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Deductions
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colRetraite')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tax
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colAmu')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Net Salary
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colDeduction')}
+                </th>
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colCnss')}
+                </th>
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colTaxable')}
+                </th>
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colIts')}
+                </th>
+                <th className="px-3 py-2.5 text-right text-xs font-bold text-[#374151] border border-gray-200">
+                  {t('generatePayroll.colNet')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payrollItems?.map((item) => (
-                <tr key={item.employee_id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{item.employee_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(item.base_salary)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.bonuses}
-                      onChange={(e) => updatePayrollItem(item.employee_id, 'bonuses', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.deductions}
-                      onChange={(e) => updatePayrollItem(item.employee_id, 'deductions', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#0F3C66] focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-red-600 font-medium">
-                      {formatCurrency(item.tax_amount)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-[#0F3C66]">
-                      {formatCurrency(item.net_salary)}
-                    </div>
+            <tbody>
+              {!dataLoaded ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500 border border-gray-200">
+                    {t('generatePayroll.emptyHint')}
                   </td>
                 </tr>
-              ))}
+              ) : payrollItems.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500 border border-gray-200">
+                    {t('generatePayroll.noSalaryData')}
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {payrollItems.map((item, index) => (
+                    <tr key={item.employee_ref} className="hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-gray-600 border border-gray-200">{index + 1}</td>
+                      <td className="px-3 py-2.5 text-gray-800 border border-gray-200">{item.matricule}</td>
+                      <td className="px-3 py-2.5 text-gray-800 border border-gray-200">{item.employee_name}</td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.base_salary)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.retraite)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.amu)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.deduction)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.cnss)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.taxable_salary)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.its)}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                        {formatMoney(item.net_salary)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-white">
+                    <td className="px-3 py-3 text-sm font-bold text-[#0F3C66] border border-gray-200" colSpan={3}>
+                      {t('generatePayroll.total')}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.base_salary))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.retraite))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.amu))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.deduction))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.cnss))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.taxable_salary))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.its))}
+                    </td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-800 whitespace-nowrap text-right border border-gray-200">
+                      {formatMoney(round2(totals.net_salary))}
+                    </td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
@@ -300,6 +542,3 @@ export function GeneratePayroll() {
     </div>
   );
 }
-
-
-
