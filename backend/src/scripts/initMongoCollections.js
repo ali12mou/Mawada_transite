@@ -48,6 +48,7 @@ const collectionsToCreate = [
   'employee_professions',
   'employee_documents',
   'payroll',
+  'payroll_reports',
   'tax_rates',
   'leave_request',
   'leave_types',

@@ -26,6 +26,10 @@ const employeeSchema = new mongoose.Schema(
     contract_end_date: { type: String },
     employment_date: { type: String },
     allow_end_date: { type: Boolean, default: false },
+    salary: { type: Number, default: 0 },
+    base_salary: { type: Number, default: 0 },
+    contract_document: { type: String },
+    contract_document_name: { type: String },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     status: { type: String, default: 'active' }, // active, on_leave, inactive
     absent_days: { type: Number, default: 0 },
