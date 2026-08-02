@@ -11,7 +11,8 @@ import {
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 function fmtDateDisplay(iso?: string): string {
   if (iso) {
@@ -348,15 +349,8 @@ export function buildCarriersListPrintHtml(
 </html>`;
 }
 
-function openPrintHtml(html: string): void {
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+function openPrintHtml(html: string, fileName = 'Transporteur.pdf'): void {
+  void openHtmlPrintThenPdfInBrowser(html, fileName);
 }
 
 export async function openCarrierPrintWindow(carrier: CarrierPrintRecord): Promise<void> {

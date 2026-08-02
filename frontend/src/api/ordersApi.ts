@@ -31,6 +31,7 @@ export interface OrderData {
   total: number;
   ci_amount: number;
   complete_document?: string;
+  complete_document_name?: string;
   order_date: string;
   delivery_status: string;
   status: string;

@@ -1,7 +1,7 @@
 import type { Document9Record } from '../api/document9Api';
 import type { DocumentBranding } from '../types/documentBranding';
 import { fetchDocumentBranding } from './documentBranding';
-import { appendAutoPrintBeforeBodyClose } from './printA4';
+import { openHtmlAsPdfInBrowser, openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? '')
@@ -777,25 +777,17 @@ export function buildDocument9PrintHtml(
 export async function openDocument9ViewDocumentWindow(doc: Document9Record): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildDocument9PrintHtml(doc, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour afficher le document.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  await openHtmlAsPdfInBrowser(
+    html,
+    `Document9-${String((doc as any).document_no || doc.id || 'view').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }
 
 export async function openDocument9PrintWindow(doc: Document9Record): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildDocument9PrintHtml(doc, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Document9-${String((doc as any).document_no || doc.id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }

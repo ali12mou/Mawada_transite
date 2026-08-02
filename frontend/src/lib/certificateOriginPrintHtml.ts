@@ -1,7 +1,8 @@
 import type { DocumentBranding } from '../types/documentBranding';
 import { fetchDocumentBranding } from './documentBranding';
 import { documentImageSrc } from './documentPrintImages';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? '')
@@ -308,12 +309,8 @@ export async function openCertificateOriginPrint(
 ): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildCertificateOriginPrintHtml(record, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Certificat-Origine-${String((record as any).certificate_no || (record as any).id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }

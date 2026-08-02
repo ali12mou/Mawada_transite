@@ -8,7 +8,8 @@ import {
   mawadaContactFooterPrintCss,
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 const TABLE_GREEN = '#00AA48';
 const USD_RATE = 178;
@@ -477,14 +478,7 @@ export async function openOrdersPrintWindow(
     printDate: options?.printDate,
     location: options?.location,
   });
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(html, 'Commandes.pdf');
 }
 
 /** @deprecated Conservé pour compatibilité — préférer passer l’ordre complet. */

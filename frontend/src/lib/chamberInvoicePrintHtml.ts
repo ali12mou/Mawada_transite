@@ -10,7 +10,7 @@ import {
   sharedPrintStyles,
   wrapPrintBundle,
 } from './chamberDocumentPrintShared';
-import { appendAutoPrintBeforeBodyClose } from './printA4';
+import { openHtmlAsPdfInBrowser, openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 export type ChamberInvoicePrintRecord = {
   consignee_name: string;
@@ -549,14 +549,10 @@ export async function openChamberInvoiceFullPrint(
     mapWaybillItems(payload.letterItems),
     branding
   );
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Facture-Chambre-${String(payload.inv.invoice_no || 'document').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }
 
 export async function openChamberInvoiceViewWindow(
@@ -565,14 +561,10 @@ export async function openChamberInvoiceViewWindow(
 ): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildChamberInvoicePrintHtml(inv, items, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  await openHtmlAsPdfInBrowser(
+    html,
+    `Facture-Chambre-${String(inv.invoice_no || 'document').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }
 
 export { waybillFromRecord, mapWaybillItems };

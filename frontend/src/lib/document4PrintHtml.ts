@@ -2,7 +2,7 @@ import type { Document9Record } from '../api/document9Api';
 import type { DocumentBranding } from '../types/documentBranding';
 import { fetchDocumentBranding } from './documentBranding';
 import { buildDocument9PrintHtml } from './document9PrintHtml';
-import { appendAutoPrintBeforeBodyClose } from './printA4';
+import { openHtmlAsPdfInBrowser, openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 export interface Document4Record {
   id?: string;
@@ -86,30 +86,22 @@ export function buildDocument4PrintHtml(
   return buildDocument9PrintHtml(mapDocument4ToPrintDoc(doc), branding, { documentNumber: 4 });
 }
 
-/** Avis seul dans un onglet (lecture, sans ouverture automatique de la boîte d'impression). */
+/** Avis seul dans un onglet (PDF). */
 export async function openDocument4ViewDocumentWindow(doc: Document4Record): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildDocument4PrintHtml(doc, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour afficher le document.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  await openHtmlAsPdfInBrowser(
+    html,
+    `Document4-${String(doc.license_code || doc.id || 'view').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }
 
-/** Impression / enregistrement PDF via le navigateur. */
+/** Impression : ouvre le PDF + lance l’impression du même fichier. */
 export async function openDocument4PrintWindow(doc: Document4Record): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildDocument4PrintHtml(doc, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Document4-${String(doc.license_code || doc.id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }

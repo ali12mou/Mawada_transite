@@ -9,7 +9,8 @@ import {
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { fetchDocumentBranding } from './documentBranding';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? '')
@@ -200,12 +201,8 @@ export function buildDemurragePrintHtml(
 export async function openDemurragePrintWindow(p: DemurragePrintRecord): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildDemurragePrintHtml(p, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Surestaries-${String((p as any).reference || (p as any).id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }

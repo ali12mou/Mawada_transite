@@ -1055,6 +1055,7 @@ const translations = {
     'orders.selectItemPrice': 'Select Item Price',
     'orders.filterAll': 'All',
     'orders.pdf': 'PDF',
+    'orders.cannotEditApproved': 'This order has been approved and can no longer be modified.',
 
     // Order Verification
     'orderVerification.title': 'Order Approval',
@@ -2831,6 +2832,7 @@ const translations = {
     'orders.selectItemPrice': 'Sélectionner le prix article',
     'orders.filterAll': 'Tous',
     'orders.pdf': 'PDF',
+    'orders.cannotEditApproved': 'Cette commande a été approuvée et ne peut plus être modifiée.',
 
     // Order Verification
     'orderVerification.title': 'Approbation de commande',

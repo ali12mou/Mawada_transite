@@ -1,4 +1,3 @@
-import { genericApi } from '../../api/genericApi';
 import { getApiBaseUrl } from '../lib/apiBase';
 
 export interface MongoDoc {
@@ -24,25 +23,25 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const genericApi = {
-  list: <T = any>(collection: string, limit = 500) => 
+  list: <T = any>(collection: string, limit = 500) =>
     req<T[]>(`/${collection}/documents?limit=${limit}`),
-    
-  get: <T = any>(collection: string, id: string) => 
+
+  get: <T = any>(collection: string, id: string) =>
     req<T>(`/${collection}/documents/${id}`),
-    
-  create: <T = any>(collection: string, payload: any) => 
+
+  create: <T = any>(collection: string, payload: any) =>
     req<T>(`/${collection}/documents`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-    
-  update: <T = any>(collection: string, id: string, payload: any) => 
+
+  update: <T = any>(collection: string, id: string, payload: any) =>
     req<T>(`/${collection}/documents/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
-    
-  delete: (collection: string, id: string) => 
+
+  delete: (collection: string, id: string) =>
     req<any>(`/${collection}/documents/${id}`, {
       method: 'DELETE',
     }),

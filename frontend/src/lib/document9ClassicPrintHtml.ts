@@ -1,5 +1,5 @@
 import type { Document9Record } from '../api/document9Api';
-import { appendAutoPrintBeforeBodyClose } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 import { DOUANES_DJIBOUTI_LOGO_DATA_URI } from './douanesDjiboutiLogo';
 
 function esc(s: string | number | undefined | null): string {
@@ -578,12 +578,5 @@ export function buildDocument9ClassicPrintHtml(doc: Document9Record): string {
 
 export async function openDocument9ClassicPrintWindow(doc: Document9Record): Promise<void> {
   const html = buildDocument9ClassicPrintHtml(doc);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(html, `Document9-${String((doc as any).document_no || doc.id || 'print').replace(/[^\w-]+/g, '-')}.pdf`);
 }

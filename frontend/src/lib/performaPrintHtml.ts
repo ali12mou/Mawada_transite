@@ -14,7 +14,8 @@ import {
   watermarkPrintCss,
 } from './chamberDocumentPrintShared';
 import { parseLocalizedNumber } from './commercialChamberCalculations';
-import { STYLE_A4_SHEET, appendAutoPrintBeforeBodyClose } from './printA4';
+import { STYLE_A4_SHEET } from './printA4';
+import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
 
 function fmtDateDisplay(iso: string): string {
   if (!iso) return '—';
@@ -338,12 +339,8 @@ export function buildPerformaPrintHtml(
 export async function openPerformaPrintWindow(p: PerformaPrintRecord, items: PerformaPrintItem[]): Promise<void> {
   const branding = await fetchDocumentBranding();
   const html = buildPerformaPrintHtml(p, items, branding);
-  const w = window.open('', '_blank', 'width=900,height=1200');
-  if (!w) {
-    alert('Autorisez les fenêtres pop-up pour imprimer.');
-    return;
-  }
-  w.document.open();
-  w.document.write(appendAutoPrintBeforeBodyClose(html));
-  w.document.close();
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Proforma-${String((p as any).invoice_no || (p as any).id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+  );
 }

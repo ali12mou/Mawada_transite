@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useCrudToast } from '../../hooks/useCrudToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { genericApi } from '../../api/genericApi';
+import { fetchOrders, type OrderData } from '../../api/ordersApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { CheckCircle, Ban, FileText } from 'lucide-react';
 
@@ -18,12 +19,30 @@ interface OrderVerification {
   created_at?: string;
 }
 
-function rowId(v: OrderVerification): string {
+function rowId(v: { id?: string; _id?: string }): string {
   return v.id || v._id || '';
 }
 
+function normalizeId(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'object' && value !== null && '$oid' in (value as object)) {
+    return String((value as { $oid: string }).$oid);
+  }
+  return String(value).trim();
+}
+
 function isChecked(status: string): boolean {
-  return status === 'CHECKED' || status === 'APPROVED';
+  const s = String(status || '').toUpperCase();
+  return s === 'CHECKED' || s === 'APPROVED';
+}
+
+function sameOrder(v: OrderVerification, orderId: string, orderNumber: string): boolean {
+  const vid = normalizeId(v.order_id);
+  const vnum = String(v.order_number || '').trim().toUpperCase();
+  const onum = String(orderNumber || '').trim().toUpperCase();
+  if (orderId && vid && vid === orderId) return true;
+  if (onum && vnum && vnum === onum) return true;
+  return false;
 }
 
 export function OrderVerification() {
@@ -61,19 +80,103 @@ export function OrderVerification() {
 
   const fetchOrdersAndSync = async () => {
     try {
-      const currentVerifications = await genericApi.list<OrderVerification>('order_verifications');
-      const orders = await genericApi.list<Record<string, unknown>>('orders');
-      const pendingOrders = orders.filter((o) => String(o.status ?? '') === 'PENDING');
+      const [currentVerifications, orders] = await Promise.all([
+        genericApi.list<OrderVerification>('order_verifications', 1000),
+        fetchOrders(),
+      ]);
+
+      const list = [...(currentVerifications || [])];
+
+      // Supprimer les doublons (même commande = une seule vérification)
+      const seenKeys = new Map<string, OrderVerification>();
+      const duplicatesToDelete: string[] = [];
+
+      for (const v of list) {
+        const key =
+          normalizeId(v.order_id) ||
+          String(v.order_number || '')
+            .trim()
+            .toUpperCase();
+        if (!key) continue;
+
+        const prev = seenKeys.get(key);
+        if (!prev) {
+          seenKeys.set(key, v);
+          continue;
+        }
+
+        // Garder la version CHECKED / la plus récente, supprimer l'autre
+        const keepChecked = isChecked(v.status) && !isChecked(prev.status);
+        const keepNewer =
+          !isChecked(v.status) &&
+          !isChecked(prev.status) &&
+          String(v.created_at || '') > String(prev.created_at || '');
+        const keepPrev = isChecked(prev.status) && !isChecked(v.status);
+
+        if (keepChecked || keepNewer) {
+          const dropId = rowId(prev);
+          if (dropId) duplicatesToDelete.push(dropId);
+          seenKeys.set(key, v);
+        } else if (keepPrev || true) {
+          const dropId = rowId(v);
+          if (dropId) duplicatesToDelete.push(dropId);
+        }
+      }
+
+      await Promise.all(
+        duplicatesToDelete.map((id) =>
+          genericApi.delete('order_verifications', id).catch(() => undefined)
+        )
+      );
+
+      let workingList = Array.from(seenKeys.values());
+      if (duplicatesToDelete.length > 0) {
+        workingList = (await genericApi.list<OrderVerification>('order_verifications', 1000)) || [];
+      }
+
+      const pendingOrders = (orders || []).filter(
+        (o) => String(o.status ?? '').toUpperCase() === 'PENDING'
+      );
 
       for (const order of pendingOrders) {
-        const orderId = String(order._id ?? order.id ?? '');
-        const existing = currentVerifications.find((v) => v.order_id === orderId);
-        if (!existing) {
+        const orderId = normalizeId(order._id);
+        const orderNumber = String(order.order_number || '');
+        if (!orderId && !orderNumber) continue;
+
+        const matches = workingList.filter((v) => sameOrder(v, orderId, orderNumber));
+        const existing = matches[0];
+
+        // Extra doublons pour cette commande
+        for (const extra of matches.slice(1)) {
+          const id = rowId(extra);
+          if (id) {
+            await genericApi.delete('order_verifications', id).catch(() => undefined);
+          }
+        }
+
+        const payload = {
+          order_id: orderId,
+          order_number: orderNumber,
+          client_name: String(order.client_name || ''),
+          source_destination: String(order.source_destination || ''),
+        };
+
+        if (existing) {
+          const id = rowId(existing);
+          if (!id) continue;
+          // Mise à jour uniquement — pas de création
+          const needsUpdate =
+            normalizeId(existing.order_id) !== orderId ||
+            existing.order_number !== payload.order_number ||
+            existing.client_name !== payload.client_name ||
+            existing.source_destination !== payload.source_destination;
+
+          if (needsUpdate) {
+            await genericApi.update('order_verifications', id, payload);
+          }
+        } else {
           await genericApi.create('order_verifications', {
-            order_id: orderId,
-            order_number: order.order_number,
-            client_name: order.client_name,
-            source_destination: order.source_destination,
+            ...payload,
             status: 'PENDING',
             created_by: user?.id,
             created_at: new Date().toISOString(),
@@ -81,7 +184,31 @@ export function OrderVerification() {
         }
       }
 
-      const updatedList = await genericApi.list<OrderVerification>('order_verifications');
+      // Aligner le statut des vérifications déjà CHECKED avec les commandes
+      for (const order of orders || []) {
+        const orderId = normalizeId(order._id);
+        const orderNumber = String(order.order_number || '');
+        const orderStatus = String(order.status || '').toUpperCase();
+        if (orderStatus !== 'CHECKED' && orderStatus !== 'APPROVED' && orderStatus !== 'COMPLETED') {
+          continue;
+        }
+        const matches = workingList.filter((v) => sameOrder(v, orderId, orderNumber));
+        for (const v of matches) {
+          if (!isChecked(v.status)) {
+            const id = rowId(v);
+            if (!id) continue;
+            await genericApi.update('order_verifications', id, {
+              status: 'CHECKED',
+              order_id: orderId || v.order_id,
+              order_number: orderNumber || v.order_number,
+              client_name: order.client_name || v.client_name,
+              source_destination: order.source_destination || v.source_destination,
+            });
+          }
+        }
+      }
+
+      const updatedList = await genericApi.list<OrderVerification>('order_verifications', 1000);
       const sorted = [...(updatedList || [])].sort((a, b) => {
         const aPending = !isChecked(a.status);
         const bPending = !isChecked(b.status);
@@ -99,18 +226,20 @@ export function OrderVerification() {
   const handleApprove = async (v: OrderVerification) => {
     const id = rowId(v);
     if (!id) return;
+    if (isChecked(v.status)) return;
     try {
       await genericApi.update('order_verifications', id, {
         status: 'CHECKED',
         verified_at: new Date().toISOString(),
       });
       if (v.order_id) {
-        await genericApi.update('orders', v.order_id, { status: 'CHECKED' });
+        await genericApi.update('orders', normalizeId(v.order_id), { status: 'CHECKED' });
       }
       crudToast.onApproved();
       await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error approving verification:', error);
+      crudToast.onError(error);
     }
   };
 
@@ -123,19 +252,23 @@ export function OrderVerification() {
         verified_at: null,
       });
       if (v.order_id) {
-        await genericApi.update('orders', v.order_id, { status: 'PENDING' });
+        await genericApi.update('orders', normalizeId(v.order_id), { status: 'PENDING' });
       }
       crudToast.onRejected();
       await fetchOrdersAndSync();
     } catch (error) {
       console.error('Error rejecting verification:', error);
+      crudToast.onError(error);
     }
   };
 
   const handleViewDocument = async (v: OrderVerification) => {
     if (!v.order_id) return;
     try {
-      const order = await genericApi.get<Record<string, unknown>>('orders', v.order_id);
+      const order = await genericApi.get<OrderData & Record<string, unknown>>(
+        'orders',
+        normalizeId(v.order_id)
+      );
       const bl = String(order?.bl_number ?? '').trim();
       const msg = bl
         ? `${v.order_number}\nBL: ${bl}`
@@ -244,7 +377,9 @@ export function OrderVerification() {
                       </td>
                       <td className="border-t border-gray-100 px-4 py-3">
                         {checked ? (
-                          <span className="font-medium text-gray-900">{t('orderVerification.statusChecked')}</span>
+                          <span className="font-medium text-gray-900">
+                            {t('orderVerification.statusChecked')}
+                          </span>
                         ) : (
                           <span className="inline-block rounded-full bg-[#C47A2C] px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
                             {t('orderVerification.statusPending')}
@@ -283,9 +418,9 @@ export function OrderVerification() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-sm text-gray-600">
           <div>
-            {t('common.showing')} {filteredVerifications.length === 0 ? 0 : startIndex + 1} {t('common.to')}{' '}
-            {Math.min(startIndex + entriesPerPage, filteredVerifications.length)} {t('common.of')}{' '}
-            {filteredVerifications.length} {t('common.entries')}
+            {t('common.showing')} {filteredVerifications.length === 0 ? 0 : startIndex + 1}{' '}
+            {t('common.to')} {Math.min(startIndex + entriesPerPage, filteredVerifications.length)}{' '}
+            {t('common.of')} {filteredVerifications.length} {t('common.entries')}
           </div>
           <div className="flex items-center gap-2">
             <button

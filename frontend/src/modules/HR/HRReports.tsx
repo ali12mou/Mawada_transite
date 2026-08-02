@@ -16,6 +16,7 @@ import { genericApi } from '../../api/genericApi';
 import { fetchEmployees, type Employee } from '../../api/hrApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { openHtmlPreviewWithDownload } from '../../lib/htmlPrintPdf';
 
 type ReportView =
   | 'main'
@@ -127,28 +128,24 @@ function rowId(row: { id?: string; _id?: string }): string {
 }
 
 function printTable(title: string, headers: string[], rows: string[][]) {
-  const win = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
-  if (!win) return;
   const th = headers.map((h) => `<th>${h}</th>`).join('');
   const body = rows.length
     ? rows
         .map((r) => `<tr>${r.map((c) => `<td>${c || '—'}</td>`).join('')}</tr>`)
         .join('')
     : `<tr><td colspan="${headers.length}" style="text-align:center;padding:24px;">—</td></tr>`;
-  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title>
     <style>
       body{font-family:Arial,sans-serif;padding:24px;color:#111}
       h1{font-size:18px;margin:0 0 16px;color:#0F3C66}
       table{width:100%;border-collapse:collapse;font-size:12px}
       th,td{border:1px solid #ddd;padding:8px;text-align:left}
       th{background:#f3f4f6}
-      @media print{button{display:none}}
     </style></head><body>
     <h1>${title}</h1>
     <table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>
-    <script>window.onload=()=>window.print()<\/script>
-    </body></html>`);
-  win.document.close();
+    </body></html>`;
+  openHtmlPreviewWithDownload(html, `${title.replace(/[^\w\-]+/g, '_') || 'rapport'}.pdf`);
 }
 
 export function HRReports() {

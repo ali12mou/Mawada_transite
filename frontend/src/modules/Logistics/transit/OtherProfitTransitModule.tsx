@@ -9,7 +9,8 @@ import {
   mawadaContactFooterPrintCss,
   watermarkPrintCss,
 } from '../../../lib/chamberDocumentPrintShared';
-import { appendAutoPrintBeforeBodyClose, STYLE_A4_SHEET } from '../../../lib/printA4';
+import { STYLE_A4_SHEET } from '../../../lib/printA4';
+import { openHtmlPrintThenPdfInBrowser } from '../../../lib/htmlPrintPdf';
 import type { DocumentBranding } from '../../../types/documentBranding';
 
 type OtherProfitRow = {
@@ -330,14 +331,10 @@ export function OtherProfitTransitModule() {
 
   const printRowDocument = async (row: OtherProfitRow) => {
     const branding = await fetchDocumentBranding();
-    const popup = window.open('', '_blank', 'width=1000,height=900');
-    if (!popup) {
-      alert('Autorisez les fenêtres pop-up pour imprimer.');
-      return;
-    }
-    popup.document.open();
-    popup.document.write(appendAutoPrintBeforeBodyClose(buildPrintDocumentHtml(row, branding)));
-    popup.document.close();
+    await openHtmlPrintThenPdfInBrowser(
+      buildPrintDocumentHtml(row, branding),
+      `Autre-Profit-${String(row.id || 'print').replace(/[^\w-]+/g, '-')}.pdf`
+    );
   };
 
   const openViewModal = (row: OtherProfitRow) => {

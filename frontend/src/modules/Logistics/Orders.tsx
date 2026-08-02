@@ -10,6 +10,7 @@ import { fetchClients, type ClientRecord } from '../../api/clientsApi';
 import {
   fetchOrders as apiFetchOrders,
   createOrder,
+  updateOrder,
   deleteOrder,
   type OrderData,
 } from '../../api/ordersApi';
@@ -64,8 +65,18 @@ type OrderFormData = {
   transit: string;
   ci_amount: string;
   complete_document: string;
+  complete_document_name: string;
   order_date: string;
 };
+
+function readLocalFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Impossible de lire le fichier.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 const emptyForm = (): OrderFormData => ({
   client_name: '',
@@ -92,6 +103,7 @@ const emptyForm = (): OrderFormData => ({
   transit: '',
   ci_amount: '',
   complete_document: '',
+  complete_document_name: '',
   order_date: new Date().toISOString().slice(0, 16),
 });
 
@@ -121,6 +133,11 @@ function computeTotalItemPrice(fd: OrderFormData): number {
 function computeProfit(fd: OrderFormData): number {
   const total = computeTotalItemPrice(fd) + parseLocalizedNumber(fd.recharge_amount);
   return total - computeTotalServices(fd);
+}
+
+function isOrderApproved(status?: string): boolean {
+  const s = String(status || '').toUpperCase();
+  return s === 'CHECKED' || s === 'APPROVED' || s === 'COMPLETED';
 }
 
 function fmtDateFr(iso: string | undefined): string {
@@ -158,6 +175,7 @@ export function Orders() {
   const [itemPrices, setItemPrices] = useState<{ id?: string; _id?: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -260,50 +278,66 @@ export function Orders() {
       return;
     }
 
+    const payload = {
+      client_name: formData.client_name,
+      client_phone: formData.client_phone,
+      source_destination: formData.source_destination,
+      item_price: formData.item_price,
+      bl_number: formData.bl_number,
+      amount_djf: parseLocalizedNumber(formData.amount_djf),
+      quantity: parseLocalizedNumber(formData.quantity),
+      recharge_amount: parseLocalizedNumber(formData.recharge_amount),
+      maritime_line_fees: parseLocalizedNumber(formData.maritime_line_fees),
+      sgtd_wharfage: parseLocalizedNumber(formData.sgtd_wharfage),
+      document_9: parseLocalizedNumber(formData.document_9),
+      document_4: parseLocalizedNumber(formData.document_4),
+      port_handling: parseLocalizedNumber(formData.port_handling),
+      port_passage: parseLocalizedNumber(formData.port_passage),
+      file_fees: parseLocalizedNumber(formData.file_fees),
+      escort_fees: parseLocalizedNumber(formData.escort_fees),
+      transport: parseLocalizedNumber(formData.transport),
+      elevator_cart: parseLocalizedNumber(formData.elevator_cart),
+      ctn: parseLocalizedNumber(formData.ctn),
+      chamber: parseLocalizedNumber(formData.chamber),
+      exit: parseLocalizedNumber(formData.exit),
+      transit: parseLocalizedNumber(formData.transit),
+      total_services: totalServices,
+      total_item_price: totalItemPrice,
+      total: totalItemPrice + parseLocalizedNumber(formData.recharge_amount),
+      profit_amount: profitAmount,
+      ci_amount: parseLocalizedNumber(formData.ci_amount),
+      complete_document: formData.complete_document,
+      complete_document_name: formData.complete_document_name,
+      order_date: formData.order_date,
+    };
+
     try {
-      const orderNumber = `ORDER${String(orders.length + 1).padStart(5, '0')}`;
-      await createOrder({
-        client_name: formData.client_name,
-        client_phone: formData.client_phone,
-        source_destination: formData.source_destination,
-        item_price: formData.item_price,
-        bl_number: formData.bl_number,
-        amount_djf: parseLocalizedNumber(formData.amount_djf),
-        quantity: parseLocalizedNumber(formData.quantity),
-        recharge_amount: parseLocalizedNumber(formData.recharge_amount),
-        maritime_line_fees: parseLocalizedNumber(formData.maritime_line_fees),
-        sgtd_wharfage: parseLocalizedNumber(formData.sgtd_wharfage),
-        document_9: parseLocalizedNumber(formData.document_9),
-        document_4: parseLocalizedNumber(formData.document_4),
-        port_handling: parseLocalizedNumber(formData.port_handling),
-        port_passage: parseLocalizedNumber(formData.port_passage),
-        file_fees: parseLocalizedNumber(formData.file_fees),
-        escort_fees: parseLocalizedNumber(formData.escort_fees),
-        transport: parseLocalizedNumber(formData.transport),
-        elevator_cart: parseLocalizedNumber(formData.elevator_cart),
-        ctn: parseLocalizedNumber(formData.ctn),
-        chamber: parseLocalizedNumber(formData.chamber),
-        exit: parseLocalizedNumber(formData.exit),
-        transit: parseLocalizedNumber(formData.transit),
-        order_number: orderNumber,
-        total_services: totalServices,
-        total_item_price: totalItemPrice,
-        total: totalItemPrice + parseLocalizedNumber(formData.recharge_amount),
-        profit_amount: profitAmount,
-        ci_amount: parseLocalizedNumber(formData.ci_amount),
-        complete_document: formData.complete_document,
-        delivery_status: 'PENDING',
-        status: 'PENDING',
-        created_by: user?.nom || user?.id,
-        order_date: formData.order_date,
-      });
-      crudToast.onSaved(false);
+      if (editingId) {
+        const existing = orders.find((o) => o.id === editingId);
+        if (existing && isOrderApproved(existing.status)) {
+          alert(t('orders.cannotEditApproved'));
+          return;
+        }
+        await updateOrder(editingId, payload);
+        crudToast.onSaved(true);
+      } else {
+        const orderNumber = `ORDER${String(orders.length + 1).padStart(5, '0')}`;
+        await createOrder({
+          ...payload,
+          order_number: orderNumber,
+          delivery_status: 'PENDING',
+          status: 'PENDING',
+          created_by: user?.nom || user?.id,
+        });
+        crudToast.onSaved(false);
+      }
       setShowModal(false);
+      setEditingId(null);
       setFormData(emptyForm());
       await fetchOrders();
     } catch (error) {
       crudToast.onError(error);
-      console.error('Error creating order:', error);
+      console.error('Error saving order:', error);
     }
   };
 
@@ -349,6 +383,7 @@ export function Orders() {
           <button
             type="button"
             onClick={() => {
+              setEditingId(null);
               setFormData(emptyForm());
               setShowModal(true);
             }}
@@ -510,7 +545,13 @@ export function Orders() {
                           {
                             label: t('common.edit'),
                             icon: <Edit2 size={16} />,
+                            disabled: isOrderApproved(order.status),
                             onClick: () => {
+                              if (isOrderApproved(order.status)) {
+                                alert(t('orders.cannotEditApproved'));
+                                return;
+                              }
+                              setEditingId(order.id);
                               setFormData({
                                 client_name: order.client_name,
                                 client_phone: order.client_phone || '',
@@ -536,6 +577,13 @@ export function Orders() {
                                 transit: numStr(order.transit),
                                 ci_amount: numStr(order.ci_amount),
                                 complete_document: order.complete_document || '',
+                                complete_document_name:
+                                  order.complete_document_name ||
+                                  (order.complete_document &&
+                                  !String(order.complete_document).startsWith('data:')
+                                    ? order.complete_document
+                                    : '') ||
+                                  '',
                                 order_date: order.order_date?.slice(0, 16) || emptyForm().order_date,
                               });
                               setShowModal(true);
@@ -610,6 +658,7 @@ export function Orders() {
                 type="button"
                 onClick={() => {
                   setShowModal(false);
+                  setEditingId(null);
                   setFormData(emptyForm());
                 }}
                 className="text-xl text-gray-500 hover:text-gray-700"
@@ -875,16 +924,35 @@ export function Orders() {
                     <input
                       type="file"
                       required={!formData.complete_document}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          complete_document: e.target.files?.[0]?.name || '',
-                        })
-                      }
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) {
+                          setFormData({
+                            ...formData,
+                            complete_document: '',
+                            complete_document_name: '',
+                          });
+                          return;
+                        }
+                        void readLocalFile(file)
+                          .then((dataUrl) => {
+                            setFormData({
+                              ...formData,
+                              complete_document: dataUrl,
+                              complete_document_name: file.name,
+                            });
+                          })
+                          .catch((err) => {
+                            console.error(err);
+                            alert(String(err?.message || err));
+                          });
+                      }}
                       className={inputClass}
                     />
-                    {formData.complete_document ? (
-                      <p className="mt-1 text-xs text-gray-600">{formData.complete_document}</p>
+                    {formData.complete_document_name || formData.complete_document ? (
+                      <p className="mt-1 text-xs text-gray-600">
+                        {formData.complete_document_name || 'Document joint'}
+                      </p>
                     ) : null}
                   </Field>
               </div>
