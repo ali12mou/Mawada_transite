@@ -38,6 +38,16 @@ router.post('/', async (req, res) => {
 // Update an order
 router.put('/:id', async (req, res) => {
   try {
+    const existing = await Order.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Order not found' });
+
+    const status = String(existing.status || '').toUpperCase();
+    if (status === 'CHECKED' || status === 'APPROVED' || status === 'COMPLETED') {
+      return res.status(403).json({
+        error: 'Cette commande a été approuvée et ne peut plus être modifiée.',
+      });
+    }
+
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       req.body,
