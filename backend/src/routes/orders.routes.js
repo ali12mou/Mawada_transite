@@ -60,7 +60,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete an order
+// Delete an orders
 router.delete('/:id', async (req, res) => {
   try {
     const deletedOrder = await Order.findByIdAndDelete(req.params.id);
