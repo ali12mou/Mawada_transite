@@ -179,7 +179,7 @@ function AppContent() {
       case 'hr-reports':
         return <HRReports />;
       case 'financial-reports':
-        return <FinancialReports />;
+        return <FinancialReports onNavigate={setCurrentPage} />;
       case 'services-reports':
         return <ServicesReports />;
       case 'maritime-lines':

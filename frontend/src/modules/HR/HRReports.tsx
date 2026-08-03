@@ -1,22 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Users,
-  DollarSign,
   ClipboardCheck,
-  CalendarDays,
-  RotateCcw,
-  Tags,
-  FileText,
-  Briefcase,
-  FileSignature,
-  Wallet,
   Printer,
+  Banknote,
+  Eye,
 } from 'lucide-react';
 import { genericApi } from '../../api/genericApi';
 import { fetchEmployees, type Employee } from '../../api/hrApi';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { openHtmlPreviewWithDownload } from '../../lib/htmlPrintPdf';
+import { openPayrollLetterPrint } from '../../lib/payrollLetterPrintHtml';
 
 type ReportView =
   | 'main'
@@ -44,6 +38,9 @@ interface AttendanceRow {
   overtime_hours?: number;
   notes?: string;
   comments?: string;
+  comment?: string;
+  added_by?: string;
+  created_by?: string;
 }
 
 interface LeaveRequestRow {
@@ -172,6 +169,7 @@ export function HRReports() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceDetail, setAttendanceDetail] = useState<AttendanceRow | null>(null);
 
   const locale = language === 'fr' ? 'fr-FR' : 'en-US';
   const years = useMemo(() => {
@@ -191,9 +189,10 @@ export function HRReports() {
   const employeeById = useMemo(() => {
     const map = new Map<string, Employee>();
     employees.forEach((e) => {
-      const id = rowId(e as { id?: string; _id?: string });
-      if (id) map.set(id, e);
-      if (e.employee_id) map.set(e.employee_id, e);
+      const mongoId = rowId(e as { id?: string; _id?: string });
+      if (mongoId) map.set(mongoId, e);
+      if (e.id) map.set(String(e.id), e);
+      if (e.employee_id) map.set(String(e.employee_id), e);
     });
     return map;
   }, [employees]);
@@ -207,9 +206,23 @@ export function HRReports() {
     return map;
   }, [leaveTypes]);
 
-  const getEmployeeName = (id: string) => employeeById.get(id)?.full_name || '—';
+  const resolveEmployee = (ref: string): Employee | undefined => {
+    if (!ref) return undefined;
+    const direct = employeeById.get(ref);
+    if (direct) return direct;
+    return employees.find(
+      (e) =>
+        rowId(e as { id?: string; _id?: string }) === ref ||
+        e.id === ref ||
+        e.employee_id === ref ||
+        String(e.full_name || '').toLowerCase() === ref.toLowerCase()
+    );
+  };
+
+  const getEmployeeName = (id: string) => resolveEmployee(id)?.full_name || '—';
   const getEmployeeMatricule = (id: string) =>
-    employeeById.get(id)?.employee_id || id || '—';
+    resolveEmployee(id)?.employee_id || id || '—';
+  const getEmployeePhone = (id: string) => resolveEmployee(id)?.phone_number || '—';
   const getLeaveTypeName = (id: string) => leaveTypeById.get(id)?.name || '—';
 
   const loadEmployees = async () => {
@@ -224,6 +237,7 @@ export function HRReports() {
     setSelectedStatus('all');
     setDateFrom('');
     setDateTo('');
+    setAttendanceDetail(null);
     setLoading(true);
     try {
       await loadEmployees();
@@ -314,6 +328,17 @@ export function HRReports() {
     language,
   ]);
 
+  const salaryTotals = useMemo(() => {
+    return salaryRows.reduce(
+      (acc, row) => ({
+        base_salary: acc.base_salary + Number(row.base_salary || 0),
+        total_deductions: acc.total_deductions + Number(row.total_deductions || 0),
+        net_salary: acc.net_salary + Number(row.net_salary || 0),
+      }),
+      { base_salary: 0, total_deductions: 0, net_salary: 0 }
+    );
+  }, [salaryRows]);
+
   const filteredEmployees = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return employees.filter((e) => {
@@ -333,18 +358,25 @@ export function HRReports() {
   const filteredAttendance = useMemo(() => {
     return attendanceRecords.filter((record) => {
       const date = record.date || record.attendance_date || '';
-      if (selectedEmployee !== 'all' && record.employee_id !== selectedEmployee) return false;
-      if (dateFrom && date && date < dateFrom) return false;
-      if (dateTo && date && date > dateTo) return false;
-      if (selectedStatus !== 'all' && record.status?.toLowerCase() !== selectedStatus.toLowerCase()) {
-        return false;
+      const emp = resolveEmployee(record.employee_id);
+      if (selectedEmployee !== 'all') {
+        const empMongoId = emp ? rowId(emp as { id?: string; _id?: string }) : '';
+        const match =
+          record.employee_id === selectedEmployee ||
+          empMongoId === selectedEmployee ||
+          emp?.id === selectedEmployee ||
+          emp?.employee_id === selectedEmployee;
+        if (!match) return false;
       }
+      if (dateFrom && date && date.slice(0, 10) < dateFrom) return false;
+      if (dateTo && date && date.slice(0, 10) > dateTo) return false;
       if (searchTerm) {
-        const emp = employeeById.get(record.employee_id);
         const q = searchTerm.toLowerCase();
         if (
           !emp?.full_name?.toLowerCase().includes(q) &&
-          !emp?.employee_id?.toLowerCase().includes(q)
+          !emp?.employee_id?.toLowerCase().includes(q) &&
+          !emp?.phone_number?.toLowerCase().includes(q) &&
+          !String(record.status || '').toLowerCase().includes(q)
         ) {
           return false;
         }
@@ -356,8 +388,8 @@ export function HRReports() {
     selectedEmployee,
     dateFrom,
     dateTo,
-    selectedStatus,
     searchTerm,
+    employees,
     employeeById,
   ]);
 
@@ -420,78 +452,19 @@ export function HRReports() {
     id: ReportView;
     title: string;
     subtitle: string;
-    icon: typeof Users;
-    color: string;
+    icon: typeof Banknote;
   }[] = [
-    {
-      id: 'employees',
-      title: t('hrReports.employeesReport'),
-      subtitle: t('hrReports.employeesSubtitle'),
-      icon: Users,
-      color: 'bg-blue-50 text-[#0F3C66]',
-    },
     {
       id: 'salary',
       title: t('hrReports.salaryReport'),
       subtitle: t('hrReports.salarySubtitle'),
-      icon: DollarSign,
-      color: 'bg-emerald-50 text-emerald-700',
-    },
-    {
-      id: 'payrollPeriods',
-      title: t('hrReports.payrollPeriodsReport'),
-      subtitle: t('hrReports.payrollPeriodsSubtitle'),
-      icon: Wallet,
-      color: 'bg-indigo-50 text-indigo-700',
+      icon: Banknote,
     },
     {
       id: 'attendance',
       title: t('hrReports.attendanceReport'),
       subtitle: t('hrReports.attendanceSubtitle'),
       icon: ClipboardCheck,
-      color: 'bg-green-50 text-green-700',
-    },
-    {
-      id: 'leave',
-      title: t('hrReports.leaveReport'),
-      subtitle: t('hrReports.leaveSubtitle'),
-      icon: CalendarDays,
-      color: 'bg-orange-50 text-orange-700',
-    },
-    {
-      id: 'leaveReturn',
-      title: t('hrReports.leaveReturnReport'),
-      subtitle: t('hrReports.leaveReturnSubtitle'),
-      icon: RotateCcw,
-      color: 'bg-amber-50 text-amber-700',
-    },
-    {
-      id: 'leaveTypes',
-      title: t('hrReports.leaveTypesReport'),
-      subtitle: t('hrReports.leaveTypesSubtitle'),
-      icon: Tags,
-      color: 'bg-cyan-50 text-cyan-700',
-    },
-    {
-      id: 'documents',
-      title: t('hrReports.documentsReport'),
-      subtitle: t('hrReports.documentsSubtitle'),
-      icon: FileText,
-      color: 'bg-slate-50 text-slate-700',
-    },
-    {
-      id: 'professions',
-      title: t('hrReports.professionsReport'),
-      subtitle: t('hrReports.professionsSubtitle'),
-      icon: Briefcase,
-      color: 'bg-violet-50 text-violet-700',
-    },
-    {
-      id: 'contracts',
-      title: t('hrReports.contractsReport'),
-      subtitle: t('hrReports.contractsSubtitle'),
-      icon: FileSignature,
-      color: 'bg-rose-50 text-rose-700',
     },
   ];
 
@@ -532,11 +505,10 @@ export function HRReports() {
   if (currentView === 'main') {
     return (
       <div className="p-6">
-        <div className="mb-6">
-          <h1 className="mb-2 text-2xl font-semibold text-gray-800">{t('hrReports.title')}</h1>
-          <p className="text-gray-600">{t('hrReports.subtitle')}</p>
+        <div className="mb-8">
+          <p className="text-base text-gray-500">{t('hrReports.subtitle')}</p>
         </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 max-w-4xl">
           {reportCards.map((card) => {
             const Icon = card.icon;
             return (
@@ -544,17 +516,13 @@ export function HRReports() {
                 key={card.id}
                 type="button"
                 onClick={() => void openReport(card.id)}
-                className="rounded-lg bg-white p-8 text-left shadow transition hover:shadow-lg group"
+                className="rounded-2xl bg-[#F3F4F6] p-8 text-left transition hover:bg-[#EBECEF] hover:shadow-sm"
               >
-                <div className="mb-4 flex items-center gap-4">
-                  <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-lg ${card.color}`}
-                  >
-                    <Icon className="h-7 w-7" />
-                  </div>
+                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
+                  <Icon className="h-7 w-7 text-[#0F3C66]" />
                 </div>
-                <h2 className="mb-2 text-xl font-semibold text-gray-800">{card.title}</h2>
-                <p className="text-sm text-gray-600">{card.subtitle}</p>
+                <h2 className="mb-2 text-xl font-bold text-[#0F3C66]">{card.title}</h2>
+                <p className="text-sm text-gray-500">{card.subtitle}</p>
               </button>
             );
           })}
@@ -661,105 +629,187 @@ export function HRReports() {
   if (currentView === 'salary') {
     return (
       <div className="p-6">
-        <BackHeader title={t('hrReports.salaryReport')} />
-        <div className="rounded-lg bg-white p-6 shadow">
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            >
-              <option value="">{t('hrReports.selectYear')}</option>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            >
-              <option value="">{t('hrReports.selectMonth')}</option>
-              {months.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedEmployeeType}
-              onChange={(e) => setSelectedEmployeeType(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            >
-              <option value="all">{t('employees.all')}</option>
-              <option value="Permanent">Permanent</option>
-              <option value="Temporary">Temporaire</option>
-              <option value="Contractual">Contractuel</option>
-              <option value="Taxable">{t('employees.typeTaxable')}</option>
-              <option value="Non-Taxable">{t('employees.typeNonTaxable')}</option>
-            </select>
+        <button
+          type="button"
+          onClick={() => setCurrentView('main')}
+          className="mb-4 flex items-center gap-2 text-sm text-[#0F3C66] hover:underline"
+        >
+          ← {t('hrReports.backToReports')}
+        </button>
+
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-700">{t('hrReports.salaryReport')}</h1>
+          <div className="text-xs font-bold uppercase tracking-widest text-[#EE964C] bg-[#EE964C]/10 px-2 py-1 rounded">
+            {t('common.version')}
           </div>
-          <PrintButton
-            onClick={() =>
-              printTable(
-                t('hrReports.salaryReport'),
-                [
-                  '#',
-                  t('hrReports.colMatricule'),
-                  t('hrReports.colName'),
-                  t('hrReports.colBaseSalary'),
-                  t('hrReports.colTotalDeductions'),
-                  t('hrReports.colNetSalary'),
-                  t('hrReports.colType'),
-                ],
-                salaryRows.map((r, i) => [
-                  String(i + 1),
-                  r.employee_id,
-                  r.full_name,
-                  formatAmount(r.base_salary),
-                  formatAmount(r.total_deductions),
-                  formatAmount(r.net_salary),
-                  r.type,
-                ])
-              )
-            }
-          />
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.selectYear')}
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              >
+                <option value="">{t('hrReports.selectYearPlaceholder')}</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.selectMonth')}
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              >
+                <option value="">{t('hrReports.selectMonthPlaceholder')}</option>
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.employeeTypes')}
+              </label>
+              <select
+                value={selectedEmployeeType}
+                onChange={(e) => setSelectedEmployeeType(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              >
+                <option value="all">{t('hrReports.allTypes')}</option>
+                <option value="Permanent">Permanent</option>
+                <option value="Temporary">Temporaire</option>
+                <option value="Contractual">Contractuel</option>
+                <option value="Taxable">{t('employees.typeTaxable')}</option>
+                <option value="Non-Taxable">{t('employees.typeNonTaxable')}</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!selectedYear || !selectedMonth) {
+                alert(t('hrReports.selectPeriodFirst'));
+                return;
+              }
+              void openPayrollLetterPrint({
+                periodMonthLabel: selectedMonth,
+                periodYear: selectedYear,
+                rows: salaryRows.map((r) => ({
+                  full_name: r.full_name,
+                  account_number: r.account_number === '—' ? '' : r.account_number,
+                  net_salary: r.net_salary,
+                })),
+              });
+            }}
+            className="mb-6 rounded-md bg-[#0F3C66] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#154b8a]"
+          >
+            {t('hrReports.generatePayslip')}
+          </button>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">#</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colMatricule')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colName')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colAccount')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colBaseSalary')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colTotalDeductions')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colNetSalary')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colType')}</th>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border border-gray-200 bg-white">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colSN')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colMatricule')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colName')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colAccount')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colBaseSalary')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colTotalDeductions')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colNetSalary')}
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                    {t('hrReports.colType')}
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {salaryRows.length === 0 ? (
-                  <EmptyRow cols={8} />
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="border border-gray-200 px-4 py-16 text-center text-gray-500"
+                    >
+                      {t('hrReports.noData')}
+                    </td>
+                  </tr>
                 ) : (
                   salaryRows.map((record, index) => (
                     <tr key={`${record.employee_id}-${index}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{index + 1}</td>
-                      <td className="px-4 py-3 font-medium text-[#0F3C66]">{record.employee_id}</td>
-                      <td className="px-4 py-3">{record.full_name}</td>
-                      <td className="px-4 py-3">{record.account_number}</td>
-                      <td className="px-4 py-3">{formatAmount(record.base_salary)}</td>
-                      <td className="px-4 py-3">{formatAmount(record.total_deductions)}</td>
-                      <td className="px-4 py-3 font-semibold text-green-600">
+                      <td className="border border-gray-200 px-4 py-3 text-gray-700">{index + 1}</td>
+                      <td className="border border-gray-200 px-4 py-3 font-medium text-[#0F3C66]">
+                        {record.employee_id}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-gray-800">
+                        {record.full_name}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-gray-700">
+                        {record.account_number || '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-gray-800">
+                        {formatAmount(record.base_salary)}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-gray-800">
+                        {formatAmount(record.total_deductions)}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 font-semibold text-gray-900">
                         {formatAmount(record.net_salary)}
                       </td>
-                      <td className="px-4 py-3">{record.type}</td>
+                      <td className="border border-gray-200 px-4 py-3 text-gray-700">{record.type}</td>
                     </tr>
                   ))
                 )}
               </tbody>
+              {salaryRows.length > 0 ? (
+                <tfoot>
+                  <tr className="border border-gray-200 bg-gray-50 font-semibold text-gray-900">
+                    <td
+                      colSpan={4}
+                      className="border border-gray-200 px-4 py-3 text-right uppercase tracking-wide"
+                    >
+                      {t('hrReports.totalSalaries')}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3">
+                      {formatAmount(salaryTotals.base_salary)}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3">
+                      {formatAmount(salaryTotals.total_deductions)}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3">
+                      {formatAmount(salaryTotals.net_salary)}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-3" />
+                  </tr>
+                </tfoot>
+              ) : null}
             </table>
           </div>
         </div>
@@ -870,102 +920,138 @@ export function HRReports() {
   if (currentView === 'attendance') {
     return (
       <div className="p-6">
-        <BackHeader title={t('hrReports.attendanceReport')} />
-        <div className="rounded-lg bg-white p-6 shadow">
-          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-              aria-label={t('hrReports.dateFrom')}
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-              aria-label={t('hrReports.dateTo')}
-            />
-            <select
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            >
-              <option value="all">{t('employees.all')}</option>
-              {employees.map((emp) => (
-                <option key={rowId(emp as any)} value={rowId(emp as any)}>
-                  {emp.full_name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t('common.search')}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            />
+        <button
+          type="button"
+          onClick={() => setCurrentView('main')}
+          className="mb-4 flex items-center gap-2 text-sm text-[#0F3C66] hover:underline"
+        >
+          ← {t('hrReports.backToReports')}
+        </button>
+
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-700">
+            {t('hrReports.attendancePageTitle')}
+          </h1>
+          <div className="rounded bg-[#EE964C]/10 px-2 py-1 text-xs font-bold uppercase tracking-widest text-[#EE964C]">
+            {t('common.version')}
           </div>
-          <PrintButton
-            onClick={() =>
-              printTable(
-                t('hrReports.attendanceReport'),
-                [
-                  '#',
-                  t('hrReports.colMatricule'),
-                  t('hrReports.colFullName'),
-                  t('hrReports.colAttendanceDate'),
-                  t('hrReports.colStatus'),
-                  t('hrReports.colCheckIn'),
-                  t('hrReports.colCheckOut'),
-                ],
-                filteredAttendance.map((r, i) => [
-                  String(i + 1),
-                  getEmployeeMatricule(r.employee_id),
-                  getEmployeeName(r.employee_id),
-                  r.date || r.attendance_date || '',
-                  r.status,
-                  r.check_in || '',
-                  r.check_out || '',
-                ])
-              )
-            }
-          />
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.dateRange')}
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDateFrom(v);
+                  setDateTo(v);
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.employees')}
+              </label>
+              <select
+                value={selectedEmployee}
+                onChange={(e) => setSelectedEmployee(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              >
+                <option value="all">{t('hrReports.allTypes')}</option>
+                {employees.map((emp) => {
+                  const id = rowId(emp as { id?: string; _id?: string }) || emp.employee_id;
+                  return (
+                    <option key={id} value={id}>
+                      {emp.employee_id ? `${emp.employee_id} — ${emp.full_name}` : emp.full_name}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('hrReports.search')}
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F3C66] focus:ring-1 focus:ring-[#0F3C66]"
+              />
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">#</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colMatricule')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colFullName')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colAttendanceDate')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colStatus')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colCheckIn')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colCheckOut')}</th>
-                  <th className="px-4 py-3 text-left">{t('hrReports.colComment')}</th>
+            <table className="w-full min-w-[800px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('hrReports.colEmployeeId')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('hrReports.colFullName')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('hrReports.colPhone')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('hrReports.colAttendanceDate')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('hrReports.colStatus')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[#0F3C66]">
+                    {t('common.action')}
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {filteredAttendance.length === 0 ? (
-                  <EmptyRow cols={8} />
+                  <tr>
+                    <td colSpan={6} className="px-4 py-16 text-center text-gray-500">
+                      {t('hrReports.noData')}
+                    </td>
+                  </tr>
                 ) : (
                   filteredAttendance.map((record, index) => {
                     const date = record.date || record.attendance_date || '';
+                    const emp = resolveEmployee(record.employee_id);
                     return (
-                      <tr key={rowId(record) || index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">{index + 1}</td>
-                        <td className="px-4 py-3 font-medium text-[#0F3C66]">
-                          {getEmployeeMatricule(record.employee_id)}
+                      <tr
+                        key={rowId(record) || index}
+                        className={index % 2 === 1 ? 'bg-gray-50/70' : 'bg-white'}
+                      >
+                        <td className="border-t border-gray-100 px-4 py-3 font-medium text-[#0F3C66]">
+                          {emp?.employee_id || getEmployeeMatricule(record.employee_id)}
                         </td>
-                        <td className="px-4 py-3">{getEmployeeName(record.employee_id)}</td>
-                        <td className="px-4 py-3">
+                        <td className="border-t border-gray-100 px-4 py-3 text-gray-800">
+                          {emp?.full_name || getEmployeeName(record.employee_id)}
+                        </td>
+                        <td className="border-t border-gray-100 px-4 py-3 text-gray-700">
+                          {emp?.phone_number || getEmployeePhone(record.employee_id)}
+                        </td>
+                        <td className="border-t border-gray-100 px-4 py-3 text-gray-700">
                           {date ? new Date(date).toLocaleDateString(locale) : '—'}
                         </td>
-                        <td className="px-4 py-3">{record.status}</td>
-                        <td className="px-4 py-3">{record.check_in || '—'}</td>
-                        <td className="px-4 py-3">{record.check_out || '—'}</td>
-                        <td className="px-4 py-3">{record.notes || record.comments || '—'}</td>
+                        <td className="border-t border-gray-100 px-4 py-3 text-gray-700">
+                          {record.status || '—'}
+                        </td>
+                        <td className="border-t border-gray-100 px-4 py-3">
+                          <button
+                            type="button"
+                            className="rounded p-1.5 text-[#0F3C66] hover:bg-gray-100"
+                            title={t('common.view')}
+                            onClick={() => setAttendanceDetail(record)}
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -974,6 +1060,67 @@ export function HRReports() {
             </table>
           </div>
         </div>
+
+        {attendanceDetail && (() => {
+          const emp = resolveEmployee(attendanceDetail.employee_id);
+          const date = attendanceDetail.date || attendanceDetail.attendance_date || '';
+          const detailRows: Array<[string, string]> = [
+            [
+              t('hrReports.colEmployeeId'),
+              emp?.employee_id || getEmployeeMatricule(attendanceDetail.employee_id),
+            ],
+            [
+              t('hrReports.colFullName'),
+              emp?.full_name || getEmployeeName(attendanceDetail.employee_id),
+            ],
+            [
+              t('hrReports.colPhone'),
+              emp?.phone_number || getEmployeePhone(attendanceDetail.employee_id),
+            ],
+            [
+              t('hrReports.colAttendanceDate'),
+              date ? new Date(date).toLocaleDateString(locale) : '—',
+            ],
+            [t('hrReports.colStatus'), attendanceDetail.status || '—'],
+          ];
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                  <h2 className="text-lg font-semibold text-[#0F3C66]">
+                    {t('hrReports.attendanceDetailTitle')}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceDetail(null)}
+                    className="rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 p-5">
+                  {detailRows.map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        {label}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-800 break-words">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-200 px-5 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceDetail(null)}
+                    className="rounded-md bg-[#0F3C66] px-4 py-2 text-sm font-medium text-white hover:bg-[#0c3154]"
+                  >
+                    {t('common.close')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

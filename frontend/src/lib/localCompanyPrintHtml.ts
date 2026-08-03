@@ -6,6 +6,7 @@ import { buildLetterheadHtml, documentImageSrc } from './documentPrintImages';
 import {
   buildDocWatermark,
   buildMawadaContactFooterHtml,
+  docGreen,
   letterheadBannerPrintCss,
   mawadaContactFooterPrintCss,
   pinnedDocFooterPrintCss,
@@ -13,9 +14,6 @@ import {
 } from './chamberDocumentPrintShared';
 import { STYLE_A4_SHEET } from './printA4';
 import { openHtmlPrintThenPdfInBrowser } from './htmlPrintPdf';
-
-const TABLE_GREEN = '#00AA48';
-const TABLE_GREEN_DARK = '#008f3c';
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? '')
@@ -27,20 +25,24 @@ function esc(s: string | number | undefined | null): string {
 
 function fmtMoney(n: number, decimals = 2): string {
   if (!Number.isFinite(n)) return '0.00';
-  return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
-function fmtDateFr(iso: string): string {
-  if (!iso) return '—';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso.trim());
-  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-  try {
-    const d = new Date(iso);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('fr-FR');
-  } catch {
-    /* ignore */
+function fmtFdj(n: number): string {
+  return `Fdj ${fmtMoney(n, 2)}`;
+}
+
+/** Format maquette : Djibouti, 3/8/2026 */
+function fmtPlaceDate(iso?: string, location = 'Djibouti'): string {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) {
+    const now = new Date();
+    return `${location}, ${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
   }
-  return esc(iso);
+  return `${location}, ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
 function num(v: unknown, def = 0): number {
@@ -50,11 +52,22 @@ function num(v: unknown, def = 0): number {
 
 function valStr(v: string | number | undefined | null): string {
   const s = String(v ?? '').trim();
-  return s || '—';
+  return s;
+}
+
+function servicesReference(record: LocalCompanyRecord): string {
+  const fromBl = valStr(record.bill_of_loading).replace(/\D/g, '');
+  if (fromBl) return fromBl.padStart(4, '0').slice(-4);
+  const fromId = String(record.id || '')
+    .replace(/\D/g, '')
+    .slice(-4);
+  if (fromId) return fromId.padStart(4, '0');
+  return '0001';
 }
 
 /**
- * Facture de service — entreprise locale (maquette tableau Details / Values / Amounts in USD).
+ * LOCAL SERVICES REPORT — maquette Company Details + Financial Details
+ * avec letterhead, footer et signature de la configuration.
  */
 export function buildLocalCompanyServiceInvoiceHtml(
   record: LocalCompanyRecord,
@@ -62,106 +75,93 @@ export function buildLocalCompanyServiceInvoiceHtml(
   _djfPerOneUsd: number,
   clientDetail: ClientRecord | null = null
 ): string {
-  /** Taux fixe : FDJ → USD = montant / 178 */
-  const rate = 178;
-  const toUsd = (fdj: number) => (Number.isFinite(fdj) && rate > 0 ? fdj / rate : 0);
-
-  const fileFee = num(record.file_fee);
-  const serviceFee = num(record.service_fee);
-  const truckQty = num(record.truck_loading_quantity, 0);
-  const transitFee = num(record.transit_fee);
-  const escortFee = num(record.escort_fee);
-  const declCancel = num(record.declaration_cancellation_price);
-  const n4 = num(record.numero_4_price);
-  const n9 = num(record.numero_9_price);
-  const tiFdj = num(parseFloat(String(record.ti_cancellation ?? '').replace(',', '.')) || 0);
-  /** (frais de service × quantité camion) + frais de dossier → USD (cellule fusionnée). */
-  const dossierServiceFdj = serviceFee * truckQty + fileFee;
-  const dossierServiceUsd = toUsd(dossierServiceFdj);
-  /** Total = dossier + (service × camion) + transit + laissez-passer + annulation décl. + TI + n°4 + n°9 */
-  const totalFdj =
-    fileFee +
-    serviceFee * truckQty +
-    transitFee +
-    escortFee +
-    declCancel +
-    tiFdj +
-    n4 +
-    n9;
-  const totalUsd = toUsd(totalFdj);
-
+  const green = docGreen(branding) || '#00AA48';
   const letter = buildLetterheadHtml(branding);
   const wm = buildDocWatermark(branding);
-
   const stampSrc = documentImageSrc(branding.signatureStampUrl || branding.signatureUrl);
   const stamp = stampSrc ? `<img class="stamp-img" src="${esc(stampSrc)}" alt="" />` : '';
 
-  const footerBlock = `
-    <div class="sig-block">
-      <div class="sig-row">
-        <strong>Signature :</strong>
-        <span class="sig-line-wrap">
-          <span class="sig-underline" aria-hidden="true"></span>
-          ${stamp}
-        </span>
-      </div>
-    </div>
-    ${buildMawadaContactFooterHtml(branding)}`;
-
-  const today = fmtDateFr(new Date().toISOString().split('T')[0]);
-  const closure = record.closure_date ? fmtDateFr(record.closure_date) : '—';
-
   const clientDisplay = clientDetail
-    ? formatClientLabel(clientDetail) || record.client_name || '—'
-    : record.client_name || '—';
+    ? formatClientLabel(clientDetail) || record.client_name || ''
+    : record.client_name || '';
 
-  const rowInfo = (detail: string, value: string) =>
-    `<tr class="row-info">
-      <td>${esc(detail)}</td>
-      <td>${esc(value)}</td>
-      <td class="usd"></td>
-    </tr>`;
+  const fileFee = num(record.file_fee);
+  const quantity = valStr(record.quantity);
+  const truckQty = valStr(record.truck_loading_quantity);
+  const truckQtyN = num(record.truck_loading_quantity, 0);
+  const transitFee = num(record.transit_fee);
+  const serviceFee = num(record.service_fee);
+  const escortFee = num(record.escort_fee);
+  const n4 = num(record.numero_4_price);
+  const n9 = num(record.numero_9_price);
+  const tiFdj = num(parseFloat(String(record.ti_cancellation ?? '').replace(',', '.')) || 0);
+  const declCancel = num(record.declaration_cancellation_price);
 
-  const rowMoney = (detail: string, fdj: number, usd: number, highlight = false) => {
-    const cls = highlight ? ' class="row-hl"' : '';
-    return `<tr${cls}>
-      <td>${esc(detail)}</td>
-      <td>Fdj ${fmtMoney(fdj, 2)}</td>
-      <td class="usd">$ ${fmtMoney(usd, 2)}</td>
-    </tr>`;
-  };
+  const totalFdj =
+    Number(record.total) > 0
+      ? num(record.total)
+      : fileFee +
+        serviceFee * (truckQtyN || 1) +
+        transitFee +
+        escortFee +
+        declCancel +
+        tiFdj +
+        n4 +
+        n9;
 
-  const dossierServiceRows = `
-    <tr>
-      <td>Frais de dossier</td>
-      <td>Fdj ${fmtMoney(fileFee, 2)}</td>
-      <td class="usd usd-merged" rowspan="2"><strong>$ ${fmtMoney(dossierServiceUsd, 2)}</strong></td>
-    </tr>
-    <tr>
-      <td>Frais de Service</td>
-      <td>Fdj ${fmtMoney(serviceFee, 2)}</td>
-    </tr>`;
+  const placeDate = fmtPlaceDate(record.closure_date || record.createdAt || undefined);
+  const ref = servicesReference(record);
 
-  const tableBody =
-    rowInfo('Client', clientDisplay) +
-    rowInfo('Source Destination', valStr(record.source_destination)) +
-    rowInfo('Entreprise Vendeuse', valStr(record.vendor_company)) +
-    rowInfo('Entreprise Acheteuse', valStr(record.purchasing_company)) +
-    rowInfo('Description des Marchandises', valStr(record.goods_description)) +
-    dossierServiceRows +
-    rowMoney('Frais de Transit', transitFee, toUsd(transitFee)) +
-    rowMoney('Annuler le Laissez-Passer', escortFee, toUsd(escortFee)) +
-    rowMoney('Annulation du Prix de la Déclaration', declCancel, toUsd(declCancel)) +
-    rowMoney('Canceling TI Price', tiFdj, toUsd(tiFdj)) +
-    rowMoney('Prix Numéro 4', n4, toUsd(n4)) +
-    rowMoney('Prix Numéro 9', n9, toUsd(n9), true) +
-    rowMoney('Totals', totalFdj, totalUsd, true);
+  const companyRows: Array<[string, string]> = [
+    ['Customer', clientDisplay],
+    ['Source & Destination', valStr(record.source_destination)],
+    ['Seller Company', valStr(record.vendor_company)],
+    ['Buyer Company', valStr(record.purchasing_company)],
+    ['Description of Goods', valStr(record.goods_description)],
+    ['Declaration Start', valStr(record.declaration_s)],
+    ['Declaration End', valStr(record.declaration_e)],
+    ['Closed Date', valStr(record.closure_date)],
+  ];
+
+  const financialRows: Array<[string, string, boolean]> = [
+    ['File Fee', fileFee ? fmtFdj(fileFee) : '', false],
+    ['Quantity', quantity, false],
+    ['Truck Loading Quantity', truckQty, false],
+    ['Transit Charges', transitFee ? fmtFdj(transitFee) : '', false],
+    ['Service Charges', serviceFee ? fmtFdj(serviceFee) : '', false],
+    ['Cancel Gate Pass', escortFee ? fmtFdj(escortFee) : '', false],
+    ['Number 4 Price', n4 ? fmtFdj(n4) : '', false],
+    ['Number 9 Price', n9 ? fmtFdj(n9) : '', false],
+    ['Canceling TI Price', tiFdj ? fmtFdj(tiFdj) : '', false],
+    ['Canceling Declaration Price', declCancel ? fmtFdj(declCancel) : '', false],
+    ['Total Charges', fmtFdj(totalFdj), true],
+  ];
+
+  const companyBody = companyRows
+    .map(
+      ([label, value]) => `
+      <tr>
+        <td class="label">${esc(label)}</td>
+        <td class="value">${esc(value)}</td>
+      </tr>`
+    )
+    .join('');
+
+  const financialBody = financialRows
+    .map(
+      ([label, value, bold]) => `
+      <tr class="${bold ? 'row-total' : ''}">
+        <td class="label">${esc(label)}</td>
+        <td class="value amount">${esc(value)}</td>
+      </tr>`
+    )
+    .join('');
 
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Facture de Service — ${esc(clientDisplay)}</title>
+  <title>LOCAL SERVICES REPORT — #${esc(ref)}</title>
   <style>
     ${STYLE_A4_SHEET}
     ${letterheadBannerPrintCss()}
@@ -169,57 +169,85 @@ export function buildLocalCompanyServiceInvoiceHtml(
     ${pinnedDocFooterPrintCss('page')}
     ${watermarkPrintCss()}
     body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #111; }
-    .doc-head { position: relative; z-index: 1; margin: 12px 0 16px; text-align: center; }
-    .doc-title { font-size: 22pt; font-weight: 700; margin: 0 0 8px; color: #111; }
-    .doc-place-date { font-size: 12pt; font-weight: 700; margin-bottom: 10px; }
-    .doc-client { font-size: 12.5pt; font-weight: 700; margin: 0; }
-    .meta-grid {
+    .doc-head-block {
       position: relative;
       z-index: 1;
+      text-align: center;
+      margin: 8px 0 22px;
+    }
+    .doc-title {
+      margin: 0 0 6px;
+      font-size: 20pt;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #111;
+    }
+    .doc-ref {
+      margin: 0 0 4px;
+      font-size: 11.5pt;
+      font-weight: 400;
+      color: #222;
+    }
+    .doc-place {
+      margin: 0;
+      font-size: 11.5pt;
+      color: #222;
+    }
+    .section {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 22px;
+    }
+    .section-bar {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 24px;
-      margin: 0 0 18px;
-      font-size: 11pt;
-      font-weight: 700;
-      line-height: 1.55;
-    }
-    .meta-col { flex: 1; }
-    .meta-col div { margin: 2px 0; }
-    .fin-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11pt;
-      margin: 0 0 24px;
-      position: relative;
-      z-index: 1;
-    }
-    .fin-table th,
-    .fin-table td {
-      border: 1px solid #ccc;
-      padding: 8px 10px;
-      vertical-align: middle;
-    }
-    .fin-table thead th {
-      background: linear-gradient(180deg, ${TABLE_GREEN} 0%, ${TABLE_GREEN_DARK} 100%);
+      background: ${green};
       color: #fff;
       font-weight: 700;
+      font-size: 12pt;
+      padding: 8px 12px;
+      margin: 0;
+    }
+    .section-bar .bar-right {
+      font-weight: 700;
+    }
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+    }
+    .detail-table td {
+      padding: 9px 4px;
+      border-bottom: 1px solid #d9d9d9;
+      vertical-align: top;
+      font-size: 11pt;
+    }
+    .detail-table td.label {
+      width: 42%;
+      color: #222;
+      font-weight: 400;
+    }
+    .detail-table td.value {
+      width: 58%;
+      color: #111;
       text-align: left;
     }
-    .fin-table thead th.usd { text-align: right; }
-    .fin-table tbody td.usd { text-align: right; font-variant-numeric: tabular-nums; }
-    .fin-table tbody td.usd-merged {
-      text-align: center;
-      vertical-align: middle;
-      font-weight: 700;
+    .detail-table td.amount {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
-    .fin-table tbody tr.row-info td { font-weight: 400; }
-    .fin-table tbody tr.row-hl td {
-      background: linear-gradient(180deg, ${TABLE_GREEN} 0%, ${TABLE_GREEN_DARK} 100%) !important;
-      color: #fff !important;
+    .detail-table tr.row-total td {
       font-weight: 700;
+      border-bottom: none;
+      padding-top: 12px;
     }
-    .sig-block { position: relative; z-index: 1; margin: 28px 0 12px; }
+    .sig-block {
+      position: relative;
+      z-index: 1;
+      margin: 36px 0 16px;
+    }
     .sig-row {
       display: flex;
       align-items: flex-end;
@@ -230,9 +258,8 @@ export function buildLocalCompanyServiceInvoiceHtml(
     .sig-line-wrap {
       position: relative;
       display: inline-block;
-      flex: 0 0 auto;
-      width: 130px;
-      height: 88px;
+      width: 160px;
+      height: 90px;
     }
     .sig-underline {
       position: absolute;
@@ -246,8 +273,8 @@ export function buildLocalCompanyServiceInvoiceHtml(
       position: absolute;
       left: 8px;
       bottom: 0;
-      max-height: 86px;
-      max-width: 300px;
+      max-height: 88px;
+      max-width: 280px;
       width: auto;
       object-fit: contain;
       pointer-events: none;
@@ -260,39 +287,44 @@ export function buildLocalCompanyServiceInvoiceHtml(
     ${wm}
     ${letter}
 
-    <header class="doc-head">
-      <h1 class="doc-title">Facture de Service</h1>
-      <div class="doc-place-date">Djibouti, ${esc(today)}</div>
-      <div class="doc-client">Client : ${esc(clientDisplay)}</div>
+    <header class="doc-head-block">
+      <h1 class="doc-title">LOCAL SERVICES REPORT</h1>
+      <div class="doc-ref">Services Reference #${esc(ref)}</div>
+      <div class="doc-place">${esc(placeDate)}</div>
     </header>
 
-    <div class="meta-grid">
-      <div class="meta-col">
-        <div>Quantité de Chargement du Camion : ${esc(valStr(record.truck_loading_quantity))}</div>
-        <div>Déclaration E : ${esc(valStr(record.declaration_e))}</div>
-        <div>Date de Clôture : ${esc(closure)}</div>
-      </div>
-      <div class="meta-col">
-        <div>Déclaration S : ${esc(valStr(record.declaration_s))}</div>
-        <div>Quantité : ${esc(valStr(record.quantity))}</div>
-      </div>
-    </div>
+    <section class="section">
+      <div class="section-bar">Company Details</div>
+      <table class="detail-table">
+        <tbody>
+          ${companyBody}
+        </tbody>
+      </table>
+    </section>
 
-    <table class="fin-table">
-      <thead>
-        <tr>
-          <th>Details</th>
-          <th>Values</th>
-          <th class="usd">Amounts in USD</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableBody}
-      </tbody>
-    </table>
+    <section class="section">
+      <div class="section-bar">
+        <span>Financial Details</span>
+        <span class="bar-right">Amount</span>
+      </div>
+      <table class="detail-table">
+        <tbody>
+          ${financialBody}
+        </tbody>
+      </table>
+    </section>
 
     <footer class="doc-footer page-bottom">
-      ${footerBlock}
+      <div class="sig-block">
+        <div class="sig-row">
+          <strong>Signature :</strong>
+          <span class="sig-line-wrap">
+            <span class="sig-underline" aria-hidden="true"></span>
+            ${stamp}
+          </span>
+        </div>
+      </div>
+      ${buildMawadaContactFooterHtml(branding)}
     </footer>
   </div>
 </body>
@@ -317,5 +349,8 @@ export async function openLocalCompanyPrint(record: LocalCompanyRecord): Promise
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 50);
-  await openHtmlPrintThenPdfInBrowser(html, `Facture-Service-${safeName || 'document'}.pdf`);
+  await openHtmlPrintThenPdfInBrowser(
+    html,
+    `Local-Services-Report-${safeName || 'document'}.pdf`
+  );
 }

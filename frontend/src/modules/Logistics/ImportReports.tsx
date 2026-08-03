@@ -200,6 +200,10 @@ function downloadOrderDocument(order: ReportOrder): void {
   link.remove();
 }
 
+function sameCustomer(a?: string, b?: string): boolean {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
 function monthKey(value?: string | Date | null): string | null {
   if (!value) return null;
   const d = new Date(value);
@@ -291,60 +295,89 @@ function PieChart({
   title: string;
   slices: { label: string; value: number; color: string }[];
 }) {
-  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
+  const active = slices.filter((s) => s.value > 0);
+  const total = active.reduce((s, x) => s + x.value, 0) || 1;
   const size = 220;
   const cx = size / 2;
   const cy = size / 2;
   const r = 78;
-  let angle = -Math.PI / 2;
 
-  const arcs = slices.map((slice) => {
-    const portion = slice.value / total;
-    const start = angle;
-    const end = angle + portion * Math.PI * 2;
-    angle = end;
-    const large = portion > 0.5 ? 1 : 0;
-    const x1 = cx + r * Math.cos(start);
-    const y1 = cy + r * Math.sin(start);
-    const x2 = cx + r * Math.cos(end);
-    const y2 = cy + r * Math.sin(end);
-    const mid = (start + end) / 2;
-    const lx = cx + (r + 18) * Math.cos(mid);
-    const ly = cy + (r + 18) * Math.sin(mid);
-    return {
-      ...slice,
-      portion,
-      d: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`,
-      lx,
-      ly,
-    };
-  });
+  const fullSlice = active.length === 1 ? active[0] : null;
+  const isFull = fullSlice != null || active.some((s) => s.value / total >= 0.999);
+
+  let angle = -Math.PI / 2;
+  const arcs =
+    isFull && (fullSlice || active.find((s) => s.value / total >= 0.999))
+      ? []
+      : active.map((slice) => {
+          const portion = slice.value / total;
+          const start = angle;
+          const end = angle + portion * Math.PI * 2;
+          angle = end;
+          const large = portion > 0.5 ? 1 : 0;
+          const x1 = cx + r * Math.cos(start);
+          const y1 = cy + r * Math.sin(start);
+          const x2 = cx + r * Math.cos(end);
+          const y2 = cy + r * Math.sin(end);
+          const mid = (start + end) / 2;
+          const lx = cx + (r + 18) * Math.cos(mid);
+          const ly = cy + (r + 18) * Math.sin(mid);
+          return {
+            ...slice,
+            portion,
+            d: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`,
+            lx,
+            ly,
+          };
+        });
+
+  const dominant =
+    fullSlice ||
+    active.find((s) => s.value / total >= 0.999) ||
+    null;
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <h4 className="mb-2 text-center text-sm font-semibold text-gray-800">{title}</h4>
       <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto h-auto w-full max-w-[240px]" role="img">
-        {arcs.map((a, i) => (
-          <g key={i}>
-            <path d={a.d} fill={a.color} stroke="#fff" strokeWidth="2" />
-            {a.portion >= 0.04 ? (
-              <text
-                x={a.lx}
-                y={a.ly}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#111827"
-                fontSize="11"
-                fontWeight="600"
-              >
-                {(a.portion * 100).toFixed(1)}%
-              </text>
-            ) : null}
+        {dominant ? (
+          <g>
+            <circle cx={cx} cy={cy} r={r} fill={dominant.color} />
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#ffffff"
+              fontSize="18"
+              fontWeight="700"
+            >
+              100%
+            </text>
           </g>
-        ))}
+        ) : (
+          arcs.map((a, i) => (
+            <g key={i}>
+              <path d={a.d} fill={a.color} stroke="#fff" strokeWidth="2" />
+              {a.portion >= 0.04 ? (
+                <text
+                  x={a.lx}
+                  y={a.ly}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#111827"
+                  fontSize="11"
+                  fontWeight="600"
+                >
+                  {(a.portion * 100).toFixed(1)}%
+                </text>
+              ) : null}
+            </g>
+          ))
+        )}
       </svg>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-700">
-        {slices.map((s) => (
+        {(dominant ? [dominant] : active).map((s) => (
           <div key={s.label} className="inline-flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
             {s.label}
@@ -421,9 +454,12 @@ export function ImportReports() {
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return orders.filter((order) => {
-      if (selectedCustomer && order.client_name !== selectedCustomer) return false;
+      if (selectedCustomer && !sameCustomer(order.client_name, selectedCustomer)) {
+        return false;
+      }
 
-      if (statusFilter !== 'All') {
+      // Avec un client sélectionné : toutes ses commandes (tous statuts)
+      if (!selectedCustomer && statusFilter !== 'All') {
         if (String(order.status || '').toUpperCase() !== statusFilter.toUpperCase()) {
           return false;
         }
@@ -449,6 +485,20 @@ export function ImportReports() {
     });
   }, [orders, searchTerm, selectedCustomer, statusFilter, dateRange]);
 
+  /** Base stats : commandes du client (ou toutes) — hors filtre Status. */
+  const statsOrders = useMemo(() => {
+    return orders.filter((order) => {
+      if (selectedCustomer && !sameCustomer(order.client_name, selectedCustomer)) {
+        return false;
+      }
+      if (dateRange) {
+        const started = order.createdAt || order.order_date || order.creation_date || '';
+        if (formatDateOnly(started) !== dateRange) return false;
+      }
+      return true;
+    });
+  }, [orders, selectedCustomer, dateRange]);
+
   const sumTotalAmount = useMemo(
     () => filteredOrders.reduce((sum, order) => sum + montantTotal(order), 0),
     [filteredOrders]
@@ -463,7 +513,7 @@ export function ImportReports() {
 
   const ordersOverTime = useMemo(() => {
     const map = new Map<string, number>();
-    orders.forEach((o) => {
+    statsOrders.forEach((o) => {
       const key = monthKey(o.createdAt || o.order_date || o.creation_date);
       if (!key) return;
       map.set(key, (map.get(key) || 0) + 1);
@@ -471,11 +521,11 @@ export function ImportReports() {
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => ({ label: formatMonthLabel(key), value }));
-  }, [orders]);
+  }, [statsOrders]);
 
   const revenueTrends = useMemo(() => {
     const map = new Map<string, number>();
-    orders.forEach((o) => {
+    statsOrders.forEach((o) => {
       const key = monthKey(o.createdAt || o.order_date || o.creation_date);
       if (!key) return;
       map.set(key, (map.get(key) || 0) + montantTotal(o));
@@ -483,13 +533,13 @@ export function ImportReports() {
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => ({ label: formatMonthLabel(key), value }));
-  }, [orders]);
+  }, [statsOrders]);
 
   const statusSlices = useMemo(() => {
     let checked = 0;
     let pending = 0;
     let other = 0;
-    orders.forEach((o) => {
+    statsOrders.forEach((o) => {
       const s = String(o.status || '').toUpperCase();
       if (s === 'PENDING') pending += 1;
       else if (s === 'CHECKED' || s === 'APPROVED' || s === 'COMPLETED') checked += 1;
@@ -504,7 +554,17 @@ export function ImportReports() {
       return [{ label: 'No data', value: 1, color: '#e5e7eb' }];
     }
     return slices;
-  }, [orders]);
+  }, [statsOrders]);
+
+  const checkedPercent = useMemo(() => {
+    const total = statsOrders.length;
+    if (total === 0) return 0;
+    const checked = statsOrders.filter((o) => {
+      const s = String(o.status || '').toUpperCase();
+      return s === 'CHECKED' || s === 'APPROVED' || s === 'COMPLETED';
+    }).length;
+    return (checked / total) * 100;
+  }, [statsOrders]);
 
   return (
     <div className="space-y-6 p-6">
@@ -789,9 +849,28 @@ export function ImportReports() {
 
       <div>
         <h3 className="mb-4 text-lg font-semibold text-gray-800">Other Analytics Charts</h3>
+        {selectedCustomer ? (
+          <p className="mb-3 text-sm text-gray-600">
+            Client : <span className="font-semibold text-gray-900">{selectedCustomer}</span>
+            {' — '}
+            Checked :{' '}
+            <span className="font-semibold text-green-700">{checkedPercent.toFixed(1)}%</span>
+            {' '}({statsOrders.filter((o) => {
+              const s = String(o.status || '').toUpperCase();
+              return s === 'CHECKED' || s === 'APPROVED' || s === 'COMPLETED';
+            }).length}/{statsOrders.length} commandes)
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <LineChart title="Orders Over Time" yLabel="Order Count" points={ordersOverTime} color="#6366f1" />
-          <PieChart title="Order Status" slices={statusSlices} />
+          <PieChart
+            title={
+              selectedCustomer
+                ? `Order Status — Checked ${checkedPercent.toFixed(1)}%`
+                : 'Order Status'
+            }
+            slices={statusSlices}
+          />
           <LineChart title="Revenue Trends" yLabel="Total Revenue" points={revenueTrends} color="#0ea5e9" />
         </div>
       </div>
