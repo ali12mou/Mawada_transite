@@ -1,7 +1,29 @@
 import mongoose from 'mongoose';
+import { ObjectId } from 'mongodb';
 
 function toCollectionName(name) {
   return name.trim();
+}
+
+function toObjectId(id) {
+  if (id instanceof ObjectId) return id;
+  if (id && typeof id === 'object' && id.$oid) {
+    return new ObjectId(String(id.$oid));
+  }
+  const raw = String(id ?? '').trim();
+  if (!/^[a-fA-F0-9]{24}$/.test(raw)) {
+    const err = new Error('Identifiant MongoDB invalide');
+    err.statusCode = 400;
+    throw err;
+  }
+  return new ObjectId(raw);
+}
+
+function normalizeDoc(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const { _id, ...rest } = doc;
+  const id = _id != null ? String(_id) : rest.id != null ? String(rest.id) : undefined;
+  return { ...rest, id, _id: id };
 }
 
 export function getCollection(collectionName) {
@@ -24,31 +46,26 @@ export async function listCollections() {
 export async function findDocuments(collectionName, limit = 100) {
   const collection = getCollection(collectionName);
   const docs = await collection.find({}).limit(limit).toArray();
-  return docs;
+  return docs.map(normalizeDoc);
 }
 
 export async function createDocument(collectionName, payload) {
   const collection = getCollection(collectionName);
-  const insertResult = await collection.insertOne(payload);
-  return {
-    insertedId: insertResult.insertedId,
-    ...payload
-  };
+  const { _id, id, ...clean } = payload || {};
+  const insertResult = await collection.insertOne(clean);
+  return normalizeDoc({ _id: insertResult.insertedId, ...clean });
 }
 
 export async function updateDocument(collectionName, id, payload) {
-  const { ObjectId } = await import('mongodb');
   const collection = getCollection(collectionName);
-  const { _id, ...updateData } = payload;
-  await collection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: updateData }
-  );
-  return { id, ...updateData };
+  const objectId = toObjectId(id);
+  const { _id, id: _ignoreId, ...updateData } = payload || {};
+  await collection.updateOne({ _id: objectId }, { $set: updateData });
+  const updated = await collection.findOne({ _id: objectId });
+  return normalizeDoc(updated || { _id: objectId, ...updateData });
 }
 
 export async function deleteDocument(collectionName, id) {
-  const { ObjectId } = await import('mongodb');
   const collection = getCollection(collectionName);
-  await collection.deleteOne({ _id: new ObjectId(id) });
+  await collection.deleteOne({ _id: toObjectId(id) });
 }

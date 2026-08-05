@@ -33,8 +33,15 @@ router.get('/collections/:name/documents', async (req, res, next) => {
 router.get('/collections/:name/documents/:id', async (req, res, next) => {
   try {
     const col = getCollection(req.params.name);
-    const data = await col.findOne({ _id: new ObjectId(req.params.id) });
-    res.json({ data });
+    if (!ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Identifiant invalide' });
+    }
+    const raw = await col.findOne({ _id: new ObjectId(req.params.id) });
+    if (!raw) {
+      return res.status(404).json({ message: 'Document introuvable' });
+    }
+    const id = String(raw._id);
+    res.json({ data: { ...raw, id, _id: id } });
   } catch (error) {
     next(error);
   }
@@ -42,8 +49,7 @@ router.get('/collections/:name/documents/:id', async (req, res, next) => {
 
 router.post('/collections/:name/documents', async (req, res, next) => {
   try {
-    const payload = req.body;
-    const data = await createDocument(req.params.name, payload);
+    const data = await createDocument(req.params.name, req.body);
     res.status(201).json({ data });
   } catch (error) {
     next(error);
@@ -55,6 +61,9 @@ router.put('/collections/:name/documents/:id', async (req, res, next) => {
     const data = await updateDocument(req.params.name, req.params.id, req.body);
     res.json({ data });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     next(error);
   }
 });
@@ -64,6 +73,9 @@ router.delete('/collections/:name/documents/:id', async (req, res, next) => {
     await deleteDocument(req.params.name, req.params.id);
     res.json({ ok: true });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     next(error);
   }
 });

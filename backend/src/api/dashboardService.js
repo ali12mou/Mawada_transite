@@ -136,6 +136,72 @@ async function getTransitStats() {
   };
 }
 
+function yearMonthsToDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const maxMonth = now.getMonth(); // 0-based inclusive
+  const months = [];
+  for (let m = 0; m <= maxMonth; m += 1) {
+    const d = new Date(year, m, 1);
+    months.push({
+      key: monthKey(d),
+      label: d.toLocaleDateString('en-US', { month: 'long' }),
+      start: d,
+      end: new Date(year, m + 1, 1),
+    });
+  }
+  return months;
+}
+
+async function getChartsData() {
+  const months = yearMonthsToDate();
+  const yearStart = months[0]?.start || new Date(new Date().getFullYear(), 0, 1);
+
+  const [ordersInYear, employees] = await Promise.all([
+    Order.find({ order_date: { $gte: yearStart } }).lean(),
+    Employee.find({}).lean(),
+  ]);
+
+  const orderTrends = months.map(({ key, label, start, end }) => {
+    const count = ordersInYear.filter((o) => {
+      const d = toDate(o.order_date || o.createdAt);
+      return d && d >= start && d < end;
+    }).length;
+    return { label, key, orders: count };
+  });
+
+  const revenueProfit = months.map(({ key, label, start, end }) => {
+    const rows = ordersInYear.filter((o) => {
+      const d = toDate(o.order_date || o.createdAt);
+      return d && d >= start && d < end;
+    });
+    const revenue = rows.reduce(
+      (sum, o) => sum + (Number(o.total_services) || Number(o.total) || 0),
+      0
+    );
+    const profit = rows.reduce((sum, o) => sum + (Number(o.profit_amount) || 0), 0);
+    return { label, key, revenue, profit };
+  });
+
+  let male = 0;
+  let female = 0;
+  employees.forEach((e) => {
+    const g = String(e.gender || '').toLowerCase();
+    if (g.startsWith('f') || g.includes('femme') || g.includes('female')) female += 1;
+    else male += 1;
+  });
+
+  return {
+    orderTrends,
+    revenueProfit,
+    genderDistribution: {
+      male,
+      female,
+      total: male + female,
+    },
+  };
+}
+
 export async function getDashboardStats() {
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -150,22 +216,39 @@ export async function getDashboardStats() {
     completedOrders,
     currentMonthOrders,
     lastMonthOrders,
+    deliveredThisMonth,
+    deliveredLastMonth,
     totalEmployees,
     onLeaveEmployees,
     currentMonthExpenses,
     lastMonthExpenses,
     transit,
+    charts,
   ] = await Promise.all([
     Order.countDocuments({}),
     Order.countDocuments({ status: 'PENDING' }),
     Order.countDocuments({ status: 'COMPLETED' }),
     Order.find({ order_date: { $gte: startOfMonth } }),
     Order.find({ order_date: { $gte: startOfLastMonth, $lt: startOfMonth } }),
+    Order.countDocuments({
+      delivery_status: 'DELIVERED',
+      order_date: { $gte: startOfMonth },
+    }),
+    Order.countDocuments({
+      delivery_status: 'DELIVERED',
+      order_date: { $gte: startOfLastMonth, $lt: startOfMonth },
+    }),
     Employee.countDocuments({ status: 'active' }),
     Employee.countDocuments({ status: 'on_leave' }),
     Expense.find({ expense_date: { $gte: startOfMonth.toISOString().split('T')[0] } }),
-    Expense.find({ expense_date: { $gte: startOfLastMonth.toISOString().split('T')[0], $lt: startOfMonth.toISOString().split('T')[0] } }),
+    Expense.find({
+      expense_date: {
+        $gte: startOfLastMonth.toISOString().split('T')[0],
+        $lt: startOfMonth.toISOString().split('T')[0],
+      },
+    }),
     getTransitStats(),
+    getChartsData(),
   ]);
 
   const currentRevenue = currentMonthOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -173,26 +256,43 @@ export async function getDashboardStats() {
   const currentExp = currentMonthExpenses.reduce((sum, e) => sum + (e.total_amount || 0), 0);
   const lastExp = lastMonthExpenses.reduce((sum, e) => sum + (e.total_amount || 0), 0);
 
-  const revenueMoM = lastRevenue === 0 ? 0 : ((currentRevenue - lastRevenue) / lastRevenue) * 100;
-  const ordersMoM = lastMonthOrders.length === 0 ? 0 : ((currentMonthOrders.length - lastMonthOrders.length) / lastMonthOrders.length) * 100;
-  const expenseMoM = lastExp === 0 ? 0 : ((currentExp - lastExp) / lastExp) * 100;
+  const revenueMoM = lastRevenue === 0 ? (currentRevenue > 0 ? 100 : 0) : ((currentRevenue - lastRevenue) / lastRevenue) * 100;
+  const ordersMoM =
+    lastMonthOrders.length === 0
+      ? currentMonthOrders.length > 0
+        ? 100
+        : 0
+      : ((currentMonthOrders.length - lastMonthOrders.length) / lastMonthOrders.length) * 100;
+  const expenseMoM = lastExp === 0 ? (currentExp > 0 ? 100 : 0) : ((currentExp - lastExp) / lastExp) * 100;
+  const deliveredMoM =
+    deliveredLastMonth === 0
+      ? deliveredThisMonth > 0
+        ? 100
+        : 0
+      : ((deliveredThisMonth - deliveredLastMonth) / deliveredLastMonth) * 100;
 
   return {
     overview: {
       totalRevenue: currentRevenue,
-      revenueMoM: revenueMoM.toFixed(1),
-      totalOrders: currentMonthOrders.length,
-      ordersMoM: ordersMoM.toFixed(1),
+      lastMonthRevenue: lastRevenue,
+      revenueMoM: revenueMoM.toFixed(2),
+      totalOrders,
+      ordersMoM: ordersMoM.toFixed(2),
       activeEmployees: totalEmployees,
       onLeaveEmployees,
       totalExpenses: currentExp,
-      expenseMoM: expenseMoM.toFixed(1),
+      lastMonthExpenses: lastExp,
+      expenseMoM: expenseMoM.toFixed(2),
+      deliveredOrders: deliveredThisMonth,
+      lastMonthDelivered: deliveredLastMonth,
+      deliveredMoM: deliveredMoM.toFixed(2),
     },
     orders: {
       total: totalOrders,
       pending: pendingOrders,
       completed: completedOrders,
     },
+    charts,
     transit,
   };
 }

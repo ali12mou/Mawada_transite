@@ -7,6 +7,7 @@ import {
   updateUser,
   deleteUser,
   authenticateUser,
+  syncUsersPermissionsByRole,
 } from '../api/userService.js';
 
 const router = Router();
@@ -25,6 +26,19 @@ router.post('/login', async (req, res, next) => {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
     }
+    next(error);
+  }
+});
+
+router.post('/sync-role-permissions', async (req, res, next) => {
+  try {
+    const { role, permissions } = req.body || {};
+    if (!role) {
+      return res.status(400).json({ message: 'role requis' });
+    }
+    const data = await syncUsersPermissionsByRole(role, permissions);
+    res.json({ data });
+  } catch (error) {
     next(error);
   }
 });

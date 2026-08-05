@@ -78,6 +78,7 @@ export const ALL_MENU_PERMISSIONS = [
   'services-reports',
   'settings',
   'roles',
+  'permissions',
   'users',
   'configurations',
 ];
