@@ -33,6 +33,7 @@ import {
 import { BrandingLogoMark } from '../modules/Shared/BrandingLogoMark';
 import { fetchAppConfig } from '../api/appConfigApi';
 import { splitBrandLines } from '../lib/documentPrintImages';
+import { canSeeMenuNode, hasMenuAccess } from '../lib/permissions';
 
 interface LayoutProps {
   children: ReactNode;
@@ -115,7 +116,7 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   },
   { id: 'registration', label: t('menu.registration'), icon: UserPlus, children: ['clients', 'bank', 'item-prices', 'goods-categories', 'companies'] },
   { id: 'reports', label: t('menu.reports'), icon: BarChart3, children: ['import-reports', 'hr-reports', 'financial-reports', 'services-reports'] },
-  { id: 'settings', label: t('menu.settings'), icon: Settings, children: ['roles', 'users', 'configurations'] },
+  { id: 'settings', label: t('menu.settings'), icon: Settings, children: ['roles', 'permissions', 'users', 'configurations'] },
 ];
 
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
@@ -134,6 +135,41 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { language, setLanguage, t } = useLanguage();
 
   const menuItems = useMemo(() => getMenuItems(t), [t]);
+
+  const visibleMenuItems = useMemo(() => {
+    const filterChildren = (ids?: string[]) =>
+      (ids || []).filter((id) => hasMenuAccess(user, id));
+
+    return menuItems
+      .map((item) => {
+        if (item.subMenus) {
+          const subMenus = item.subMenus
+            .map((sub) => {
+              const children = filterChildren(sub.children);
+              if (!canSeeMenuNode(user, sub.id, children) && children.length === 0) {
+                return null;
+              }
+              if (!hasMenuAccess(user, sub.id) && children.length === 0) return null;
+              return { ...sub, children };
+            })
+            .filter(Boolean) as SubMenuItem[];
+
+          const descendantIds = subMenus.flatMap((s) => [s.id, ...(s.children || [])]);
+          if (!canSeeMenuNode(user, item.id, descendantIds)) return null;
+          return { ...item, subMenus, children: undefined };
+        }
+
+        if (item.children) {
+          const children = filterChildren(item.children);
+          if (!canSeeMenuNode(user, item.id, children)) return null;
+          return { ...item, children };
+        }
+
+        if (!hasMenuAccess(user, item.id)) return null;
+        return item;
+      })
+      .filter(Boolean) as MenuItem[];
+  }, [menuItems, user]);
 
   const closeHeaderMenus = useCallback(() => {
     setShowLanguageMenu(false);
@@ -232,6 +268,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const navigateToPage = useCallback(
     (pageId: string) => {
       if (!onNavigate) return;
+      if (!hasMenuAccess(user, pageId)) return;
       const ctx = findMenuContext(pageId);
       if (isTransportModulePage(pageId)) {
         setExpandedItems([TRANSPORT_MANAGEMENT_MENU_ID]);
@@ -245,14 +282,17 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       }
       onNavigate(pageId);
     },
-    [findMenuContext, onNavigate]
+    [findMenuContext, onNavigate, user]
   );
 
   const handleMenuItemClick = (item: MenuItem) => {
+    if (!hasMenuAccess(user, item.id) && !(item.children || item.subMenus)) return;
     if (item.id === TRANSPORT_MANAGEMENT_MENU_ID && item.children) {
       if (!expandedItems.includes(TRANSPORT_MANAGEMENT_MENU_ID)) {
         setExpandedItems([TRANSPORT_MANAGEMENT_MENU_ID]);
-        if (onNavigate) onNavigate(DEFAULT_TRANSPORT_MANAGEMENT_PAGE);
+        const firstAllowed =
+          item.children.find((id) => hasMenuAccess(user, id)) || DEFAULT_TRANSPORT_MANAGEMENT_PAGE;
+        if (onNavigate && hasMenuAccess(user, firstAllowed)) onNavigate(firstAllowed);
       } else {
         setExpandedItems([]);
       }
@@ -261,7 +301,9 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     if (item.id === TRANSPORTS_MENU_ID && item.children) {
       if (!expandedItems.includes(TRANSPORTS_MENU_ID)) {
         setExpandedItems([TRANSPORTS_MENU_ID]);
-        if (onNavigate) onNavigate(DEFAULT_TRANSPORTS_PAGE);
+        const firstAllowed =
+          item.children.find((id) => hasMenuAccess(user, id)) || DEFAULT_TRANSPORTS_PAGE;
+        if (onNavigate && hasMenuAccess(user, firstAllowed)) onNavigate(firstAllowed);
       } else {
         setExpandedItems([]);
       }
@@ -272,7 +314,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       return;
     }
 
-    if (onNavigate) {
+    if (onNavigate && hasMenuAccess(user, item.id)) {
       onNavigate(item.id);
     }
   };
@@ -321,7 +363,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </button>
 
         <nav className="scrollbar-hide flex-1 overflow-y-auto py-2">
-          {menuItems?.map((item) => {
+          {visibleMenuItems?.map((item) => {
             const Icon = item.icon;
             const isExpanded = expandedItems.includes(item.id);
             const isActive =

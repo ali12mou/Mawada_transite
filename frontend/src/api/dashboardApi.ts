@@ -18,18 +18,28 @@ export interface DashboardMonthlyActivity {
 export interface DashboardStats {
   overview: {
     totalRevenue: number;
+    lastMonthRevenue: number;
     revenueMoM: string;
     totalOrders: number;
     ordersMoM: string;
     activeEmployees: number;
     onLeaveEmployees: number;
     totalExpenses: number;
+    lastMonthExpenses: number;
     expenseMoM: string;
+    deliveredOrders: number;
+    lastMonthDelivered: number;
+    deliveredMoM: string;
   };
   orders: {
     total: number;
     pending: number;
     completed: number;
+  };
+  charts: {
+    orderTrends: Array<{ label: string; key: string; orders: number }>;
+    revenueProfit: Array<{ label: string; key: string; revenue: number; profit: number }>;
+    genderDistribution: { male: number; female: number; total: number };
   };
   transit: {
     logisticsFiles: {

@@ -8,9 +8,13 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { ActionMenu } from '../Shared/common/ActionMenu';
 import { fetchUsers, createUser, deleteUser } from '../../api/usersApi';
 import type { AuthUser } from '../../types/authUser';
+import { genericApi } from '../../api/genericApi';
+
+type RoleOption = { id: string; name: string };
 
 export function Users() {
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { t } = useLanguage();
@@ -22,12 +26,11 @@ export function Users() {
     nom: '',
     email: '',
     password: '',
-    role: 'User',
+    role: '',
     phone: '',
     department: ''
   });
 
-  const roles = ['Admin', 'User', 'Manager'];
   const departments = ['IT', 'HR', 'Finance', 'Operations', 'Sales'];
 
   const resetForm = () => {
@@ -35,7 +38,7 @@ export function Users() {
       nom: '',
       email: '',
       password: '',
-      role: 'User',
+      role: roleOptions[0]?.name || '',
       phone: '',
       department: ''
     });
@@ -58,6 +61,17 @@ export function Users() {
 
   useEffect(() => {
     loadUsers();
+    void (async () => {
+      try {
+        const data = (await genericApi.list('roles')) as RoleOption[];
+        setRoleOptions(data || []);
+        if (data?.length) {
+          setNewUser((prev) => ({ ...prev, role: prev.role || data[0].name }));
+        }
+      } catch (error) {
+        console.error('Error loading roles:', error);
+      }
+    })();
   }, []);
 
   const loadUsers = async () => {
@@ -277,9 +291,15 @@ export function Users() {
                 value={newUser.role}
                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
               >
-                {roles?.map(role => (
-                  <option key={role} value={role}>{role}</option>
-                ))}
+                {roleOptions.length === 0 ? (
+                  <option value="">{t('permissions.noRoles')}</option>
+                ) : (
+                  roleOptions.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.name}
+                    </option>
+                  ))
+                )}
               </FormSelect>
             </div>
             <div>

@@ -20,6 +20,7 @@ const translations = {
     'common.show': 'Show',
     'common.save': 'Save Changes',
     'common.cancel': 'Cancel',
+    'common.optional': 'optional',
     'common.add': 'Add',
     'common.edit': 'Edit',
     'common.view': 'View',
@@ -84,6 +85,7 @@ const translations = {
     'menu.reports': 'Reports And Analytics',
     'menu.settings': 'Settings',
     'menu.roles': 'Roles',
+    'menu.permissions': 'Permissions',
     'menu.users': 'Users',
     'menu.configurations': 'Configurations',
     'menu.commercial-chamber': 'Commercial Chamber',
@@ -1436,6 +1438,9 @@ const translations = {
 
     // Dashboard
     'dashboard.welcome': 'Welcome',
+    'dashboard.welcomeRest':
+      'We are glad to see you again! Explore your dashboard for the latest information and actions 😍.',
+    'dashboard.lastMonthColon': 'Last month:',
     'dashboard.subtitle': 'Operational overview of transit, logistics and finance.',
     'dashboard.refresh': 'Refresh',
     'dashboard.logisticsFiles': 'Logistics Files',
@@ -1486,6 +1491,15 @@ const translations = {
     'dashboard.lastMonth': 'Last Month',
     'dashboard.increased': 'Increased',
     'dashboard.decreased': 'Decreased',
+    'dashboard.orderTrends': 'Monthly Order Trends',
+    'dashboard.orderTrendsY': 'Total Orders',
+    'dashboard.monthAxis': 'Month',
+    'dashboard.revenueProfitTrends': 'Monthly Revenue and Profit Trends',
+    'dashboard.amountFdj': 'Amount (Fdj)',
+    'dashboard.paidRevenue': 'Paid Revenue',
+    'dashboard.profitAmount': 'Profit Amount',
+    'dashboard.chartNoData':
+      'No Data found for this chart based on this month, Check Back Later 🙂',
     'dashboard.employeeGenderDistribution': 'Employee Gender Distribution',
     'dashboard.female': 'Female',
     'dashboard.male': 'Male',
@@ -1497,8 +1511,19 @@ const translations = {
     'roles.title': 'Manage User Roles',
     'roles.roleName': 'Role Name',
     'roles.description': 'Description',
+    'roles.roleNameRequired': 'Role name is required',
     'roles.addRole': 'Add New Role',
     'roles.editRole': 'Edit Role',
+
+    'permissions.title': 'Role Permissions',
+    'permissions.subtitle': 'Choose which menus and submenus each role can access.',
+    'permissions.selectRole': 'Select a role',
+    'permissions.menusFor': 'Menus for',
+    'permissions.selectAll': 'Select all',
+    'permissions.clear': 'Clear',
+    'permissions.noRoles': 'No roles found. Create a role first.',
+    'permissions.fullAccessLocked':
+      'This role has full access. Menu permissions cannot be restricted.',
 
     // Users
     'users.title': 'Manage Users',
@@ -1853,6 +1878,7 @@ const translations = {
     'common.show': 'Afficher',
     'common.save': 'Enregistrer les modifications',
     'common.cancel': 'Annuler',
+    'common.optional': 'facultatif',
     'common.add': 'Ajouter',
     'common.edit': 'Modifier',
     'common.view': 'Voir',
@@ -1917,6 +1943,7 @@ const translations = {
     'menu.reports': 'Rapports et Analyses',
     'menu.settings': 'Paramètres',
     'menu.roles': 'Rôles',
+    'menu.permissions': 'Permissions',
     'menu.users': 'Utilisateurs',
     'menu.configurations': 'Configurations',
     'menu.commercial-chamber': 'Chambre commerciale',
@@ -3273,6 +3300,9 @@ const translations = {
 
     // Dashboard
     'dashboard.welcome': 'Bienvenue',
+    'dashboard.welcomeRest':
+      'Nous sommes ravis de vous revoir ! Explorez votre tableau de bord pour les dernières informations et actions 😍.',
+    'dashboard.lastMonthColon': 'Le mois dernier :',
     'dashboard.subtitle': 'Vue d’ensemble opérationnelle du transit, de la logistique et de la finance.',
     'dashboard.refresh': 'Actualiser',
     'dashboard.logisticsFiles': 'Dossiers logistiques',
@@ -3315,14 +3345,23 @@ const translations = {
     'dashboard.actionOrders': 'Commandes import',
     'dashboard.importOrders': 'Commandes import',
     'dashboard.manageOrders': 'Gérer les commandes',
-    'dashboard.totalOrders': 'Total des Commandes',
-    'dashboard.totalExpenses': 'Dépenses Totales',
-    'dashboard.deliveredOrders': 'Commandes Livrées',
+    'dashboard.totalOrders': 'Total des commandes',
+    'dashboard.totalExpenses': 'Dépenses totales',
+    'dashboard.deliveredOrders': 'Commandes livrées',
     'dashboard.completed': 'Terminé',
     'dashboard.pending': 'En attente',
     'dashboard.lastMonth': 'Mois dernier',
-    'dashboard.increased': 'Augmenté',
-    'dashboard.decreased': 'Diminué',
+    'dashboard.increased': 'Increased',
+    'dashboard.decreased': 'Decreased',
+    'dashboard.orderTrends': 'Tendances des commandes mensuelles',
+    'dashboard.orderTrendsY': 'Total des commandes',
+    'dashboard.monthAxis': 'Mois',
+    'dashboard.revenueProfitTrends': 'Tendances mensuelles des revenus et des profits',
+    'dashboard.amountFdj': 'Montant (Fdj)',
+    'dashboard.paidRevenue': 'Revenu payé',
+    'dashboard.profitAmount': 'Montant du profit',
+    'dashboard.chartNoData':
+      'No Data found for this chart based on this month, Check Back Later 🙂',
     'dashboard.employeeGenderDistribution': 'Distribution par Genre des Employés',
     'dashboard.female': 'Femme',
     'dashboard.male': 'Homme',
@@ -3334,8 +3373,20 @@ const translations = {
     'roles.title': 'Gérer les rôles des utilisateurs',
     'roles.roleName': 'Nom du rôle',
     'roles.description': 'Description',
+    'roles.roleNameRequired': 'Le nom du rôle est obligatoire',
     'roles.addRole': 'Ajouter un nouveau rôle',
     'roles.editRole': 'Modifier le rôle',
+
+    'permissions.title': 'Permissions des rôles',
+    'permissions.subtitle':
+      'Choisissez les menus et sous-menus accessibles pour chaque rôle.',
+    'permissions.selectRole': 'Sélectionner un rôle',
+    'permissions.menusFor': 'Menus pour',
+    'permissions.selectAll': 'Tout sélectionner',
+    'permissions.clear': 'Effacer',
+    'permissions.noRoles': 'Aucun rôle trouvé. Créez d’abord un rôle.',
+    'permissions.fullAccessLocked':
+      'Ce rôle a un accès complet. Les permissions de menu ne peuvent pas être restreintes.',
 
     // Users
     'users.title': 'Gérer les utilisateurs',
@@ -3695,6 +3746,7 @@ const translations = {
     'common.show': 'عرض',
     'common.save': 'حفظ التغييرات',
     'common.cancel': 'إلغاء',
+    'common.optional': 'اختياري',
     'common.add': 'إضافة',
     'common.edit': 'تعديل',
     'common.view': 'عرض',
@@ -3737,6 +3789,7 @@ const translations = {
     'menu.reports': 'التقارير والتحليلات',
     'menu.settings': 'الإعدادات',
     'menu.roles': 'الأدوار',
+    'menu.permissions': 'الصلاحيات',
     'menu.users': 'المستخدمون',
     'menu.configurations': 'التكوينات',
     'menu.commercial-chamber': 'الغرفة التجارية',
@@ -4170,6 +4223,9 @@ const translations = {
 
     // Dashboard
     'dashboard.welcome': 'مرحباً',
+    'dashboard.welcomeRest':
+      'سعداء برؤيتك مجدداً! استكشف لوحة التحكم للحصول على أحدث المعلومات والإجراءات 😍.',
+    'dashboard.lastMonthColon': 'الشهر الماضي:',
     'dashboard.subtitle': 'نظرة تشغيلية شاملة على النقل واللوجستيات والمالية.',
     'dashboard.refresh': 'تحديث',
     'dashboard.logisticsFiles': 'الملفات اللوجستية',
@@ -4220,6 +4276,15 @@ const translations = {
     'dashboard.lastMonth': 'الشهر الماضي',
     'dashboard.increased': 'زيادة',
     'dashboard.decreased': 'انخفاض',
+    'dashboard.orderTrends': 'اتجاهات الطلبات الشهرية',
+    'dashboard.orderTrendsY': 'إجمالي الطلبات',
+    'dashboard.monthAxis': 'الشهر',
+    'dashboard.revenueProfitTrends': 'اتجاهات الإيرادات والأرباح الشهرية',
+    'dashboard.amountFdj': 'المبلغ (Fdj)',
+    'dashboard.paidRevenue': 'الإيراد المدفوع',
+    'dashboard.profitAmount': 'مبلغ الربح',
+    'dashboard.chartNoData':
+      'No Data found for this chart based on this month, Check Back Later 🙂',
     'dashboard.employeeGenderDistribution': 'توزيع الموظفين حسب الجنس',
     'dashboard.female': 'أنثى',
     'dashboard.male': 'ذكر',
@@ -4231,8 +4296,19 @@ const translations = {
     'roles.title': 'إدارة أدوار المستخدمين',
     'roles.roleName': 'اسم الدور',
     'roles.description': 'الوصف',
+    'roles.roleNameRequired': 'اسم الدور مطلوب',
     'roles.addRole': 'إضافة دور جديد',
     'roles.editRole': 'تعديل الدور',
+
+    'permissions.title': 'صلاحيات الأدوار',
+    'permissions.subtitle': 'اختر القوائم والقوائم الفرعية التي يمكن لكل دور الوصول إليها.',
+    'permissions.selectRole': 'اختر دوراً',
+    'permissions.menusFor': 'القوائم لـ',
+    'permissions.selectAll': 'تحديد الكل',
+    'permissions.clear': 'مسح',
+    'permissions.noRoles': 'لا توجد أدوار. أنشئ دوراً أولاً.',
+    'permissions.fullAccessLocked':
+      'هذا الدور لديه صلاحية كاملة. لا يمكن تقييد صلاحيات القوائم.',
 
     // Users
     'users.title': 'إدارة المستخدمين',

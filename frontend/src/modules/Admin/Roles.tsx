@@ -8,7 +8,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 interface Role {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+  permissions?: string[];
   created_at: string;
 }
 
@@ -28,10 +29,15 @@ export function Roles() {
 
   const loadRoles = async () => {
     try {
-      const data = await genericApi.list('roles');
-
-      
-      setRoles(data || []);
+      const data = (await genericApi.list('roles')) || [];
+      setRoles(
+        data.map((role: any) => ({
+          ...role,
+          id: String(role.id || role._id || ''),
+          description: role.description || '',
+          permissions: role.permissions || [],
+        })).filter((role: Role) => role.id)
+      );
     } catch (error) {
       console.error('Error loading roles:', error);
     } finally {
@@ -42,18 +48,31 @@ export function Roles() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const name = formData.name.trim();
+    if (!name) {
+      alert(t('roles.roleNameRequired') || 'Role name is required');
+      return;
+    }
+
+    const payload = {
+      name,
+      description: formData.description.trim(),
+      permissions: editingRole?.permissions?.length
+        ? editingRole.permissions
+        : ['dashboard'],
+    };
+
     try {
       if (editingRole) {
-        await genericApi.update('roles', editingId, formData);
-
-        
+        await genericApi.update('roles', editingRole.id, {
+          ...payload,
+          permissions: editingRole.permissions || ['dashboard'],
+        });
       } else {
-        await genericApi.create('roles', formData);
-
-        
+        await genericApi.create('roles', payload);
       }
 
-      crudToast.onSaved(!!editingId);
+      crudToast.onSaved(!!editingRole);
 
       setShowModal(false);
       setFormData({ name: '', description: '' });
@@ -67,7 +86,7 @@ export function Roles() {
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
-    setFormData({ name: role.name, description: role.description });
+    setFormData({ name: role.name, description: role.description || '' });
     setShowModal(true);
   };
 
@@ -76,11 +95,7 @@ export function Roles() {
 
     try {
       await genericApi.delete('roles', id);
-
-      
       crudToast.onDeleted();
-
-      
       loadRoles();
     } catch (error: any) {
       console.error('Error deleting role:', error);
@@ -88,9 +103,10 @@ export function Roles() {
     }
   };
 
-  const filteredRoles = roles.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRoles = roles.filter(
+    (role) =>
+      role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (role.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -169,7 +185,9 @@ export function Roles() {
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{role.description}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {role.description || '—'}
+                    </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <button
@@ -222,7 +240,7 @@ export function Roles() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('roles.roleName')}
+                    {t('roles.roleName')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -234,14 +252,14 @@ export function Roles() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('roles.description')}
+                    {t('roles.description')}{' '}
+                    <span className="font-normal text-gray-400">({t('common.optional')})</span>
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964C] focus:border-transparent outline-none"
                     rows={3}
-                    required
                   />
                 </div>
               </div>

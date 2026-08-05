@@ -1,13 +1,15 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './core/Login';
 import { Layout } from './core/Layout';
 import { Dashboard } from './core/Dashboard';
 import { Roles } from './modules/Admin/Roles';
+import { Permissions } from './modules/Admin/Permissions';
 import { Users } from './modules/Admin/Users';
 import { Configurations } from './modules/Admin/Configurations';
 import { OtherProfitTransitModule } from './modules/Logistics/transit/OtherProfitTransitModule';
 import { ModulePlaceholder } from './modules/Shared/ModulePlaceholder';
+import { hasMenuAccess } from './lib/permissions';
 
 const CommercialChamber = lazy(() =>
   import('./modules/Finance/CommercialChamber').then(m => ({ default: m.CommercialChamber }))
@@ -63,6 +65,18 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
+  useEffect(() => {
+    if (!user) return;
+    if (!hasMenuAccess(user, currentPage)) {
+      setCurrentPage('dashboard');
+    }
+  }, [user, currentPage]);
+
+  const handleNavigate = (page: string) => {
+    if (!hasMenuAccess(user, page)) return;
+    setCurrentPage(page);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -76,6 +90,9 @@ function AppContent() {
   }
 
   const renderPage = () => {
+    if (!hasMenuAccess(user, currentPage)) {
+      return <Dashboard onNavigate={handleNavigate} />;
+    }
     if (isTransportModulePage(currentPage)) {
       return <TransportModuleRouter moduleKey={currentPage} />;
     }
@@ -86,6 +103,8 @@ function AppContent() {
         return <OtherProfitTransitModule />;
       case 'roles':
         return <Roles />;
+      case 'permissions':
+        return <Permissions />;
       case 'users':
         return <Users />;
       case 'configurations':
@@ -179,7 +198,7 @@ function AppContent() {
       case 'hr-reports':
         return <HRReports />;
       case 'financial-reports':
-        return <FinancialReports onNavigate={setCurrentPage} />;
+        return <FinancialReports onNavigate={handleNavigate} />;
       case 'services-reports':
         return <ServicesReports />;
       case 'maritime-lines':
@@ -190,7 +209,7 @@ function AppContent() {
         return <ModulePlaceholder menuKey={currentPage} />;
       case 'dashboard':
       default:
-        return <Dashboard onNavigate={setCurrentPage} />;
+        return <Dashboard onNavigate={handleNavigate} />;
     }
     })();
 
@@ -206,7 +225,7 @@ function AppContent() {
   };
 
   return (
-    <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
+    <Layout currentPage={currentPage} onNavigate={handleNavigate}>
       {renderPage()}
     </Layout>
   );
